@@ -53,7 +53,7 @@ export function Innovation() {
     <section className="noise-overlay relative overflow-hidden py-32" id="about">
       {/* Teal background */}
       <div className="absolute inset-0 bg-teal" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-teal via-teal to-[#1a3a30]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-teal via-teal to-[#0a1540]" />
 
       {/* Animated gradient mesh overlay */}
       <div className="pointer-events-none absolute inset-0">

@@ -33,7 +33,7 @@ export function Footer() {
                 SC
               </div>
               <span className="text-lg font-bold text-gray-900">
-                Swift <span className="text-teal">Capital</span>
+                Swift <span className="text-teal">Capital</span> Lending
               </span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-gray-400">

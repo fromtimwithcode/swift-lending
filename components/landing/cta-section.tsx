@@ -8,7 +8,7 @@ export function CTASection() {
     <section className="noise-overlay relative overflow-hidden py-32 lg:py-40">
       {/* Teal animated gradient mesh background */}
       <div className="absolute inset-0 bg-teal" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-teal via-teal to-[#1a3a30]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-teal via-teal to-[#0a1540]" />
 
       {/* Animated mesh orbs */}
       <div className="pointer-events-none absolute inset-0">
@@ -35,7 +35,7 @@ export function CTASection() {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button className="h-14 rounded-full bg-lime px-10 text-base font-semibold text-teal hover:bg-lime/90 transition-shadow duration-300 hover:shadow-[0_0_24px_oklch(0.92_0.19_120/40%)]">
+            <Button className="h-14 rounded-full bg-lime px-10 text-base font-semibold text-teal hover:bg-lime/90 transition-shadow duration-300 hover:shadow-[0_0_24px_oklch(0.80_0.15_264/40%)]">
               Get Started Now
             </Button>
             <Button
