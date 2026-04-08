@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
+const ease = [0.25, 0.46, 0.45, 0.94] as const;
+
 const container = {
   hidden: {},
   show: {
@@ -16,7 +18,7 @@ const fadeUp = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    transition: { duration: 0.7, ease },
   },
 };
 
@@ -24,17 +26,15 @@ export function Hero() {
   const [videoReady, setVideoReady] = useState(false);
 
   return (
-    <section className="relative h-screen overflow-hidden bg-teal-dark pt-24">
-      {/* Branded gradient placeholder — visible until video loads */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-br from-teal-dark via-teal to-teal-dark" />
-
-      {/* Video background */}
+    <section className="relative h-screen overflow-hidden bg-black pt-24">
+      {/* Video — fades in as progressive enhancement */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        onCanPlayThrough={() => setVideoReady(true)}
+        preload="auto"
+        onLoadedData={() => setVideoReady(true)}
         className={`absolute inset-0 z-[1] h-full w-full object-cover transition-opacity duration-1000 ${videoReady ? "opacity-100" : "opacity-0"}`}
       >
         <source
@@ -43,11 +43,11 @@ export function Hero() {
         />
       </video>
 
-      {/* Dark gradient overlay */}
+      {/* Dark gradient overlay — always visible, makes black bg look intentional */}
       <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
 
       <div className="relative z-[3] flex h-full w-full items-center justify-center mx-auto max-w-7xl px-6">
-        {/* Centered content */}
+        {/* Content renders immediately — never waits for video */}
         <motion.div
           variants={container}
           initial="hidden"
@@ -151,7 +151,6 @@ export function Hero() {
             </div>
           </motion.div>
         </motion.div>
-
       </div>
     </section>
   );
