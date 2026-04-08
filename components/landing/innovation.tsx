@@ -50,7 +50,7 @@ function Counter({
 
 export function Innovation() {
   return (
-    <section className="noise-overlay relative overflow-hidden py-32" id="about">
+    <section className="noise-overlay relative overflow-hidden py-32">
       {/* Teal background */}
       <div className="absolute inset-0 bg-teal" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-teal via-teal to-[#0a1540]" />

@@ -71,7 +71,7 @@ export function Hero() {
               whileHover="hover"
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="relative flex h-14 items-center gap-2.5 overflow-hidden rounded-full bg-teal px-10 text-base font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              className="relative flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full bg-teal px-10 lg:px-12 text-base lg:text-lg font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <div className="shimmer-bar" />
               <span className="relative">Get Funding Now</span>
@@ -87,7 +87,7 @@ export function Hero() {
               whileHover="hover"
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="flex h-14 items-center gap-2.5 rounded-full border border-white/20 bg-white/[0.08] px-10 text-base text-white backdrop-blur-sm outline-none transition-colors duration-300 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/50"
+              className="flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 rounded-full border border-white/20 bg-white/[0.08] px-10 lg:px-12 text-base lg:text-lg text-white backdrop-blur-sm outline-none transition-colors duration-300 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <span>Speak With An Expert</span>
               <motion.span
@@ -100,28 +100,48 @@ export function Hero() {
             </motion.button>
           </motion.div>
 
-          {/* Stats row with vertical dividers */}
+          {/* Social proof + stats glass card */}
           <motion.div
             variants={fadeUp}
-            className="mt-14 flex items-center justify-center gap-8 sm:gap-12"
+            className="mt-14 inline-flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-white/[0.06] px-6 py-4 backdrop-blur-sm sm:flex-row sm:gap-6 sm:px-8"
           >
-            {[
-              { value: "5 Day", label: "Closings" },
-              { value: "90%", label: "LTV" },
-              { value: "4.9★", label: "Rating" },
-            ].map((stat, i, arr) => (
-              <div key={stat.label} className="flex items-center gap-8 sm:gap-12">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gradient-teal sm:text-3xl">
-                    {stat.value}
-                  </div>
-                  <div className="mt-1 text-xs text-white/50">{stat.label}</div>
-                </div>
-                {i < arr.length - 1 && (
-                  <div className="h-10 w-px bg-white/20" />
-                )}
+            {/* Avatar stack */}
+            <div className="flex items-center gap-3">
+              <div className="flex -space-x-2.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <img
+                    key={n}
+                    src={`/avatars/${n}.jpg`}
+                    alt=""
+                    className="size-8 rounded-full border-2 border-white/20 object-cover"
+                  />
+                ))}
               </div>
-            ))}
+              <span className="text-xs font-medium text-white/70">200+ funded</span>
+            </div>
+
+            <div className="hidden h-8 w-px bg-white/15 sm:block" />
+
+            {/* Stats */}
+            <div className="flex items-center gap-6 sm:gap-8">
+              {[
+                { value: "5 Day", label: "Closings" },
+                { value: "90%", label: "LTV" },
+                { value: "4.9★", label: "Rating" },
+              ].map((stat, i, arr) => (
+                <div key={stat.label} className="flex items-center gap-6 sm:gap-8">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-white sm:text-xl">
+                      {stat.value}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-white/50">{stat.label}</div>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div className="h-8 w-px bg-white/15" />
+                  )}
+                </div>
+              ))}
+            </div>
           </motion.div>
         </motion.div>
 
