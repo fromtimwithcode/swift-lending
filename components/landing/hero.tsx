@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
@@ -20,15 +21,21 @@ const fadeUp = {
 };
 
 export function Hero() {
+  const [videoReady, setVideoReady] = useState(false);
+
   return (
-    <section className="relative h-screen overflow-hidden bg-black pt-24">
+    <section className="relative h-screen overflow-hidden bg-teal-dark pt-24">
+      {/* Branded gradient placeholder — visible until video loads */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-teal-dark via-teal to-teal-dark" />
+
       {/* Video background */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="absolute inset-0 z-[1] h-full w-full object-cover"
+        onCanPlayThrough={() => setVideoReady(true)}
+        className={`absolute inset-0 z-[1] h-full w-full object-cover transition-opacity duration-1000 ${videoReady ? "opacity-100" : "opacity-0"}`}
       >
         <source
           src="https://mach1lending.com/wp-content/uploads/2026/01/098883107-drone-shot-milwaukee-wisconsin_H264HD1080.mov"
