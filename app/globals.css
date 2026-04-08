@@ -197,6 +197,16 @@
   pointer-events: none;
 }
 
+/* ── Marquee ── */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 /* ── Swipe hint bounce (mobile nav drag pill) ── */
 @keyframes swipe-hint-bounce {
   0%,
