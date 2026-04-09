@@ -275,33 +275,13 @@ export function Navbar() {
                       e.preventDefault();
                       handleNavClick(link.href);
                     }}
-                    className="group flex items-center justify-between py-4 text-3xl font-bold text-white transition-colors hover:text-lime"
+                    className="group flex items-center justify-between py-3.5 text-2xl font-bold text-white transition-colors hover:text-lime"
                   >
                     <span>{link.label}</span>
                     <ArrowRight className="size-6 text-white/30 transition-all group-hover:text-lime group-hover:translate-x-1" />
                   </motion.a>
                 ))}
 
-                {/* Gradient divider */}
-                <motion.div
-                  variants={itemVariants}
-                  className="my-8 h-px bg-gradient-to-r from-white/10 via-white/20 to-white/10"
-                />
-
-                {/* Phone card */}
-                <motion.a
-                  variants={itemVariants}
-                  href="tel:+12622648606"
-                  className="flex items-center gap-4 rounded-2xl bg-white/[0.06] px-5 py-4 backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
-                >
-                  <span className="flex size-11 items-center justify-center rounded-xl bg-lime/20">
-                    <Phone className="size-5 text-lime" />
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white/60">Call Us Now</span>
-                    <span className="text-lg font-semibold text-white">(262) 264-8606</span>
-                  </div>
-                </motion.a>
               </motion.div>
             )}
           </AnimatePresence>
@@ -315,6 +295,13 @@ export function Navbar() {
               className="flex h-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
             >
               Log In
+            </a>
+            <a
+              href="tel:+12622648606"
+              className="flex h-14 items-center justify-center gap-2.5 rounded-2xl bg-white/[0.06] text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
+            >
+              <Phone className="size-4 text-lime" />
+              <span>(262) 264-8606</span>
             </a>
             <a
               href="#contact"
