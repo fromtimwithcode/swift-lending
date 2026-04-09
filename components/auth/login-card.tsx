@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { OAuthButton } from "./oauth-button";
@@ -23,13 +23,39 @@ const transition = {
 };
 
 export function LoginCard() {
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const [view, setView] = useState<View>("idle");
   const [email, setEmail] = useState("");
+  const [oauthLoading, setOauthLoading] = useState(false);
+  const signingIn = useRef(false);
+
+  // Clear stale auth state on mount. If the user reached /login, the
+  // middleware already confirmed they're unauthenticated — any tokens
+  // lingering in localStorage are stale and will cause 400s on background
+  // refresh attempts. signOut() ignores server errors and always clears
+  // local storage, preventing the stale-refresh-token 400 loop.
+  useEffect(() => {
+    void signOut();
+  }, [signOut]);
 
   const handleOAuth = useCallback(
-    (provider: "google") => {
-      void signIn(provider);
+    async (provider: "google") => {
+      if (signingIn.current) return;
+      signingIn.current = true;
+      setOauthLoading(true);
+
+      try {
+        await signIn(provider);
+      } catch {
+        // First attempt can fail if stale cookies weren't fully cleared yet.
+        // The proxy clears them on failure, so one retry is safe.
+        try {
+          await signIn(provider);
+        } catch {
+          signingIn.current = false;
+          setOauthLoading(false);
+        }
+      }
     },
     [signIn],
   );
@@ -128,6 +154,7 @@ export function LoginCard() {
             <div className="flex flex-col gap-3">
               <OAuthButton
                 provider="google"
+                loading={oauthLoading}
                 onClick={() => handleOAuth("google")}
               />
             </div>

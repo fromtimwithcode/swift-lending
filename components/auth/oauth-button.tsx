@@ -31,23 +31,34 @@ const AppleIcon = () => (
 
 interface OAuthButtonProps {
   provider: "google" | "apple";
+  loading?: boolean;
   onClick?: () => void;
 }
 
-export function OAuthButton({ provider, onClick }: OAuthButtonProps) {
+export function OAuthButton({ provider, loading, onClick }: OAuthButtonProps) {
   const isGoogle = provider === "google";
 
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
+      disabled={loading}
+      whileHover={loading ? undefined : { scale: 1.01 }}
+      whileTap={loading ? undefined : { scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime/40 cursor-pointer"
+      className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {isGoogle ? <GoogleIcon /> : <AppleIcon />}
-      Continue with {isGoogle ? "Google" : "Apple"}
+      {loading ? (
+        <svg className="size-5 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4Z" />
+        </svg>
+      ) : isGoogle ? (
+        <GoogleIcon />
+      ) : (
+        <AppleIcon />
+      )}
+      {loading ? "Connecting..." : `Continue with ${isGoogle ? "Google" : "Apple"}`}
     </motion.button>
   );
 }
