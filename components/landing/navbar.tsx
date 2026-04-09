@@ -99,29 +99,7 @@ export function Navbar() {
     }, 400);
   }, []);
 
-  /* ── Swipe-to-close ── */
-  const handleDragEnd = useCallback(
-    (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
-      if (info.offset.y > 100 || info.velocity.y > 500) {
-        setMobileOpen(false);
-      }
-    },
-    []
-  );
-
-  /* ── Animation variants ── */
-  const overlayVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { duration: 0.3, when: "beforeChildren" as const, staggerChildren: 0.06 },
-    },
-    exit: {
-      opacity: 0,
-      transition: { duration: 0.3, when: "afterChildren" as const },
-    },
-  };
-
+  /* ── Animation variants (for menu content only) ── */
   const itemVariants = {
     hidden: { opacity: 0, x: -20, filter: "blur(4px)" },
     visible: {
@@ -130,23 +108,30 @@ export function Navbar() {
       filter: "blur(0px)",
       transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const },
     },
-    exit: { opacity: 0, x: -10, filter: "blur(2px)", transition: { duration: 0.2 } },
+  };
+
+  const staggerContainer = {
+    hidden: {},
+    visible: {
+      transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+    },
   };
 
   return (
     <>
+      {/* ── Nav bar ── */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-500 ${
-          mobileOpen ? "!bg-transparent !border-transparent !shadow-none" : ""
-        } ${
-          scrolled
-            ? "bg-white/80 backdrop-blur-xl border-b border-black/5 shadow-sm"
-            : "bg-transparent"
+        className={`fixed top-0 left-0 right-0 z-[9999] transition-[background-color,border-color,box-shadow] duration-500 ${
+          mobileOpen
+            ? "bg-transparent"
+            : scrolled
+              ? "bg-white/80 backdrop-blur-xl border-b border-black/5 shadow-sm"
+              : "bg-transparent"
         }`}
       >
         <div
           className={`mx-auto flex max-w-7xl items-center justify-between px-6 transition-all duration-500 ${
-            scrolled ? "py-3" : "py-5"
+            scrolled ? "py-5 lg:py-3" : "py-5"
           }`}
         >
           {/* Logo */}
@@ -156,7 +141,9 @@ export function Navbar() {
                 <path d="M10.5 1L1.5 11.5H9L7.5 19L16.5 8.5H9L10.5 1Z" fill="white" stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className={`text-lg font-bold transition-colors duration-500 ${scrolled ? "text-gray-900" : "text-white"}`}>
+            <span className={`text-lg font-bold transition-colors duration-500 ${
+              mobileOpen ? "text-white" : scrolled ? "text-gray-900" : "text-white"
+            }`}>
               Swift Capital Lending
             </span>
           </a>
@@ -180,6 +167,15 @@ export function Navbar() {
 
           {/* Desktop right side */}
           <div className="hidden lg:flex items-center gap-5 shrink-0">
+            <a
+              href="/login"
+              className={`text-sm font-medium transition-colors duration-500 ${
+                scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Log In
+            </a>
+
             <a
               href="tel:+12622648606"
               className={`flex items-center gap-2.5 transition-colors duration-500 ${
@@ -240,40 +236,36 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile menu — sibling to nav, not nested, so it has its own stacking context */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            id="mobile-menu"
-            ref={menuRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Navigation menu"
-            tabIndex={-1}
-            variants={overlayVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 200 }}
-            dragElastic={{ top: 0.1, bottom: 0.4 }}
-            onDragEnd={handleDragEnd}
-            onKeyDown={handleKeyDown}
-            className="fixed top-0 left-0 w-full h-dvh z-50 flex flex-col bg-gradient-to-br from-teal via-teal to-[#0a1540] noise-overlay lg:hidden outline-none overflow-hidden"
-          >
-            {/* Gradient orbs for depth */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute -top-20 -right-20 size-80 rounded-full bg-teal-light/20 blur-3xl" />
-              <div className="absolute -bottom-20 -left-20 size-80 rounded-full bg-lime/10 blur-3xl" />
-            </div>
+      {/* ── Mobile menu — plain div, no framer-motion drag/transforms ── */}
+      <div
+        id="mobile-menu"
+        ref={menuRef}
+        role="dialog"
+        aria-modal={mobileOpen}
+        aria-label="Navigation menu"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className={`fixed inset-0 z-[9998] flex flex-col bg-gradient-to-br from-teal via-teal to-[#0a1540] lg:hidden outline-none overflow-hidden transition-[opacity,visibility] duration-300 ${
+          mobileOpen ? "opacity-100 visible" : "opacity-0 invisible"
+        }`}
+      >
+        {/* Gradient orbs for depth */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-20 -right-20 size-80 rounded-full bg-teal-light/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 size-80 rounded-full bg-lime/10 blur-3xl" />
+        </div>
 
-            {/* Drag indicator pill */}
-            <div className="relative mx-auto mt-4 h-1 w-10 rounded-full bg-white/30 animate-swipe-hint" />
-
-            {/* Content — pt-20 clears the nav bar */}
-            <div className="relative flex flex-1 flex-col justify-center px-8 pt-20 pb-12">
-              {/* Nav links */}
-              <div className="flex flex-col gap-1">
+        {/* Scrollable content area */}
+        <div className="relative flex flex-1 flex-col px-8 pt-24 overflow-y-auto">
+          {/* Nav links — animated with framer-motion */}
+          <AnimatePresence>
+            {mobileOpen && (
+              <motion.div
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+                className="flex flex-col gap-1"
+              >
                 {navLinks.map((link) => (
                   <motion.a
                     key={link.label}
@@ -289,47 +281,56 @@ export function Navbar() {
                     <ArrowRight className="size-6 text-white/30 transition-all group-hover:text-lime group-hover:translate-x-1" />
                   </motion.a>
                 ))}
-              </div>
 
-              {/* Gradient divider */}
-              <motion.div
-                variants={itemVariants}
-                className="my-8 h-px bg-gradient-to-r from-white/10 via-white/20 to-white/10"
-              />
+                {/* Gradient divider */}
+                <motion.div
+                  variants={itemVariants}
+                  className="my-8 h-px bg-gradient-to-r from-white/10 via-white/20 to-white/10"
+                />
 
-              {/* Phone card */}
-              <motion.a
-                variants={itemVariants}
-                href="tel:+12622648606"
-                className="flex items-center gap-4 rounded-2xl bg-white/[0.06] px-5 py-4 backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
-              >
-                <span className="flex size-11 items-center justify-center rounded-xl bg-lime/20">
-                  <Phone className="size-5 text-lime" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-white/60">Call Us Now</span>
-                  <span className="text-lg font-semibold text-white">(262) 264-8606</span>
-                </div>
-              </motion.a>
+                {/* Phone card */}
+                <motion.a
+                  variants={itemVariants}
+                  href="tel:+12622648606"
+                  className="flex items-center gap-4 rounded-2xl bg-white/[0.06] px-5 py-4 backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
+                >
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-lime/20">
+                    <Phone className="size-5 text-lime" />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-white/60">Call Us Now</span>
+                    <span className="text-lg font-semibold text-white">(262) 264-8606</span>
+                  </div>
+                </motion.a>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-              {/* CTA button */}
-              <motion.a
-                variants={itemVariants}
-                href="#contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavClick("#contact");
-                }}
-                className="relative mt-6 flex h-16 items-center justify-center overflow-hidden rounded-2xl bg-lime text-lg font-bold text-gray-900 transition-colors hover:bg-lime/90"
-              >
-                <div className="shimmer-bar" />
-                <span className="relative">Get Funded Today</span>
-                <ArrowRight className="relative ml-2 size-5" />
-              </motion.a>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Pinned bottom actions */}
+        <div className="relative shrink-0 px-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+          <div className="flex flex-col gap-3">
+            <a
+              href="/login"
+              className="flex h-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
+            >
+              Log In
+            </a>
+            <a
+              href="#contact"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick("#contact");
+              }}
+              className="relative flex h-16 items-center justify-center overflow-hidden rounded-2xl bg-lime text-lg font-bold text-gray-900 transition-colors hover:bg-lime/90"
+            >
+              <div className="shimmer-bar" />
+              <span className="relative">Get Funded Today</span>
+              <ArrowRight className="relative ml-2 size-5" />
+            </a>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

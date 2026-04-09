@@ -33,7 +33,7 @@ export function Hero() {
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         onLoadedData={() => setVideoReady(true)}
         className={`absolute inset-0 z-[1] h-full w-full object-cover transition-opacity duration-1000 ${videoReady ? "opacity-100" : "opacity-0"}`}
       >
@@ -46,7 +46,7 @@ export function Hero() {
       {/* Dark gradient overlay — always visible, makes black bg look intentional */}
       <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
 
-      <div className="relative z-[3] flex h-full w-full items-center justify-center mx-auto max-w-7xl px-6">
+      <div className="relative z-[3] flex h-full w-full items-center justify-center mx-auto max-w-7xl px-6 pb-12">
         {/* Content renders immediately — never waits for video */}
         <motion.div
           variants={container}
