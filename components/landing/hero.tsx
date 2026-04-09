@@ -26,14 +26,14 @@ export function Hero() {
   const [videoReady, setVideoReady] = useState(false);
 
   return (
-    <section className="relative h-screen overflow-hidden bg-black pt-24">
+    <section className="relative min-h-screen overflow-hidden bg-black pt-20 md:pt-24">
       {/* Video — fades in as progressive enhancement */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         onLoadedData={() => setVideoReady(true)}
         className={`absolute inset-0 z-[1] h-full w-full object-cover transition-opacity duration-1000 ${videoReady ? "opacity-100" : "opacity-0"}`}
       >
@@ -46,7 +46,7 @@ export function Hero() {
       {/* Dark gradient overlay — always visible, makes black bg look intentional */}
       <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
 
-      <div className="relative z-[3] flex h-full w-full items-center justify-center mx-auto max-w-7xl px-6">
+      <div className="relative z-[3] flex min-h-full w-full items-center justify-center mx-auto max-w-7xl px-6 pb-12">
         {/* Content renders immediately — never waits for video */}
         <motion.div
           variants={container}
@@ -56,7 +56,7 @@ export function Hero() {
         >
           <motion.h1
             variants={fadeUp}
-            className="mx-auto mt-8 max-w-5xl text-5xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl md:text-7xl lg:text-8xl"
+            className="mx-auto mt-4 max-w-5xl text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-7xl lg:text-8xl"
           >
             Fast Capital for{" "}
             <span className="lg:whitespace-nowrap">Real Estate Investors</span>
@@ -64,7 +64,7 @@ export function Hero() {
 
           <motion.p
             variants={fadeUp}
-            className="mx-auto mt-8 max-w-2xl text-lg text-white/70 lg:text-xl"
+            className="mx-auto mt-5 max-w-2xl text-base text-white/70 sm:text-lg lg:text-xl"
           >
             Close in as few as 5 days. Bridge loans, fix &amp; flip financing,
             and commercial lending — with rates and terms that make sense.
@@ -72,7 +72,7 @@ export function Hero() {
 
           <motion.div
             variants={fadeUp}
-            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            className="mt-7 flex flex-col items-center justify-center gap-4 sm:mt-10 sm:flex-row"
           >
             <motion.button
               whileHover="hover"
@@ -110,7 +110,7 @@ export function Hero() {
           {/* Social proof + stats glass card */}
           <motion.div
             variants={fadeUp}
-            className="mt-14 inline-flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-white/[0.06] px-6 py-4 backdrop-blur-sm sm:flex-row sm:gap-6 sm:px-8"
+            className="mt-8 inline-flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-white/[0.06] px-6 py-4 backdrop-blur-sm sm:mt-14 sm:flex-row sm:gap-6 sm:px-8"
           >
             {/* Avatar stack */}
             <div className="flex items-center gap-3">
