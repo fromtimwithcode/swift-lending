@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { OAuthButton } from "./oauth-button";
 import { EmailStep } from "./email-step";
@@ -22,24 +23,32 @@ const transition = {
 };
 
 export function LoginCard() {
+  const { signIn } = useAuthActions();
   const [view, setView] = useState<View>("idle");
   const [email, setEmail] = useState("");
+
+  const handleOAuth = useCallback(
+    (provider: "google") => {
+      void signIn(provider);
+    },
+    [signIn],
+  );
 
   const handleEmailSubmit = useCallback((submittedEmail: string) => {
     setEmail(submittedEmail);
     setView("sending");
-    // Simulate sending OTP
+    // TODO: Wire to Convex email OTP provider when added
     setTimeout(() => setView("otp"), 1500);
   }, []);
 
   const handleVerify = useCallback(() => {
     setView("verifying");
-    // Simulate verification
+    // TODO: Wire to Convex email OTP verification when added
     setTimeout(() => setView("success"), 1800);
   }, []);
 
   const handleResend = useCallback(() => {
-    // Simulate resend — countdown resets in OtpStep
+    // TODO: Wire to Convex email OTP resend when added
   }, []);
 
   const handleBack = useCallback(() => {
@@ -117,8 +126,10 @@ export function LoginCard() {
           >
             {/* OAuth buttons */}
             <div className="flex flex-col gap-3">
-              <OAuthButton provider="google" />
-              <OAuthButton provider="apple" />
+              <OAuthButton
+                provider="google"
+                onClick={() => handleOAuth("google")}
+              />
             </div>
 
             {/* Divider */}
