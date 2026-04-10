@@ -1,0 +1,320 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Landmark,
+  FileText,
+  HandCoins,
+  Users,
+  PiggyBank,
+  MessageSquare,
+  Settings,
+  LogOut,
+  X,
+  ChevronLeft,
+  Bell,
+} from "lucide-react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { type ReactNode } from "react";
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: ReactNode;
+}
+
+const adminNav: NavItem[] = [
+  {
+    label: "Overview",
+    href: "/dashboard/admin",
+    icon: <LayoutDashboard className="size-5" />,
+  },
+  {
+    label: "Loans",
+    href: "/dashboard/admin/loans",
+    icon: <Landmark className="size-5" />,
+  },
+  {
+    label: "Applications",
+    href: "/dashboard/admin/applications",
+    icon: <FileText className="size-5" />,
+  },
+  {
+    label: "Draw Requests",
+    href: "/dashboard/admin/draws",
+    icon: <HandCoins className="size-5" />,
+  },
+  {
+    label: "Borrowers",
+    href: "/dashboard/admin/borrowers",
+    icon: <Users className="size-5" />,
+  },
+  {
+    label: "Investors",
+    href: "/dashboard/admin/investors",
+    icon: <PiggyBank className="size-5" />,
+  },
+  {
+    label: "Notifications",
+    href: "/dashboard/admin/notifications",
+    icon: <Bell className="size-5" />,
+  },
+  {
+    label: "Messages",
+    href: "/dashboard/admin/messages",
+    icon: <MessageSquare className="size-5" />,
+  },
+  {
+    label: "Settings",
+    href: "/dashboard/admin/settings",
+    icon: <Settings className="size-5" />,
+  },
+];
+
+const borrowerNav: NavItem[] = [
+  {
+    label: "My Loans",
+    href: "/dashboard/borrower",
+    icon: <Landmark className="size-5" />,
+  },
+  {
+    label: "New Loan",
+    href: "/dashboard/borrower/apply",
+    icon: <FileText className="size-5" />,
+  },
+  {
+    label: "Draw Requests",
+    href: "/dashboard/borrower/draws",
+    icon: <HandCoins className="size-5" />,
+  },
+  {
+    label: "Documents",
+    href: "/dashboard/borrower/documents",
+    icon: <FileText className="size-5" />,
+  },
+  {
+    label: "Notifications",
+    href: "/dashboard/borrower/notifications",
+    icon: <Bell className="size-5" />,
+  },
+  {
+    label: "Messages",
+    href: "/dashboard/borrower/messages",
+    icon: <MessageSquare className="size-5" />,
+  },
+];
+
+const investorNav: NavItem[] = [
+  {
+    label: "Portfolio",
+    href: "/dashboard/investor",
+    icon: <PiggyBank className="size-5" />,
+  },
+  {
+    label: "Payments",
+    href: "/dashboard/investor/payments",
+    icon: <Landmark className="size-5" />,
+  },
+  {
+    label: "Statements",
+    href: "/dashboard/investor/statements",
+    icon: <FileText className="size-5" />,
+  },
+  {
+    label: "Notifications",
+    href: "/dashboard/investor/notifications",
+    icon: <Bell className="size-5" />,
+  },
+  {
+    label: "Messages",
+    href: "/dashboard/investor/messages",
+    icon: <MessageSquare className="size-5" />,
+  },
+];
+
+function getNavForRole(role: string): NavItem[] {
+  switch (role) {
+    case "admin":
+      return adminNav;
+    case "borrower":
+      return borrowerNav;
+    case "investor":
+      return investorNav;
+    default:
+      return [];
+  }
+}
+
+interface SidebarProps {
+  role: string;
+  displayName: string;
+  email: string;
+  isOpen: boolean;
+  onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+export function Sidebar({
+  role,
+  displayName,
+  email,
+  isOpen,
+  onClose,
+  collapsed,
+  onToggleCollapse,
+}: SidebarProps) {
+  const pathname = usePathname();
+  const { signOut } = useAuthActions();
+  const navItems = getNavForRole(role);
+  const unreadCount = useQuery(api.messages.getUnreadCount);
+  const notifUnreadCount = useQuery(api.notifications.getUnreadCount);
+
+  const isActive = (href: string) => {
+    if (href === "/dashboard/admin" && pathname === "/dashboard/admin") return true;
+    if (href !== "/dashboard/admin" && pathname.startsWith(href)) return true;
+    return false;
+  };
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
+          collapsed ? "w-16" : "w-64",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:translate-x-0"
+        )}
+      >
+        {/* Logo */}
+        <div
+          className={cn(
+            "flex h-16 items-center border-b border-sidebar-border px-4",
+            collapsed ? "justify-center" : "justify-between"
+          )}
+        >
+          {!collapsed && (
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+                <Landmark className="size-4 text-primary-foreground" />
+              </div>
+              <span className="text-lg font-bold tracking-tight">
+                Swift Capital
+              </span>
+            </Link>
+          )}
+          {collapsed && (
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+              <Landmark className="size-4 text-primary-foreground" />
+            </div>
+          )}
+          {/* Mobile close button */}
+          <button
+            onClick={onClose}
+            className="lg:hidden rounded-lg p-1 text-muted-foreground hover:bg-muted"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <ul className="space-y-1">
+            {navItems.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    collapsed && "justify-center px-2"
+                  )}
+                  title={collapsed ? item.label : undefined}
+                >
+                  {item.icon}
+                  {!collapsed && <span>{item.label}</span>}
+                  {item.label === "Messages" &&
+                    unreadCount !== undefined &&
+                    unreadCount > 0 && (
+                      <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {unreadCount}
+                      </span>
+                    )}
+                  {item.label === "Notifications" &&
+                    notifUnreadCount !== undefined &&
+                    notifUnreadCount > 0 && (
+                      <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {notifUnreadCount}
+                      </span>
+                    )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Collapse toggle (desktop only) */}
+        <div className="hidden lg:block border-t border-sidebar-border px-3 py-2">
+          <button
+            onClick={onToggleCollapse}
+            className="flex w-full items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronLeft
+              className={cn(
+                "size-4 transition-transform",
+                collapsed && "rotate-180"
+              )}
+            />
+          </button>
+        </div>
+
+        {/* User info + sign out */}
+        <div className="border-t border-sidebar-border p-3">
+          <div
+            className={cn(
+              "flex items-center gap-3",
+              collapsed && "justify-center"
+            )}
+          >
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            {!collapsed && (
+              <div className="flex-1 overflow-hidden">
+                <p className="truncate text-sm font-medium">{displayName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {email}
+                </p>
+              </div>
+            )}
+            {!collapsed && (
+              <button
+                onClick={() => signOut()}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Sign out"
+              >
+                <LogOut className="size-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}

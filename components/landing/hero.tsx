@@ -26,7 +26,7 @@ export function Hero() {
   const [videoReady, setVideoReady] = useState(false);
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-black pt-20 md:pt-24">
+    <section className="relative flex min-h-screen flex-col overflow-hidden bg-black pt-20 md:pt-24">
       {/* Video — fades in as progressive enhancement */}
       <video
         autoPlay
@@ -46,7 +46,7 @@ export function Hero() {
       {/* Dark gradient overlay — always visible, makes black bg look intentional */}
       <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
 
-      <div className="relative z-[3] flex min-h-full w-full items-center justify-center mx-auto max-w-7xl px-6 pb-12">
+      <div className="relative z-[3] flex flex-1 w-full items-center justify-center mx-auto max-w-7xl px-6 py-12 md:py-0">
         {/* Content renders immediately — never waits for video */}
         <motion.div
           variants={container}

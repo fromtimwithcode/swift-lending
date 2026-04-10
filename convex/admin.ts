@@ -1,0 +1,623 @@
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
+import { internal } from "./_generated/api";
+
+const loanStatusValidator = v.union(
+  v.literal("submitted"),
+  v.literal("under_review"),
+  v.literal("additional_info_needed"),
+  v.literal("approved"),
+  v.literal("denied"),
+  v.literal("funded"),
+  v.literal("sent_to_title"),
+  v.literal("closed")
+);
+
+export const getOverviewStats = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const allLoans = await ctx.db.query("loans").collect();
+
+    const totalLoans = allLoans.length;
+    const closedLoans = allLoans.filter((l) => l.status === "closed").length;
+    const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
+    const openLoans = totalLoans - closedLoans - deniedLoans;
+
+    const totalCapital = allLoans.reduce((sum, l) => sum + l.loanAmount, 0);
+
+    const revenueEarned = allLoans
+      .filter((l) => l.status === "closed")
+      .reduce((sum, l) => sum + l.pointsEarned + (l.monthlyInterestEarned ?? 0), 0);
+
+    const activeStatuses = [
+      "funded",
+      "sent_to_title",
+    ] as const;
+    const activeLoans = allLoans.filter((l) =>
+      (activeStatuses as readonly string[]).includes(l.status)
+    );
+    const monthlyCashFlow = activeLoans.reduce(
+      (sum, l) => sum + l.monthlyPayment,
+      0
+    );
+
+    const pipelineStatuses = [
+      "submitted",
+      "under_review",
+      "additional_info_needed",
+      "approved",
+      "funded",
+      "sent_to_title",
+    ] as const;
+    const pipelineLoans = allLoans.filter((l) =>
+      (pipelineStatuses as readonly string[]).includes(l.status)
+    );
+    const pipelineValue = pipelineLoans.reduce(
+      (sum, l) => sum + l.loanAmount,
+      0
+    );
+
+    return {
+      totalLoans,
+      openLoans,
+      closedLoans,
+      deniedLoans,
+      totalCapital,
+      revenueEarned,
+      monthlyCashFlow,
+      pipelineValue,
+    };
+  },
+});
+
+export const getLoans = query({
+  args: {
+    statusFilter: v.optional(loanStatusValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    if (args.statusFilter) {
+      return await ctx.db
+        .query("loans")
+        .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
+        .collect();
+    }
+
+    return await ctx.db.query("loans").collect();
+  },
+});
+
+export const getLoan = query({
+  args: { id: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.id);
+    if (!loan) throw new Error("Loan not found");
+    return loan;
+  },
+});
+
+export const createLoan = mutation({
+  args: {
+    borrowerId: v.id("userProfiles"),
+    borrowerName: v.string(),
+    entityName: v.string(),
+    propertyAddress: v.string(),
+    purchasePrice: v.number(),
+    loanAmount: v.number(),
+    afterRepairValue: v.optional(v.number()),
+    rehabBudgetTotal: v.optional(v.number()),
+    closeDate: v.optional(v.string()),
+    maturityDate: v.optional(v.string()),
+    terms: v.string(),
+    interestRate: v.number(),
+    monthlyPayment: v.number(),
+    paymentDueDay: v.optional(v.number()),
+    pointsEarned: v.number(),
+    monthlyInterestEarned: v.optional(v.number()),
+    status: loanStatusValidator,
+    titleCompany: v.optional(v.string()),
+    titleCompanyContact: v.optional(v.string()),
+    drawFundsTotal: v.optional(v.number()),
+    drawFundsUsed: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+
+    // Validate borrower exists and has borrower role
+    const borrower = await ctx.db.get(args.borrowerId);
+    if (!borrower) throw new Error("Borrower not found");
+    if (borrower.role !== "borrower") throw new Error("User is not a borrower");
+
+    // Validate financial fields
+    if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
+    if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
+    if (args.interestRate < 0) throw new Error("Interest rate cannot be negative");
+    if (args.monthlyPayment < 0) throw new Error("Monthly payment cannot be negative");
+    if (args.pointsEarned < 0) throw new Error("Points earned cannot be negative");
+    if (args.paymentDueDay !== undefined && (args.paymentDueDay < 1 || args.paymentDueDay > 31)) {
+      throw new Error("Payment due day must be between 1 and 31");
+    }
+
+    const id = await ctx.db.insert("loans", {
+      ...args,
+      createdBy: admin._id,
+    });
+
+    return id;
+  },
+});
+
+export const updateLoan = mutation({
+  args: {
+    id: v.id("loans"),
+    borrowerName: v.optional(v.string()),
+    entityName: v.optional(v.string()),
+    propertyAddress: v.optional(v.string()),
+    purchasePrice: v.optional(v.number()),
+    loanAmount: v.optional(v.number()),
+    afterRepairValue: v.optional(v.number()),
+    rehabBudgetTotal: v.optional(v.number()),
+    closeDate: v.optional(v.string()),
+    maturityDate: v.optional(v.string()),
+    terms: v.optional(v.string()),
+    interestRate: v.optional(v.number()),
+    monthlyPayment: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()),
+    pointsEarned: v.optional(v.number()),
+    monthlyInterestEarned: v.optional(v.number()),
+    titleCompany: v.optional(v.string()),
+    titleCompanyContact: v.optional(v.string()),
+    drawFundsTotal: v.optional(v.number()),
+    drawFundsUsed: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const { id, ...fields } = args;
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Loan not found");
+
+    // Validate financial fields if provided
+    if (fields.loanAmount !== undefined && fields.loanAmount <= 0)
+      throw new Error("Loan amount must be greater than 0");
+    if (fields.purchasePrice !== undefined && fields.purchasePrice < 0)
+      throw new Error("Purchase price cannot be negative");
+    if (fields.interestRate !== undefined && fields.interestRate < 0)
+      throw new Error("Interest rate cannot be negative");
+    if (fields.monthlyPayment !== undefined && fields.monthlyPayment < 0)
+      throw new Error("Monthly payment cannot be negative");
+    if (fields.pointsEarned !== undefined && fields.pointsEarned < 0)
+      throw new Error("Points earned cannot be negative");
+    if (fields.paymentDueDay !== undefined && (fields.paymentDueDay < 1 || fields.paymentDueDay > 31))
+      throw new Error("Payment due day must be between 1 and 31");
+
+    // Only patch fields that were provided (treat empty strings as undefined for optional fields)
+    const optionalStringFields = new Set([
+      "closeDate", "maturityDate", "titleCompany", "titleCompanyContact", "notes",
+    ]);
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        if (optionalStringFields.has(key) && value === "") continue;
+        updates[key] = value;
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(id, updates);
+    }
+
+    return id;
+  },
+});
+
+export const getApplications = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const submitted = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "submitted"))
+      .collect();
+    const underReview = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "under_review"))
+      .collect();
+    const infoNeeded = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "additional_info_needed"))
+      .collect();
+
+    return [...submitted, ...underReview, ...infoNeeded].sort(
+      (a, b) => b._creationTime - a._creationTime
+    );
+  },
+});
+
+export const getBorrowerDetail = query({
+  args: { id: v.id("userProfiles") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const profile = await ctx.db.get(args.id);
+    if (!profile) throw new Error("Borrower not found");
+
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", args.id))
+      .collect();
+
+    const draws = await ctx.db
+      .query("drawRequests")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", args.id))
+      .collect();
+
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_ownerId", (q) => q.eq("ownerId", args.id))
+      .collect();
+
+    const docsWithUrls = await Promise.all(
+      documents.map(async (doc) => ({
+        ...doc,
+        url: await ctx.storage.getUrl(doc.fileId),
+      }))
+    );
+
+    // Enrich draws with loan info
+    const drawsEnriched = await Promise.all(
+      draws.map(async (draw) => {
+        const loan = await ctx.db.get(draw.loanId);
+        return {
+          ...draw,
+          propertyAddress: loan?.propertyAddress ?? "Unknown",
+        };
+      })
+    );
+
+    return {
+      profile,
+      loans,
+      draws: drawsEnriched,
+      documents: docsWithUrls,
+    };
+  },
+});
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  submitted: ["under_review", "additional_info_needed", "denied"],
+  under_review: ["approved", "additional_info_needed", "denied"],
+  additional_info_needed: ["under_review", "denied"],
+  approved: ["funded", "denied"],
+  funded: ["sent_to_title", "closed"],
+  sent_to_title: ["closed"],
+  denied: [],
+  closed: [],
+};
+
+export const updateLoanStatus = mutation({
+  args: {
+    id: v.id("loans"),
+    status: loanStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Loan not found");
+
+    const validNext = VALID_TRANSITIONS[existing.status];
+    if (!validNext || !validNext.includes(args.status)) {
+      throw new Error(
+        `Invalid status transition: cannot move from "${existing.status}" to "${args.status}"`
+      );
+    }
+
+    await ctx.db.patch(args.id, { status: args.status });
+
+    // Notify borrower of status change
+    const statusLabels: Record<string, string> = {
+      submitted: "Submitted",
+      under_review: "Under Review",
+      additional_info_needed: "Additional Info Needed",
+      approved: "Approved",
+      denied: "Denied",
+      funded: "Funded",
+      sent_to_title: "Sent to Title",
+      closed: "Closed",
+    };
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: existing.borrowerId,
+      type: "loan_status_changed",
+      title: "Loan Status Updated",
+      body: `Your loan for ${existing.propertyAddress} has been updated to "${statusLabels[args.status] ?? args.status}".`,
+      loanId: args.id,
+    });
+
+    return args.id;
+  },
+});
+
+// --- Closing Statement ---
+
+export const attachClosingStatement = mutation({
+  args: {
+    loanId: v.id("loans"),
+    fileId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new Error("Loan not found");
+    await ctx.db.patch(args.loanId, { closingStatementFileId: args.fileId });
+    return args.loanId;
+  },
+});
+
+export const removeClosingStatement = mutation({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new Error("Loan not found");
+    if (loan.closingStatementFileId) {
+      await ctx.storage.delete(loan.closingStatementFileId);
+      await ctx.db.patch(args.loanId, { closingStatementFileId: undefined });
+    }
+    return args.loanId;
+  },
+});
+
+export const getClosingStatementUrl = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan || !loan.closingStatementFileId) return null;
+    return await ctx.storage.getUrl(loan.closingStatementFileId);
+  },
+});
+
+// --- Borrower Performance ---
+
+export const getBorrowerPerformance = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const borrowers = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_role", (q) => q.eq("role", "borrower"))
+      .collect();
+
+    const results = await Promise.all(
+      borrowers.map(async (borrower) => {
+        const loans = await ctx.db
+          .query("loans")
+          .withIndex("by_borrowerId", (q) => q.eq("borrowerId", borrower._id))
+          .collect();
+
+        let totalPayments = 0;
+        let latePayments = 0;
+        const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+
+        for (const loan of loans) {
+          const payments = await ctx.db
+            .query("loanPayments")
+            .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+            .collect();
+          totalPayments += payments.length;
+          latePayments += payments.filter((p) => p.status === "late" || p.status === "missed").length;
+        }
+
+        return {
+          _id: borrower._id,
+          displayName: borrower.displayName,
+          totalLoans: loans.length,
+          totalCapital,
+          totalPayments,
+          latePayments,
+          onTimeRate: totalPayments > 0
+            ? Math.round(((totalPayments - latePayments) / totalPayments) * 100)
+            : 100,
+        };
+      })
+    );
+
+    return results.filter((r) => r.totalLoans > 0);
+  },
+});
+
+// --- Rehab Budget Items ---
+
+export const getRehabBudgetItems = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db
+      .query("rehabBudgetItems")
+      .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
+      .collect();
+  },
+});
+
+const rehabCategoryValidator = v.union(
+  v.literal("demo"),
+  v.literal("exterior"),
+  v.literal("interior"),
+  v.literal("dumpster"),
+  v.literal("miscellaneous"),
+  v.literal("overage")
+);
+
+export const addRehabBudgetItem = mutation({
+  args: {
+    loanId: v.id("loans"),
+    category: rehabCategoryValidator,
+    itemName: v.string(),
+    allocatedAmount: v.number(),
+    actualAmount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new Error("Loan not found");
+    return await ctx.db.insert("rehabBudgetItems", args);
+  },
+});
+
+export const updateRehabBudgetItem = mutation({
+  args: {
+    id: v.id("rehabBudgetItems"),
+    category: v.optional(rehabCategoryValidator),
+    itemName: v.optional(v.string()),
+    allocatedAmount: v.optional(v.number()),
+    actualAmount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const { id, ...fields } = args;
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Budget item not found");
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(id, updates);
+    }
+    return id;
+  },
+});
+
+export const deleteRehabBudgetItem = mutation({
+  args: { id: v.id("rehabBudgetItems") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Budget item not found");
+    await ctx.db.delete(args.id);
+  },
+});
+
+// --- Investments ---
+
+export const createInvestment = mutation({
+  args: {
+    investorId: v.id("userProfiles"),
+    investmentAmount: v.number(),
+    inceptionDate: v.number(),
+    interestRate: v.number(),
+    totalPaymentsReceived: v.number(),
+    nextPaymentDate: v.number(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const investor = await ctx.db.get(args.investorId);
+    if (!investor) throw new Error("Investor not found");
+    if (investor.role !== "investor")
+      throw new Error("User is not an investor");
+    return await ctx.db.insert("investments", args);
+  },
+});
+
+export const updateInvestment = mutation({
+  args: {
+    id: v.id("investments"),
+    investmentAmount: v.optional(v.number()),
+    interestRate: v.optional(v.number()),
+    totalPaymentsReceived: v.optional(v.number()),
+    nextPaymentDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const { id, ...fields } = args;
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Investment not found");
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(id, updates);
+    }
+    return id;
+  },
+});
+
+export const bulkUpdateLoanStatus = mutation({
+  args: {
+    loanIds: v.array(v.id("loans")),
+    status: loanStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    if (args.loanIds.length > 50) throw new Error("Maximum 50 items per bulk operation");
+
+    const statusLabels: Record<string, string> = {
+      submitted: "Submitted",
+      under_review: "Under Review",
+      additional_info_needed: "Additional Info Needed",
+      approved: "Approved",
+      denied: "Denied",
+      funded: "Funded",
+      sent_to_title: "Sent to Title",
+      closed: "Closed",
+    };
+
+    for (const loanId of args.loanIds) {
+      const loan = await ctx.db.get(loanId);
+      if (!loan) continue;
+
+      const validNext = VALID_TRANSITIONS[loan.status];
+      if (!validNext || !validNext.includes(args.status)) {
+        throw new Error(
+          `Invalid status transition for "${loan.propertyAddress}": cannot move from "${loan.status}" to "${args.status}"`
+        );
+      }
+
+      await ctx.db.patch(loanId, { status: args.status });
+
+      await ctx.runMutation(internal.notifications.createNotification, {
+        recipientId: loan.borrowerId,
+        type: "loan_status_changed",
+        title: "Loan Status Updated",
+        body: `Your loan for ${loan.propertyAddress} has been updated to "${statusLabels[args.status] ?? args.status}".`,
+        loanId,
+      });
+    }
+  },
+});
+
+export const getInvestorDetail = query({
+  args: { id: v.id("userProfiles") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const profile = await ctx.db.get(args.id);
+    if (!profile) throw new Error("Investor not found");
+
+    const investments = await ctx.db
+      .query("investments")
+      .withIndex("by_investorId", (q) => q.eq("investorId", args.id))
+      .collect();
+
+    return { profile, investments };
+  },
+});
