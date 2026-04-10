@@ -17,6 +17,7 @@ export default function AdminSettingsPage() {
     "borrowers"
   );
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
@@ -61,8 +62,11 @@ export default function AdminSettingsPage() {
       return;
     }
     setTogglingId(id);
+    setError("");
     try {
       await toggleActive({ id: id as Id<"userProfiles"> });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle user status");
     } finally {
       setTogglingId(null);
     }
@@ -167,6 +171,10 @@ export default function AdminSettingsPage() {
         title="Settings"
         description="Manage users and system configuration"
       />
+
+      {error && (
+        <p className="text-sm text-red-500">{error}</p>
+      )}
 
       {/* Tabs */}
       <div className="relative border-b border-border">

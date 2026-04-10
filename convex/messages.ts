@@ -21,10 +21,10 @@ export const getConversations = query({
 
     const allMessages = [...sent, ...received];
 
-    // Dedupe by partner
+    // Dedupe by partner — track latest message per conversation
     const partnerMap = new Map<
       string,
-      { partnerId: Id<"userProfiles">; lastMessage: string; lastTime: number; unread: number }
+      { partnerId: Id<"userProfiles">; lastMessage: string; lastTime: number }
     >();
 
     for (const msg of allMessages) {
@@ -32,28 +32,16 @@ export const getConversations = query({
         msg.senderId === profile._id ? msg.recipientId : msg.senderId;
 
       const existing = partnerMap.get(partnerId);
-      const isNewer = !existing || msg._creationTime > existing.lastTime;
-      const unread =
-        (existing?.unread ?? 0) +
-        (msg.recipientId === profile._id && !msg.isRead ? 1 : 0);
-
-      if (isNewer) {
+      if (!existing || msg._creationTime > existing.lastTime) {
         partnerMap.set(partnerId, {
           partnerId,
           lastMessage: msg.content,
           lastTime: msg._creationTime,
-          unread: existing
-            ? unread
-            : msg.recipientId === profile._id && !msg.isRead
-              ? 1
-              : 0,
         });
-      } else if (existing) {
-        existing.unread = unread;
       }
     }
 
-    // Re-count unread per partner properly
+    // Count unread per partner
     const unreadCounts = new Map<string, number>();
     for (const msg of received) {
       if (!msg.isRead) {
@@ -85,21 +73,21 @@ export const getDirectMessages = query({
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
 
+    // Use compound indexes to query only messages between the two users
     const sent = await ctx.db
       .query("messages")
-      .withIndex("by_senderId", (q) => q.eq("senderId", profile._id))
+      .withIndex("by_senderId_recipientId", (q) =>
+        q.eq("senderId", profile._id).eq("recipientId", args.partnerId)
+      )
       .collect();
     const received = await ctx.db
       .query("messages")
-      .withIndex("by_recipientId", (q) => q.eq("recipientId", profile._id))
+      .withIndex("by_senderId_recipientId", (q) =>
+        q.eq("senderId", args.partnerId).eq("recipientId", profile._id)
+      )
       .collect();
 
-    const allMessages = [
-      ...sent.filter((m) => m.recipientId === args.partnerId),
-      ...received.filter((m) => m.senderId === args.partnerId),
-    ];
-
-    return allMessages.sort((a, b) => a._creationTime - b._creationTime);
+    return [...sent, ...received].sort((a, b) => a._creationTime - b._creationTime);
   },
 });
 
@@ -111,6 +99,8 @@ export const sendMessage = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
+
+    if (!args.content.trim()) throw new Error("Message cannot be empty");
 
     const id = await ctx.db.insert("messages", {
       senderId: profile._id,
@@ -153,11 +143,14 @@ export const getUnreadCount = query({
   handler: async (ctx) => {
     const profile = await requireUser(ctx);
 
-    const received = await ctx.db
+    // Use compound index to query only unread messages directly
+    const unread = await ctx.db
       .query("messages")
-      .withIndex("by_recipientId", (q) => q.eq("recipientId", profile._id))
-      .take(500);
+      .withIndex("by_recipientId_isRead", (q) =>
+        q.eq("recipientId", profile._id).eq("isRead", false)
+      )
+      .collect();
 
-    return received.filter((m) => !m.isRead).length;
+    return unread.length;
   },
 });

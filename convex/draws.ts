@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireRole, requireUser } from "./lib/auth";
+import { requireRole, requireAnyRole } from "./lib/auth";
 import { internal } from "./_generated/api";
 
 export const getAllDrawRequests = query({
@@ -27,26 +27,34 @@ export const getAllDrawRequests = query({
       draws = await ctx.db.query("drawRequests").collect();
     }
 
-    return await Promise.all(
-      draws.map(async (draw) => {
-        const borrower = await ctx.db.get(draw.borrowerId);
-        const loan = await ctx.db.get(draw.loanId);
-        return {
-          ...draw,
-          borrowerName: borrower?.displayName ?? "Unknown",
-          propertyAddress: loan?.propertyAddress ?? "Unknown",
-          drawFundsTotal: loan?.drawFundsTotal,
-          drawFundsUsed: loan?.drawFundsUsed,
-        };
-      })
+    // Batch-load unique borrowers and loans instead of N+1
+    const borrowerIds = [...new Set(draws.map((d) => d.borrowerId))];
+    const loanIds = [...new Set(draws.map((d) => d.loanId))];
+    const borrowerMap = new Map(
+      (await Promise.all(borrowerIds.map((id) => ctx.db.get(id)))).map((b, i) => [borrowerIds[i], b])
     );
+    const loanMap = new Map(
+      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
+    );
+
+    return draws.map((draw) => {
+      const borrower = borrowerMap.get(draw.borrowerId);
+      const loan = loanMap.get(draw.loanId);
+      return {
+        ...draw,
+        borrowerName: borrower?.displayName ?? "Unknown",
+        propertyAddress: loan?.propertyAddress ?? "Unknown",
+        drawFundsTotal: loan?.drawFundsTotal,
+        drawFundsUsed: loan?.drawFundsUsed,
+      };
+    });
   },
 });
 
 export const getDrawRequest = query({
   args: { id: v.id("drawRequests") },
   handler: async (ctx, args) => {
-    const profile = await requireUser(ctx);
+    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
     const draw = await ctx.db.get(args.id);
     if (!draw) throw new Error("Draw request not found");
 
@@ -105,9 +113,31 @@ export const bulkReviewDrawRequests = mutation({
       denied: "Denied",
     };
 
+    const results: { drawId: string; success: boolean; error?: string }[] = [];
+
     for (const drawId of args.drawIds) {
       const draw = await ctx.db.get(drawId);
-      if (!draw) continue;
+      if (!draw) {
+        results.push({ drawId, success: false, error: "Draw not found" });
+        continue;
+      }
+      if (draw.status === "approved" || draw.status === "denied") {
+        results.push({ drawId, success: false, error: `Already ${draw.status}` });
+        continue;
+      }
+
+      // Check fund limit before approving
+      if (args.status === "approved") {
+        const loan = await ctx.db.get(draw.loanId);
+        if (loan) {
+          const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+          if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
+            results.push({ drawId, success: false, error: "Would exceed fund limit" });
+            continue;
+          }
+          await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
+        }
+      }
 
       await ctx.db.patch(drawId, {
         status: args.status,
@@ -115,15 +145,6 @@ export const bulkReviewDrawRequests = mutation({
         reviewedBy: admin._id,
         reviewedAt: Date.now(),
       });
-
-      if (args.status === "approved") {
-        const loan = await ctx.db.get(draw.loanId);
-        if (loan) {
-          await ctx.db.patch(draw.loanId, {
-            drawFundsUsed: (loan.drawFundsUsed ?? 0) + draw.amountRequested,
-          });
-        }
-      }
 
       await ctx.runMutation(internal.notifications.createNotification, {
         recipientId: draw.borrowerId,
@@ -133,7 +154,11 @@ export const bulkReviewDrawRequests = mutation({
         loanId: draw.loanId,
         drawRequestId: drawId,
       });
+
+      results.push({ drawId, success: true });
     }
+
+    return results;
   },
 });
 
@@ -152,6 +177,10 @@ export const reviewDrawRequest = mutation({
     const draw = await ctx.db.get(args.id);
     if (!draw) throw new Error("Draw request not found");
 
+    if (draw.status === "approved" || draw.status === "denied") {
+      throw new Error(`Draw request has already been ${draw.status}`);
+    }
+
     await ctx.db.patch(args.id, {
       status: args.status,
       adminNotes: args.adminNotes,
@@ -163,9 +192,11 @@ export const reviewDrawRequest = mutation({
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
       if (loan) {
-        await ctx.db.patch(draw.loanId, {
-          drawFundsUsed: (loan.drawFundsUsed ?? 0) + draw.amountRequested,
-        });
+        const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+        if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
+          throw new Error("Draw would exceed fund limit");
+        }
+        await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
       }
     }
 

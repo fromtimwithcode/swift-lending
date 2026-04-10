@@ -45,9 +45,13 @@ export const getPortfolioStats = query({
     );
 
     const avgInterestRate =
-      investments.length > 0
-        ? investments.reduce((sum, i) => sum + i.interestRate, 0) /
-          investments.length
+      totalInvested > 0
+        ? Math.round(
+            (investments.reduce(
+              (sum, i) => sum + i.interestRate * i.investmentAmount,
+              0
+            ) / totalInvested) * 100
+          ) / 100
         : 0;
 
     const upcomingPayments = investments

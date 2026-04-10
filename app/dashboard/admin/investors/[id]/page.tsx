@@ -32,6 +32,7 @@ export default function AdminInvestorDetailPage() {
   const createInvestment = useMutation(api.admin.createInvestment);
   const updateInvestment = useMutation(api.admin.updateInvestment);
 
+  const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,8 +86,11 @@ export default function AdminInvestorDetailPage() {
       )
     ) {
       setToggling(true);
+      setError("");
       try {
         await toggleActive({ id });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to toggle status");
       } finally {
         setToggling(false);
       }
@@ -105,6 +109,7 @@ export default function AdminInvestorDetailPage() {
 
   const handleSaveProfile = async () => {
     setSaving(true);
+    setError("");
     try {
       await updateProfile({
         id,
@@ -115,7 +120,7 @@ export default function AdminInvestorDetailPage() {
       });
       setEditing(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update profile");
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -127,6 +132,7 @@ export default function AdminInvestorDetailPage() {
       return;
     }
     setAddingInvestment(true);
+    setError("");
     try {
       await createInvestment({
         investorId: id,
@@ -146,6 +152,8 @@ export default function AdminInvestorDetailPage() {
         nextPaymentDate: "",
         notes: "",
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create investment");
     } finally {
       setAddingInvestment(false);
     }
@@ -167,6 +175,7 @@ export default function AdminInvestorDetailPage() {
   const handleSaveInvestment = async () => {
     if (!editingInvestmentId) return;
     setSavingInvestment(true);
+    setError("");
     try {
       await updateInvestment({
         id: editingInvestmentId as Id<"investments">,
@@ -177,6 +186,8 @@ export default function AdminInvestorDetailPage() {
         notes: editInvestForm.notes || undefined,
       });
       setEditingInvestmentId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update investment");
     } finally {
       setSavingInvestment(false);
     }
@@ -482,6 +493,10 @@ export default function AdminInvestorDetailPage() {
           )}
         </div>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-500">{error}</p>
+      )}
 
       {/* Investments */}
       <div className="rounded-xl border border-border bg-card p-6">

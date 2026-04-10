@@ -42,6 +42,17 @@ export async function requireRole(
   return profile;
 }
 
+export async function requireAnyRole(
+  ctx: QueryCtx | MutationCtx,
+  roles: Array<"admin" | "borrower" | "investor">
+) {
+  const profile = await requireUser(ctx);
+  if (!roles.includes(profile.role as "admin" | "borrower" | "investor")) {
+    throw new Error(`Requires one of: ${roles.join(", ")}`);
+  }
+  return profile;
+}
+
 export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return requireRole(ctx, "admin");
 }

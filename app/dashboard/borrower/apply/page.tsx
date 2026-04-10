@@ -44,6 +44,14 @@ export default function LoanApplicationPage() {
       setError("Please fill in all required fields.");
       return;
     }
+    if (Number(form.loanAmount) <= 0) {
+      setError("Loan amount must be greater than 0.");
+      return;
+    }
+    if (Number(form.purchasePrice) < 0) {
+      setError("Purchase price cannot be negative.");
+      return;
+    }
 
     setSaving(true);
     setError("");

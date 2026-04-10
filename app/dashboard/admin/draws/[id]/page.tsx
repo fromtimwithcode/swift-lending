@@ -40,6 +40,8 @@ export default function AdminDrawDetailPage() {
   const reviewDraw = useMutation(api.draws.reviewDrawRequest);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
     return (
@@ -51,12 +53,15 @@ export default function AdminDrawDetailPage() {
 
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {
     setSaving(true);
+    setError("");
     try {
       await reviewDraw({
         id,
         status,
         adminNotes: notes || undefined,
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update draw request");
     } finally {
       setSaving(false);
     }
@@ -100,12 +105,18 @@ export default function AdminDrawDetailPage() {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
             />
           </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          {isTerminal && (
+            <p className="text-sm text-muted-foreground">
+              This draw request has been {draw.status} and cannot be changed.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {REVIEW_STATUSES.map((status) => (
               <button
                 key={status}
                 onClick={() => handleReview(status)}
-                disabled={saving || draw.status === status}
+                disabled={saving || isTerminal}
                 className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 ${
                   status === "approved"
                     ? "bg-green-600 text-white hover:bg-green-700"

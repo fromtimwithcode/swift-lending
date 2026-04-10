@@ -157,6 +157,8 @@ export default function LoanDetailPage() {
         notes: editData.notes || undefined,
       });
       setEditing(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save loan");
     } finally {
       setSaving(false);
     }
@@ -165,6 +167,20 @@ export default function LoanDetailPage() {
   const handleClosingStatementUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PDF and image files (PNG, JPEG, WebP) are allowed.");
+      e.target.value = "";
+      return;
+    }
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert("File size must be under 10MB.");
+      e.target.value = "";
+      return;
+    }
+
     setClosingUploading(true);
     try {
       const url = await generateUploadUrl();
@@ -202,6 +218,8 @@ export default function LoanDetailPage() {
         status: "on_time",
         notes: "",
       });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to record payment");
     } finally {
       setPaymentSaving(false);
     }
@@ -246,7 +264,9 @@ export default function LoanDetailPage() {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            deletePayment({ id: row._id as Id<"loanPayments"> });
+            if (confirm("Are you sure you want to delete this payment?")) {
+              deletePayment({ id: row._id as Id<"loanPayments"> });
+            }
           }}
           className="rounded p-1 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
         >
@@ -497,10 +517,14 @@ export default function LoanDetailPage() {
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
               {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
               Replace
-              <input type="file" className="hidden" onChange={handleClosingStatementUpload} />
+              <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
             </label>
             <button
-              onClick={() => removeClosingStatement({ loanId: id })}
+              onClick={() => {
+                if (confirm("Are you sure you want to remove the closing statement?")) {
+                  removeClosingStatement({ loanId: id });
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <Trash2 className="size-3" />
@@ -511,7 +535,7 @@ export default function LoanDetailPage() {
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80">
             {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
             Attach Closing Statement
-            <input type="file" className="hidden" onChange={handleClosingStatementUpload} />
+            <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
           </label>
         )}
       </div>

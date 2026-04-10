@@ -143,6 +143,16 @@ export const createLoan = mutation({
     if (args.paymentDueDay !== undefined && (args.paymentDueDay < 1 || args.paymentDueDay > 31)) {
       throw new Error("Payment due day must be between 1 and 31");
     }
+    if (args.afterRepairValue !== undefined && args.afterRepairValue < 0)
+      throw new Error("After repair value cannot be negative");
+    if (args.rehabBudgetTotal !== undefined && args.rehabBudgetTotal < 0)
+      throw new Error("Rehab budget total cannot be negative");
+    if (args.drawFundsTotal !== undefined && args.drawFundsTotal < 0)
+      throw new Error("Draw funds total cannot be negative");
+    if (args.drawFundsUsed !== undefined && args.drawFundsUsed < 0)
+      throw new Error("Draw funds used cannot be negative");
+    if (args.monthlyInterestEarned !== undefined && args.monthlyInterestEarned < 0)
+      throw new Error("Monthly interest earned cannot be negative");
 
     const id = await ctx.db.insert("loans", {
       ...args,
@@ -197,6 +207,16 @@ export const updateLoan = mutation({
       throw new Error("Points earned cannot be negative");
     if (fields.paymentDueDay !== undefined && (fields.paymentDueDay < 1 || fields.paymentDueDay > 31))
       throw new Error("Payment due day must be between 1 and 31");
+    if (fields.afterRepairValue !== undefined && fields.afterRepairValue < 0)
+      throw new Error("After repair value cannot be negative");
+    if (fields.rehabBudgetTotal !== undefined && fields.rehabBudgetTotal < 0)
+      throw new Error("Rehab budget total cannot be negative");
+    if (fields.drawFundsTotal !== undefined && fields.drawFundsTotal < 0)
+      throw new Error("Draw funds total cannot be negative");
+    if (fields.drawFundsUsed !== undefined && fields.drawFundsUsed < 0)
+      throw new Error("Draw funds used cannot be negative");
+    if (fields.monthlyInterestEarned !== undefined && fields.monthlyInterestEarned < 0)
+      throw new Error("Monthly interest earned cannot be negative");
 
     // Only patch fields that were provided (treat empty strings as undefined for optional fields)
     const optionalStringFields = new Set([
@@ -398,39 +418,50 @@ export const getBorrowerPerformance = query({
       .withIndex("by_role", (q) => q.eq("role", "borrower"))
       .collect();
 
-    const results = await Promise.all(
-      borrowers.map(async (borrower) => {
-        const loans = await ctx.db
-          .query("loans")
-          .withIndex("by_borrowerId", (q) => q.eq("borrowerId", borrower._id))
-          .collect();
+    // Batch-load all loans and payments once instead of N+1
+    const allLoans = await ctx.db.query("loans").collect();
+    const allPayments = await ctx.db.query("loanPayments").collect();
 
-        let totalPayments = 0;
-        let latePayments = 0;
-        const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+    // Group loans by borrowerId
+    const loansByBorrower = new Map<string, typeof allLoans>();
+    for (const loan of allLoans) {
+      const existing = loansByBorrower.get(loan.borrowerId) ?? [];
+      existing.push(loan);
+      loansByBorrower.set(loan.borrowerId, existing);
+    }
 
-        for (const loan of loans) {
-          const payments = await ctx.db
-            .query("loanPayments")
-            .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
-            .collect();
-          totalPayments += payments.length;
-          latePayments += payments.filter((p) => p.status === "late" || p.status === "missed").length;
-        }
+    // Group payments by loanId
+    const paymentsByLoan = new Map<string, typeof allPayments>();
+    for (const payment of allPayments) {
+      const existing = paymentsByLoan.get(payment.loanId) ?? [];
+      existing.push(payment);
+      paymentsByLoan.set(payment.loanId, existing);
+    }
 
-        return {
-          _id: borrower._id,
-          displayName: borrower.displayName,
-          totalLoans: loans.length,
-          totalCapital,
-          totalPayments,
-          latePayments,
-          onTimeRate: totalPayments > 0
-            ? Math.round(((totalPayments - latePayments) / totalPayments) * 100)
-            : 100,
-        };
-      })
-    );
+    const results = borrowers.map((borrower) => {
+      const loans = loansByBorrower.get(borrower._id) ?? [];
+      const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+
+      let totalPayments = 0;
+      let latePayments = 0;
+      for (const loan of loans) {
+        const payments = paymentsByLoan.get(loan._id) ?? [];
+        totalPayments += payments.length;
+        latePayments += payments.filter((p) => p.status === "late" || p.status === "missed").length;
+      }
+
+      return {
+        _id: borrower._id,
+        displayName: borrower.displayName,
+        totalLoans: loans.length,
+        totalCapital,
+        totalPayments,
+        latePayments,
+        onTimeRate: totalPayments > 0
+          ? Math.round(((totalPayments - latePayments) / totalPayments) * 100)
+          : null,
+      };
+    });
 
     return results.filter((r) => r.totalLoans > 0);
   },
@@ -470,6 +501,8 @@ export const addRehabBudgetItem = mutation({
     await requireAdmin(ctx);
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new Error("Loan not found");
+    if (args.allocatedAmount < 0) throw new Error("Allocated amount cannot be negative");
+    if (args.actualAmount !== undefined && args.actualAmount < 0) throw new Error("Actual amount cannot be negative");
     return await ctx.db.insert("rehabBudgetItems", args);
   },
 });
@@ -487,6 +520,11 @@ export const updateRehabBudgetItem = mutation({
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Budget item not found");
+
+    if (fields.allocatedAmount !== undefined && fields.allocatedAmount < 0)
+      throw new Error("Allocated amount cannot be negative");
+    if (fields.actualAmount !== undefined && fields.actualAmount < 0)
+      throw new Error("Actual amount cannot be negative");
 
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -529,6 +567,14 @@ export const createInvestment = mutation({
     if (!investor) throw new Error("Investor not found");
     if (investor.role !== "investor")
       throw new Error("User is not an investor");
+
+    // Validate financial fields
+    if (args.investmentAmount <= 0) throw new Error("Investment amount must be greater than 0");
+    if (args.interestRate < 0) throw new Error("Interest rate cannot be negative");
+    if (args.totalPaymentsReceived < 0) throw new Error("Total payments received cannot be negative");
+    if (isNaN(args.inceptionDate)) throw new Error("Invalid inception date");
+    if (isNaN(args.nextPaymentDate)) throw new Error("Invalid next payment date");
+
     return await ctx.db.insert("investments", args);
   },
 });
@@ -547,6 +593,16 @@ export const updateInvestment = mutation({
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Investment not found");
+
+    // Validate financial fields if provided
+    if (fields.investmentAmount !== undefined && fields.investmentAmount <= 0)
+      throw new Error("Investment amount must be greater than 0");
+    if (fields.interestRate !== undefined && fields.interestRate < 0)
+      throw new Error("Interest rate cannot be negative");
+    if (fields.totalPaymentsReceived !== undefined && fields.totalPaymentsReceived < 0)
+      throw new Error("Total payments received cannot be negative");
+    if (fields.nextPaymentDate !== undefined && isNaN(fields.nextPaymentDate))
+      throw new Error("Invalid next payment date");
 
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -582,15 +638,19 @@ export const bulkUpdateLoanStatus = mutation({
       closed: "Closed",
     };
 
+    const results: { loanId: string; success: boolean; error?: string }[] = [];
+
     for (const loanId of args.loanIds) {
       const loan = await ctx.db.get(loanId);
-      if (!loan) continue;
+      if (!loan) {
+        results.push({ loanId, success: false, error: "Loan not found" });
+        continue;
+      }
 
       const validNext = VALID_TRANSITIONS[loan.status];
       if (!validNext || !validNext.includes(args.status)) {
-        throw new Error(
-          `Invalid status transition for "${loan.propertyAddress}": cannot move from "${loan.status}" to "${args.status}"`
-        );
+        results.push({ loanId, success: false, error: `Cannot transition from "${loan.status}" to "${args.status}"` });
+        continue;
       }
 
       await ctx.db.patch(loanId, { status: args.status });
@@ -602,7 +662,11 @@ export const bulkUpdateLoanStatus = mutation({
         body: `Your loan for ${loan.propertyAddress} has been updated to "${statusLabels[args.status] ?? args.status}".`,
         loanId,
       });
+
+      results.push({ loanId, success: true });
     }
+
+    return results;
   },
 });
 

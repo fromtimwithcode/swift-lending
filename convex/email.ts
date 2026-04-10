@@ -26,6 +26,9 @@ export const sendNotificationEmail = internalAction({
         from: "Swift Capital <notifications@swiftcapitallending.com>",
         to: args.recipientEmail,
         subject: args.title,
+        headers: {
+          "X-Entity-Ref-ID": args.notificationId,
+        },
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #1a1a2e; padding: 24px; border-radius: 8px 8px 0 0;">
