@@ -101,6 +101,11 @@ export default function AdminOverviewPage() {
     );
 
   const barData = Object.entries(monthlyVolume)
+    .sort((a, b) => {
+      const [am, ay] = a[0].split("/").map(Number);
+      const [bm, by_] = b[0].split("/").map(Number);
+      return (ay * 100 + am) - (by_ * 100 + bm);
+    })
     .slice(-6)
     .map(([month, count]) => ({
       month,
@@ -322,17 +327,21 @@ export default function AdminOverviewPage() {
                       <td className="py-2 pr-3">{b.totalPayments}</td>
                       <td className="py-2 pr-3 text-amber-600">{b.latePayments}</td>
                       <td className="py-2">
-                        <span
-                          className={`font-medium ${
-                            b.onTimeRate >= 90
-                              ? "text-green-600"
-                              : b.onTimeRate >= 70
-                                ? "text-amber-600"
-                                : "text-red-600"
-                          }`}
-                        >
-                          {b.onTimeRate}%
-                        </span>
+                        {b.onTimeRate !== null ? (
+                          <span
+                            className={`font-medium ${
+                              b.onTimeRate >= 90
+                                ? "text-green-600"
+                                : b.onTimeRate >= 70
+                                  ? "text-amber-600"
+                                  : "text-red-600"
+                            }`}
+                          >
+                            {b.onTimeRate}%
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
                       </td>
                     </tr>
                   ))}

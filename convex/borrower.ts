@@ -39,6 +39,9 @@ export const submitApplication = mutation({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
 
+    if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
+    if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
+
     const id = await ctx.db.insert("loans", {
       borrowerId: profile._id,
       borrowerName: profile.displayName,
@@ -85,18 +88,16 @@ export const getMyDrawRequests = query({
       .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
       .collect();
 
-    // Attach loan propertyAddress
-    const enriched = await Promise.all(
-      draws.map(async (draw) => {
-        const loan = await ctx.db.get(draw.loanId);
-        return {
-          ...draw,
-          propertyAddress: loan?.propertyAddress ?? "Unknown",
-        };
-      })
+    // Batch-load unique loans instead of N+1
+    const loanIds = [...new Set(draws.map((d) => d.loanId))];
+    const loanMap = new Map(
+      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
     );
 
-    return enriched;
+    return draws.map((draw) => ({
+      ...draw,
+      propertyAddress: loanMap.get(draw.loanId)?.propertyAddress ?? "Unknown",
+    }));
   },
 });
 
@@ -127,6 +128,7 @@ export const submitDrawRequest = mutation({
     if (!loan) throw new Error("Loan not found");
     if (loan.borrowerId !== profile._id) throw new Error("Not your loan");
     if (loan.status !== "funded") throw new Error("Loan must be funded to request draws");
+    if (args.amountRequested <= 0) throw new Error("Draw amount must be greater than 0");
 
     const id = await ctx.db.insert("drawRequests", {
       loanId: args.loanId,

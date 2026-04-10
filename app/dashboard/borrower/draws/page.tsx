@@ -14,7 +14,7 @@ function formatCurrency(value: number): string {
   return "$" + value.toLocaleString();
 }
 
-type TabFilter = "all" | "pending" | "approved" | "denied";
+type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
 export default function BorrowerDrawsPage() {
   const draws = useQuery(api.borrower.getMyDrawRequests);
@@ -36,6 +36,7 @@ export default function BorrowerDrawsPage() {
   const tabs: { label: string; value: TabFilter; count: number }[] = [
     { label: "All", value: "all", count: draws.length },
     { label: "Pending", value: "pending", count: draws.filter((d) => d.status === "pending").length },
+    { label: "Under Review", value: "under_review", count: draws.filter((d) => d.status === "under_review").length },
     { label: "Approved", value: "approved", count: draws.filter((d) => d.status === "approved").length },
     { label: "Denied", value: "denied", count: draws.filter((d) => d.status === "denied").length },
   ];

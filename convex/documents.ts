@@ -1,12 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireUser, requireRole } from "./lib/auth";
+import { requireRole, requireAnyRole } from "./lib/auth";
 import { internal } from "./_generated/api";
 
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    await requireUser(ctx);
+    await requireAnyRole(ctx, ["admin", "borrower"]);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -31,13 +31,21 @@ export const saveDocument = mutation({
     drawRequestId: v.optional(v.id("drawRequests")),
   },
   handler: async (ctx, args) => {
-    const profile = await requireUser(ctx);
+    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
 
     // If borrower, verify loan ownership
     if (profile.role === "borrower" && args.loanId) {
       const loan = await ctx.db.get(args.loanId);
       if (!loan || loan.borrowerId !== profile._id) {
         throw new Error("Not your loan");
+      }
+    }
+
+    // If borrower provides drawRequestId, verify ownership
+    if (profile.role === "borrower" && args.drawRequestId) {
+      const draw = await ctx.db.get(args.drawRequestId);
+      if (!draw || draw.borrowerId !== profile._id) {
+        throw new Error("Not your draw request");
       }
     }
 
@@ -76,7 +84,7 @@ export const saveDocument = mutation({
 export const getDocumentsForLoan = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
-    const profile = await requireUser(ctx);
+    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
 
     // Verify access
     if (profile.role === "borrower") {
@@ -110,15 +118,18 @@ export const getMyDocuments = query({
       .withIndex("by_ownerId", (q) => q.eq("ownerId", profile._id))
       .collect();
 
+    // Batch-load unique loans instead of N+1
+    const loanIds = [...new Set(docs.filter((d) => d.loanId).map((d) => d.loanId!))];
+    const loanMap = new Map(
+      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
+    );
+
     return await Promise.all(
-      docs.map(async (doc) => {
-        const loan = doc.loanId ? await ctx.db.get(doc.loanId) : null;
-        return {
-          ...doc,
-          url: await ctx.storage.getUrl(doc.fileId),
-          propertyAddress: loan?.propertyAddress,
-        };
-      })
+      docs.map(async (doc) => ({
+        ...doc,
+        url: await ctx.storage.getUrl(doc.fileId),
+        propertyAddress: doc.loanId ? loanMap.get(doc.loanId)?.propertyAddress : undefined,
+      }))
     );
   },
 });
@@ -145,17 +156,23 @@ export const getAllDocuments = query({
       docs = docs.filter((d) => d.type === args.type);
     }
 
+    // Batch-load unique owners and loans instead of N+1
+    const ownerIds = [...new Set(docs.map((d) => d.ownerId))];
+    const loanIds = [...new Set(docs.filter((d) => d.loanId).map((d) => d.loanId!))];
+    const ownerMap = new Map(
+      (await Promise.all(ownerIds.map((id) => ctx.db.get(id)))).map((o, i) => [ownerIds[i], o])
+    );
+    const loanMap = new Map(
+      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
+    );
+
     return await Promise.all(
-      docs.map(async (doc) => {
-        const owner = await ctx.db.get(doc.ownerId);
-        const loan = doc.loanId ? await ctx.db.get(doc.loanId) : null;
-        return {
-          ...doc,
-          url: await ctx.storage.getUrl(doc.fileId),
-          ownerName: owner?.displayName ?? "Unknown",
-          propertyAddress: loan?.propertyAddress,
-        };
-      })
+      docs.map(async (doc) => ({
+        ...doc,
+        url: await ctx.storage.getUrl(doc.fileId),
+        ownerName: ownerMap.get(doc.ownerId)?.displayName ?? "Unknown",
+        propertyAddress: doc.loanId ? loanMap.get(doc.loanId)?.propertyAddress : undefined,
+      }))
     );
   },
 });
@@ -163,7 +180,7 @@ export const getAllDocuments = query({
 export const deleteDocument = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const profile = await requireUser(ctx);
+    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Document not found");
 

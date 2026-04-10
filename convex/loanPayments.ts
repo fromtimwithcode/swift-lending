@@ -67,7 +67,12 @@ export const getAllPaymentsSummary = query({
 
     const monthlyRevenue = Object.entries(byMonth)
       .map(([month, amount]) => ({ month, amount }))
-      .sort((a, b) => a.month.localeCompare(b.month));
+      .sort((a, b) => {
+        // Sort numerically by year*100+month (format is "MM/YYYY")
+        const [am, ay] = a.month.split("/").map(Number);
+        const [bm, by_] = b.month.split("/").map(Number);
+        return (ay * 100 + am) - (by_ * 100 + bm);
+      });
 
     return { totalRevenue, latePaymentCount, monthlyRevenue };
   },
@@ -85,6 +90,14 @@ export const recordPayment = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
+
+    if (args.amount <= 0) throw new Error("Payment amount must be positive");
+
+    // Validate date format (MM/DD/YYYY)
+    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+    if (!dateRegex.test(args.paymentDate)) throw new Error("Payment date must be in MM/DD/YYYY format");
+    if (!dateRegex.test(args.dueDate)) throw new Error("Due date must be in MM/DD/YYYY format");
+
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new Error("Loan not found");
 

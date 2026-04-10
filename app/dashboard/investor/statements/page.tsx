@@ -8,7 +8,8 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { DollarSign, TrendingUp, Percent, Wallet, Loader2 } from "lucide-react";
 
 function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (value === 0) return "$0";
+  return "$" + value.toLocaleString();
 }
 
 export default function InvestorStatementsPage() {

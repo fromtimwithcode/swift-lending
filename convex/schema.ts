@@ -128,7 +128,9 @@ const schema = defineSchema({
   })
     .index("by_recipientId", ["recipientId"])
     .index("by_senderId", ["senderId"])
-    .index("by_loanId", ["loanId"]),
+    .index("by_loanId", ["loanId"])
+    .index("by_senderId_recipientId", ["senderId", "recipientId"])
+    .index("by_recipientId_isRead", ["recipientId", "isRead"]),
 
   investments: defineTable({
     investorId: v.id("userProfiles"),
