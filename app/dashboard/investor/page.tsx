@@ -6,11 +6,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Loader2, TrendingUp, DollarSign, Percent, Calendar } from "lucide-react";
-
-function formatCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function InvestorDashboardPage() {
   const stats = useQuery(api.investor.getPortfolioStats);

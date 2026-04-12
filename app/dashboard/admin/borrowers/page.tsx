@@ -12,12 +12,8 @@ import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
 import { Users, Plus, Loader2, UserCheck, UserX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useCallback } from "react";
-
-function formatCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return "$" + value.toLocaleString();
-}
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { formatCurrency } from "@/lib/format";
 
 export default function AdminBorrowersPage() {
   const borrowers = useQuery(api.users.getAllBorrowers);
@@ -40,6 +36,11 @@ export default function AdminBorrowersPage() {
   }, [borrowers, search]);
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
+
+  // Clear selections when filters change so bulk ops don't act on hidden rows
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search]);
 
   if (borrowers === undefined) {
     return (
@@ -106,33 +107,27 @@ export default function AdminBorrowersPage() {
     { header: "Active", key: "isActive" },
   ];
 
-  const handleBulkActivate = async () => {
-    if (!confirm(`Activate ${selectedIds.size} borrower(s)?`)) return;
+  const handleBulkAction = async (isActive: boolean) => {
+    const label = isActive ? "Activate" : "Deactivate";
+    if (!confirm(`${label} ${selectedIds.size} borrower(s)?`)) return;
     const userIds = [...selectedIds] as Id<"userProfiles">[];
     setBulkLoading(true);
     try {
-      await bulkToggle({ userIds, isActive: true });
+      const results = await bulkToggle({ userIds, isActive });
+      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+      if (failures.length > 0) {
+        alert(`${results.length - failures.length} succeeded, ${failures.length} skipped:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
+      }
       setSelectedIds(new Set());
-    } catch (e) {
-      alert("Bulk activate failed. Please try again.");
+    } catch {
+      alert(`Bulk ${label.toLowerCase()} failed. Please try again.`);
     } finally {
       setBulkLoading(false);
     }
   };
 
-  const handleBulkDeactivate = async () => {
-    if (!confirm(`Deactivate ${selectedIds.size} borrower(s)?`)) return;
-    const userIds = [...selectedIds] as Id<"userProfiles">[];
-    setBulkLoading(true);
-    try {
-      await bulkToggle({ userIds, isActive: false });
-      setSelectedIds(new Set());
-    } catch (e) {
-      alert("Bulk deactivate failed. Please try again.");
-    } finally {
-      setBulkLoading(false);
-    }
-  };
+  const handleBulkActivate = () => handleBulkAction(true);
+  const handleBulkDeactivate = () => handleBulkAction(false);
 
   return (
     <div className="space-y-6">
@@ -180,16 +175,18 @@ export default function AdminBorrowersPage() {
       ) : (
         <EmptyState
           icon={Users}
-          title="No borrowers yet"
-          description="Add your first borrower to start creating loans."
+          title={search ? "No borrowers match your search" : "No borrowers yet"}
+          description={search ? "Try adjusting your search terms." : "Add your first borrower to start creating loans."}
           action={
-            <Link
-              href="/dashboard/admin/borrowers/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-            >
-              <Plus className="size-4" />
-              Add Borrower
-            </Link>
+            !search ? (
+              <Link
+                href="/dashboard/admin/borrowers/new"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              >
+                <Plus className="size-4" />
+                Add Borrower
+              </Link>
+            ) : undefined
           }
         />
       )}

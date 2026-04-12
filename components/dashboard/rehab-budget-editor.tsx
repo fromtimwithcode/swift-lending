@@ -5,22 +5,10 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { Loader2, Plus, Pencil, Save, X, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { formatCurrency } from "@/lib/format";
+import { REHAB_CATEGORIES } from "@/convex/lib/constants";
 
-const CATEGORIES = [
-  { value: "demo", label: "Demo" },
-  { value: "exterior", label: "Exterior" },
-  { value: "interior", label: "Interior" },
-  { value: "dumpster", label: "Dumpster" },
-  { value: "miscellaneous", label: "Miscellaneous" },
-  { value: "overage", label: "Overage" },
-] as const;
-
-type Category = (typeof CATEGORIES)[number]["value"];
-
-function formatCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return "$" + value.toLocaleString();
-}
+type Category = (typeof REHAB_CATEGORIES)[number]["value"];
 
 export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
   const items = useQuery(api.admin.getRehabBudgetItems, { loanId });
@@ -60,7 +48,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
   const remaining = totalAllocated - totalActual;
 
   const handleAdd = async () => {
-    if (!form.itemName || !form.allocatedAmount) return;
+    if (!form.itemName.trim() || !form.allocatedAmount) return;
     setAdding(true);
     try {
       await addItem({
@@ -187,7 +175,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                   }))
                 }
               >
-                {CATEGORIES.map((c) => (
+                {REHAB_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
                   </option>
@@ -285,7 +273,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                 const variance =
                   item.allocatedAmount - (item.actualAmount ?? 0);
                 const categoryLabel =
-                  CATEGORIES.find((c) => c.value === item.category)?.label ??
+                  REHAB_CATEGORIES.find((c) => c.value === item.category)?.label ??
                   item.category;
 
                 return (
@@ -302,7 +290,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                             }))
                           }
                         >
-                          {CATEGORIES.map((c) => (
+                          {REHAB_CATEGORIES.map((c) => (
                             <option key={c.value} value={c.value}>
                               {c.label}
                             </option>

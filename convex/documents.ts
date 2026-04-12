@@ -1,7 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireRole, requireAnyRole } from "./lib/auth";
+import { requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
+
+const documentTypeValidator = v.union(
+  v.literal("articles"),
+  v.literal("operating_agreement"),
+  v.literal("closing_statement"),
+  v.literal("wire_instructions"),
+  v.literal("property_photo"),
+  v.literal("receipt"),
+  v.literal("lien_waiver"),
+  v.literal("rehab_budget"),
+  v.literal("other")
+);
 
 export const generateUploadUrl = mutation({
   args: {},
@@ -16,17 +28,7 @@ export const saveDocument = mutation({
     fileId: v.id("_storage"),
     fileName: v.string(),
     fileSize: v.optional(v.number()),
-    type: v.union(
-      v.literal("articles"),
-      v.literal("operating_agreement"),
-      v.literal("closing_statement"),
-      v.literal("wire_instructions"),
-      v.literal("property_photo"),
-      v.literal("receipt"),
-      v.literal("lien_waiver"),
-      v.literal("rehab_budget"),
-      v.literal("other")
-    ),
+    type: documentTypeValidator,
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
   },
@@ -59,14 +61,11 @@ export const saveDocument = mutation({
       fileSize: args.fileSize,
     });
 
-    // If borrower uploads a document with a loanId, notify all admins
-    if (profile.role === "borrower" && args.loanId) {
+    // If borrower uploads a document with a loanId, notify all admins/developers
+    if (!isAdminLike(profile.role) && args.loanId) {
       const loan = await ctx.db.get(args.loanId);
-      const admins = await ctx.db
-        .query("userProfiles")
-        .withIndex("by_role", (q) => q.eq("role", "admin"))
-        .collect();
-      for (const admin of admins) {
+      const adminLikeUsers = await getAdminLikeUsers(ctx);
+      for (const admin of adminLikeUsers) {
         await ctx.runMutation(internal.notifications.createNotification, {
           recipientId: admin._id,
           type: "document_uploaded",
@@ -137,23 +136,31 @@ export const getMyDocuments = query({
 export const getAllDocuments = query({
   args: {
     loanId: v.optional(v.id("loans")),
-    type: v.optional(v.string()),
+    type: v.optional(documentTypeValidator),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, "admin");
 
     let docs;
-    if (args.loanId) {
+    if (args.loanId && args.type) {
+      docs = await ctx.db
+        .query("documents")
+        .withIndex("by_loanId_and_type", (q) =>
+          q.eq("loanId", args.loanId).eq("type", args.type!)
+        )
+        .collect();
+    } else if (args.loanId) {
       docs = await ctx.db
         .query("documents")
         .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
         .collect();
+    } else if (args.type) {
+      docs = await ctx.db
+        .query("documents")
+        .withIndex("by_type", (q) => q.eq("type", args.type!))
+        .take(1000);
     } else {
-      docs = await ctx.db.query("documents").collect();
-    }
-
-    if (args.type) {
-      docs = docs.filter((d) => d.type === args.type);
+      docs = await ctx.db.query("documents").take(1000);
     }
 
     // Batch-load unique owners and loans instead of N+1
@@ -184,12 +191,21 @@ export const deleteDocument = mutation({
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Document not found");
 
-    // Verify ownership or admin
-    if (profile.role !== "admin" && doc.ownerId !== profile._id) {
+    // Verify ownership or admin/developer
+    if (!isAdminLike(profile.role) && doc.ownerId !== profile._id) {
       throw new Error("Not authorized");
     }
 
     await ctx.storage.delete(doc.fileId);
     await ctx.db.delete(args.id);
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: profile._id,
+      userName: profile.displayName,
+      action: "document.delete",
+      entityType: "document",
+      entityId: args.id,
+      details: `Deleted document "${doc.fileName}"`,
+    });
   },
 });

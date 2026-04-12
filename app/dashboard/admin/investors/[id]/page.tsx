@@ -13,15 +13,12 @@ import {
   Save,
   X,
   Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-
-function formatCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function AdminInvestorDetailPage() {
   const params = useParams();
@@ -31,8 +28,10 @@ export default function AdminInvestorDetailPage() {
   const updateProfile = useMutation(api.users.updateUserProfile);
   const createInvestment = useMutation(api.admin.createInvestment);
   const updateInvestment = useMutation(api.admin.updateInvestment);
+  const deleteInvestmentMut = useMutation(api.admin.deleteInvestment);
 
   const [error, setError] = useState("");
+  const [deletingInvestment, setDeletingInvestment] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -108,6 +107,14 @@ export default function AdminInvestorDetailPage() {
   };
 
   const handleSaveProfile = async () => {
+    if (!editData.displayName.trim()) {
+      setError("Display name is required");
+      return;
+    }
+    if (!editData.email.trim()) {
+      setError("Email is required");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -127,8 +134,8 @@ export default function AdminInvestorDetailPage() {
   };
 
   const handleAddInvestment = async () => {
-    if (!investForm.investmentAmount || !investForm.inceptionDate || !investForm.interestRate || !investForm.nextPaymentDate) {
-      alert("Please fill in all required fields");
+    if (!investForm.investmentAmount.trim() || !investForm.inceptionDate.trim() || !investForm.interestRate.trim() || !investForm.nextPaymentDate.trim()) {
+      setError("Please fill in all required fields");
       return;
     }
     setAddingInvestment(true);
@@ -174,6 +181,15 @@ export default function AdminInvestorDetailPage() {
 
   const handleSaveInvestment = async () => {
     if (!editingInvestmentId) return;
+    if (!editInvestForm.investmentAmount.trim() || !editInvestForm.interestRate.trim() || !editInvestForm.nextPaymentDate.trim()) {
+      setError("Please fill in all required fields");
+      return;
+    }
+    const parsedDate = new Date(editInvestForm.nextPaymentDate).getTime();
+    if (isNaN(parsedDate)) {
+      setError("Invalid next payment date");
+      return;
+    }
     setSavingInvestment(true);
     setError("");
     try {
@@ -181,8 +197,8 @@ export default function AdminInvestorDetailPage() {
         id: editingInvestmentId as Id<"investments">,
         investmentAmount: Number(editInvestForm.investmentAmount),
         interestRate: Number(editInvestForm.interestRate),
-        totalPaymentsReceived: Number(editInvestForm.totalPaymentsReceived),
-        nextPaymentDate: new Date(editInvestForm.nextPaymentDate).getTime(),
+        totalPaymentsReceived: Number(editInvestForm.totalPaymentsReceived) || 0,
+        nextPaymentDate: parsedDate,
         notes: editInvestForm.notes || undefined,
       });
       setEditingInvestmentId(null);
@@ -190,6 +206,19 @@ export default function AdminInvestorDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to update investment");
     } finally {
       setSavingInvestment(false);
+    }
+  };
+
+  const handleDeleteInvestment = async (investmentId: string) => {
+    if (!confirm("Delete this investment?")) return;
+    setDeletingInvestment(investmentId);
+    setError("");
+    try {
+      await deleteInvestmentMut({ id: investmentId as Id<"investments"> });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete investment");
+    } finally {
+      setDeletingInvestment(null);
     }
   };
 
@@ -317,15 +346,31 @@ export default function AdminInvestorDetailPage() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              startEditInvestment(row);
-            }}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Pencil className="size-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                startEditInvestment(row);
+              }}
+              className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteInvestment(row._id);
+              }}
+              disabled={deletingInvestment === row._id}
+              className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
+            >
+              {deletingInvestment === row._id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+            </button>
+          </div>
         ),
     },
   ];

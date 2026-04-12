@@ -13,13 +13,10 @@ import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
 import { Landmark, Plus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { exportToCsv } from "@/lib/export";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 type TabFilter = "all" | "pipeline" | "closed";
 
@@ -78,6 +75,12 @@ export default function AdminLoansPage() {
   }, [loans, activeTab, search]);
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
+
+  // Clear selections when filters change so bulk ops don't act on hidden rows
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setBulkStatusOpen(false);
+  }, [search, activeTab]);
 
   if (loans === undefined) {
     return (
@@ -173,13 +176,17 @@ export default function AdminLoansPage() {
     const loanIds = [...selectedIds] as Id<"loans">[];
     setBulkLoading(true);
     try {
-      await bulkUpdateStatus({
+      const results = await bulkUpdateStatus({
         loanIds,
         status: status as (typeof LOAN_STATUSES)[number],
       });
+      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+      if (failures.length > 0) {
+        alert(`${results.length - failures.length} succeeded, ${failures.length} failed:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
+      }
       setSelectedIds(new Set());
       setBulkStatusOpen(false);
-    } catch (e) {
+    } catch {
       alert("Bulk status update failed. Please try again.");
     } finally {
       setBulkLoading(false);
@@ -238,14 +245,14 @@ export default function AdminLoansPage() {
       ) : (
         <EmptyState
           icon={Landmark}
-          title={search ? "No loans match your search" : "No loans yet"}
+          title={search || activeTab !== "all" ? "No loans match your filters" : "No loans yet"}
           description={
-            search
-              ? "Try adjusting your search terms."
+            search || activeTab !== "all"
+              ? "Try adjusting your search or filter."
               : "Create your first loan to get started."
           }
           action={
-            !search ? (
+            !search && activeTab === "all" ? (
               <Link
                 href="/dashboard/admin/loans/new"
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
@@ -260,7 +267,7 @@ export default function AdminLoansPage() {
 
       <BulkActionBar
         selectedCount={selectedIds.size}
-        onClear={() => setSelectedIds(new Set())}
+        onClear={() => { setSelectedIds(new Set()); setBulkStatusOpen(false); }}
         disabled={bulkLoading}
         actions={[
           {

@@ -9,10 +9,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { HandCoins, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 

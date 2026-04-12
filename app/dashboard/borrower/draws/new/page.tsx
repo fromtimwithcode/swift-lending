@@ -8,24 +8,25 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function NewDrawRequestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedLoanId = searchParams.get("loanId");
 
-  const loans = useQuery(api.borrower.getMyLoans);
-  const submitDraw = useMutation(api.borrower.submitDrawRequest);
-
   const [loanId, setLoanId] = useState(preselectedLoanId ?? "");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const loans = useQuery(api.borrower.getMyLoans);
+  const draws = useQuery(
+    api.borrower.getDrawRequestsForLoan,
+    loanId ? { loanId: loanId as Id<"loans"> } : "skip"
+  );
+  const submitDraw = useMutation(api.borrower.submitDrawRequest);
 
   if (loans === undefined) {
     return (
@@ -38,10 +39,21 @@ export default function NewDrawRequestPage() {
   const fundedLoans = loans.filter((l) => l.status === "funded");
   const selectedLoan = fundedLoans.find((l) => l._id === loanId);
 
+  const pendingTotal = (draws ?? [])
+    .filter((d) => d.status === "pending" || d.status === "under_review")
+    .reduce((sum, d) => sum + d.amountRequested, 0);
+  const available = selectedLoan?.drawFundsTotal
+    ? selectedLoan.drawFundsTotal - (selectedLoan.drawFundsUsed ?? 0) - pendingTotal
+    : undefined;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loanId || !amount || !description) {
+    if (!loanId || !amount || !description.trim()) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (available !== undefined && Number(amount) > available) {
+      setError(`Amount exceeds available funds (${formatCurrency(available)}).`);
       return;
     }
 
@@ -121,15 +133,20 @@ export default function NewDrawRequestPage() {
                       {formatCurrency(selectedLoan.drawFundsUsed ?? 0)}
                     </span>
                   </div>
+                  {pendingTotal > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span className="text-muted-foreground">Pending</span>
+                      <span className="font-medium text-amber-600">
+                        {formatCurrency(pendingTotal)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between mt-1 border-t border-border pt-1">
                     <span className="text-muted-foreground font-medium">
-                      Remaining
+                      Available
                     </span>
                     <span className="font-semibold text-primary">
-                      {formatCurrency(
-                        selectedLoan.drawFundsTotal -
-                          (selectedLoan.drawFundsUsed ?? 0)
-                      )}
+                      {formatCurrency(available ?? 0)}
                     </span>
                   </div>
                 </div>

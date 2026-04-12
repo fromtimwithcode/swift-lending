@@ -2,6 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireUser } from "./lib/auth";
 import { internal } from "./_generated/api";
+import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
 
 export const getMyNotifications = query({
   args: {},
@@ -45,15 +46,21 @@ export const markAllRead = mutation({
   args: {},
   handler: async (ctx) => {
     const profile = await requireUser(ctx);
-    const unread = await ctx.db
-      .query("notifications")
-      .withIndex("by_recipientId_and_isRead", (q) =>
-        q.eq("recipientId", profile._id).eq("isRead", false)
-      )
-      .take(200);
-    for (const n of unread) {
-      await ctx.db.patch(n._id, { isRead: true });
-    }
+    // Loop in batches to handle any number of unread notifications
+    let marked = 0;
+    do {
+      const unread = await ctx.db
+        .query("notifications")
+        .withIndex("by_recipientId_and_isRead", (q) =>
+          q.eq("recipientId", profile._id).eq("isRead", false)
+        )
+        .take(200);
+      if (unread.length === 0) break;
+      for (const n of unread) {
+        await ctx.db.patch(n._id, { isRead: true });
+      }
+      marked = unread.length;
+    } while (marked === 200);
   },
 });
 
@@ -63,7 +70,9 @@ export const bulkMarkAsRead = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
-    if (args.notificationIds.length > 50) throw new Error("Maximum 50 items per bulk operation");
+    if (args.notificationIds.length > MAX_BULK_OPERATION_SIZE) {
+      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+    }
     for (const notifId of args.notificationIds) {
       const notification = await ctx.db.get(notifId);
       if (!notification) continue;
@@ -79,6 +88,7 @@ export const createNotification = internalMutation({
     type: v.union(
       v.literal("loan_status_changed"),
       v.literal("draw_reviewed"),
+      v.literal("draw_submitted"),
       v.literal("application_submitted"),
       v.literal("document_uploaded"),
       v.literal("message_received"),
@@ -97,9 +107,9 @@ export const createNotification = internalMutation({
       emailSent: false,
     });
 
-    // Look up recipient email for email notification
+    // Look up recipient email for email notification (skip deactivated users)
     const recipient = await ctx.db.get(args.recipientId);
-    if (recipient) {
+    if (recipient && recipient.isActive) {
       await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
         notificationId: id,
         recipientEmail: recipient.email,

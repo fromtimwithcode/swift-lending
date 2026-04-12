@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activityLog from "../activityLog.js";
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as borrower from "../borrower.js";
@@ -18,6 +19,7 @@ import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as investor from "../investor.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_constants from "../lib/constants.js";
 import type * as loanPayments from "../loanPayments.js";
 import type * as messages from "../messages.js";
 import type * as notifications from "../notifications.js";
@@ -30,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activityLog: typeof activityLog;
   admin: typeof admin;
   auth: typeof auth;
   borrower: typeof borrower;
@@ -40,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   investor: typeof investor;
   "lib/auth": typeof lib_auth;
+  "lib/constants": typeof lib_constants;
   loanPayments: typeof loanPayments;
   messages: typeof messages;
   notifications: typeof notifications;

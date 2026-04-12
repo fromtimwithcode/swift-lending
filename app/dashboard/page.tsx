@@ -14,6 +14,7 @@ export default function DashboardPage() {
     if (profile) {
       switch (profile.role) {
         case "admin":
+        case "developer":
           router.replace("/dashboard/admin");
           break;
         case "borrower":

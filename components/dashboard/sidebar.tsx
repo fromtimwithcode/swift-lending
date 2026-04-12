@@ -16,6 +16,7 @@ import {
   X,
   ChevronLeft,
   Bell,
+  Activity,
 } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
@@ -68,6 +69,11 @@ const adminNav: NavItem[] = [
     label: "Messages",
     href: "/dashboard/admin/messages",
     icon: <MessageSquare className="size-5" />,
+  },
+  {
+    label: "Activity Log",
+    href: "/dashboard/admin/activity",
+    icon: <Activity className="size-5" />,
   },
   {
     label: "Settings",
@@ -140,6 +146,7 @@ const investorNav: NavItem[] = [
 function getNavForRole(role: string): NavItem[] {
   switch (role) {
     case "admin":
+    case "developer":
       return adminNav;
     case "borrower":
       return borrowerNav;

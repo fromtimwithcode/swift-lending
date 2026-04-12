@@ -5,6 +5,16 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 import { internal } from "./_generated/api";
 
+/** Escape HTML entities to prevent injection in email templates */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export const sendNotificationEmail = internalAction({
   args: {
     notificationId: v.id("notifications"),
@@ -35,8 +45,8 @@ export const sendNotificationEmail = internalAction({
               <h2 style="color: #fff; margin: 0;">Swift Capital Lending</h2>
             </div>
             <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-              <p style="margin: 0 0 8px;">Hi ${args.recipientName},</p>
-              <p style="margin: 0 0 16px;">${args.body}</p>
+              <p style="margin: 0 0 8px;">Hi ${escapeHtml(args.recipientName)},</p>
+              <p style="margin: 0 0 16px;">${escapeHtml(args.body)}</p>
               <a href="${process.env.SITE_URL ?? "https://swiftcapitallending.com"}/dashboard"
                  style="display: inline-block; background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none;">
                 View in Dashboard

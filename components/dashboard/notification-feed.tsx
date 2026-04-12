@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { PageHeader } from "./page-header";
 import { Loader2, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
+import type { Id } from "@/convex/_generated/dataModel";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -31,7 +32,7 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
     );
   }
 
-  const getLink = (n: { type: string; loanId?: string; drawRequestId?: string }) => {
+  const getLink = (n: { type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     const base = `/dashboard/${rolePrefix}`;
     if (n.type === "message_received") return `${base}/messages`;
     if (n.type === "draw_reviewed" && n.drawRequestId) {
@@ -45,9 +46,9 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
     return null;
   };
 
-  const handleClick = async (n: { _id: string; isRead: boolean; type: string; loanId?: string; drawRequestId?: string }) => {
+  const handleClick = async (n: { _id: Id<"notifications">; isRead: boolean; type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     if (!n.isRead) {
-      await markAsRead({ id: n._id as never });
+      await markAsRead({ id: n._id });
     }
     const link = getLink(n);
     if (link) router.push(link);
@@ -80,7 +81,7 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
           {notifications.map((n) => (
             <button
               key={n._id}
-              onClick={() => handleClick(n as never)}
+              onClick={() => handleClick(n)}
               className={`flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/50 ${
                 !n.isRead ? "border-l-4 border-l-primary" : ""
               }`}

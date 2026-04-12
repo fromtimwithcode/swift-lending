@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
+import type { Id } from "@/convex/_generated/dataModel";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -37,9 +38,9 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const rolePrefix = me?.role === "admin" ? "admin" : me?.role === "investor" ? "investor" : "borrower";
+  const rolePrefix = (me?.role === "admin" || me?.role === "developer") ? "admin" : me?.role === "investor" ? "investor" : "borrower";
 
-  const getLink = (n: { type: string; loanId?: string; drawRequestId?: string }) => {
+  const getLink = (n: { type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     const base = `/dashboard/${rolePrefix}`;
     if (n.type === "message_received") return `${base}/messages`;
     if (n.type === "draw_reviewed" && n.drawRequestId) {
@@ -53,9 +54,9 @@ export function NotificationBell() {
     return `${base}/notifications`;
   };
 
-  const handleClick = async (n: { _id: string; isRead: boolean; type: string; loanId?: string; drawRequestId?: string }) => {
+  const handleClick = async (n: { _id: Id<"notifications">; isRead: boolean; type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     if (!n.isRead) {
-      await markAsRead({ id: n._id as never });
+      await markAsRead({ id: n._id });
     }
     setOpen(false);
     router.push(getLink(n));
@@ -100,7 +101,7 @@ export function NotificationBell() {
               recent.map((n) => (
                 <button
                   key={n._id}
-                  onClick={() => handleClick(n as never)}
+                  onClick={() => handleClick(n)}
                   className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
                 >
                   {!n.isRead && (

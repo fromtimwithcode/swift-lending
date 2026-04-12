@@ -6,10 +6,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { DataTable, type Column } from "./data-table";
 import { Loader2, MapPin, RefreshCw } from "lucide-react";
 import { useState } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 interface PropertyCompsProps {
   loanId: Id<"loans">;
@@ -24,6 +21,8 @@ export function PropertyComps({ loanId }: PropertyCompsProps) {
     setFetching(true);
     try {
       await fetchComps({ loanId });
+    } catch {
+      alert("Failed to fetch comps. Please try again.");
     } finally {
       setFetching(false);
     }
@@ -53,7 +52,7 @@ export function PropertyComps({ loanId }: PropertyCompsProps) {
       key: "distanceMiles",
       header: "Distance",
       sortable: true,
-      render: (row) => `${row.distanceMiles} mi`,
+      render: (row) => `${(row.distanceMiles as number).toFixed(1)} mi`,
     },
     { key: "yearBuilt", header: "Year Built", sortable: true },
     {
