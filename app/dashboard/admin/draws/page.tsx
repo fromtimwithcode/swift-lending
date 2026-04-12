@@ -13,11 +13,8 @@ import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
 import { HandCoins, Loader2, Check, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useCallback } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { formatCurrency } from "@/lib/format";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
@@ -49,6 +46,11 @@ export default function AdminDrawsPage() {
   }, [draws, activeTab, search]);
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
+
+  // Clear selections when filters change so bulk ops don't act on hidden rows
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, activeTab]);
 
   if (draws === undefined) {
     return (
@@ -103,33 +105,27 @@ export default function AdminDrawsPage() {
     { header: "Status", key: "status" },
   ];
 
-  const handleBulkApprove = async () => {
-    if (!confirm(`Approve ${selectedIds.size} draw request(s)?`)) return;
+  const handleBulkAction = async (status: "approved" | "denied") => {
+    const label = status === "approved" ? "Approve" : "Deny";
+    if (!confirm(`${label} ${selectedIds.size} draw request(s)?`)) return;
     const drawIds = [...selectedIds] as Id<"drawRequests">[];
     setBulkLoading(true);
     try {
-      await bulkReview({ drawIds, status: "approved" });
+      const results = await bulkReview({ drawIds, status });
+      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+      if (failures.length > 0) {
+        alert(`${results.length - failures.length} succeeded, ${failures.length} failed:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
+      }
       setSelectedIds(new Set());
-    } catch (e) {
-      alert("Bulk approve failed. Please try again.");
+    } catch {
+      alert(`Bulk ${label.toLowerCase()} failed. Please try again.`);
     } finally {
       setBulkLoading(false);
     }
   };
 
-  const handleBulkDeny = async () => {
-    if (!confirm(`Deny ${selectedIds.size} draw request(s)?`)) return;
-    const drawIds = [...selectedIds] as Id<"drawRequests">[];
-    setBulkLoading(true);
-    try {
-      await bulkReview({ drawIds, status: "denied" });
-      setSelectedIds(new Set());
-    } catch (e) {
-      alert("Bulk deny failed. Please try again.");
-    } finally {
-      setBulkLoading(false);
-    }
-  };
+  const handleBulkApprove = () => handleBulkAction("approved");
+  const handleBulkDeny = () => handleBulkAction("denied");
 
   return (
     <div className="space-y-6">
@@ -174,8 +170,8 @@ export default function AdminDrawsPage() {
       ) : (
         <EmptyState
           icon={HandCoins}
-          title="No draw requests"
-          description="Draw requests from borrowers will appear here."
+          title={search || activeTab !== "all" ? "No matching draw requests" : "No draw requests"}
+          description={search || activeTab !== "all" ? "Try adjusting your search or filter." : "Draw requests from borrowers will appear here."}
         />
       )}
 

@@ -9,10 +9,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { Landmark, Plus, Loader2, HandCoins } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);

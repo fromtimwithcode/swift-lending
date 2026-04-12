@@ -6,11 +6,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { DollarSign, TrendingUp, Percent, Wallet, Loader2 } from "lucide-react";
-
-function formatCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function InvestorStatementsPage() {
   const statement = useQuery(api.investor.getInvestmentStatement);

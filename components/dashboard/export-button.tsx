@@ -49,6 +49,8 @@ export function ExportButton({
       } else {
         await exportToPdf(filename, columns, data, title);
       }
+    } catch {
+      alert("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }

@@ -47,6 +47,13 @@ export function FileUploadDialog({
 
   const handleUpload = async () => {
     if (!file) return;
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError("File size must be under 10MB.");
+      return;
+    }
+
     setUploading(true);
     setError("");
 
@@ -57,6 +64,7 @@ export function FileUploadDialog({
         headers: { "Content-Type": file.type },
         body: file,
       });
+      if (!result.ok) throw new Error("Upload failed: " + result.statusText);
       const { storageId } = await result.json();
 
       await saveDocument({
@@ -116,6 +124,7 @@ export function FileUploadDialog({
             <div className="relative">
               <input
                 type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />

@@ -74,7 +74,7 @@ export function DataTable<T extends Record<string, unknown>>({
   }, [data, sortKey, sortDir]);
 
   const allVisibleIds = useMemo(
-    () => new Set(sortedData.map((row) => String(row[idKey]))),
+    () => new Set(sortedData.filter((row) => row[idKey] != null).map((row) => String(row[idKey]))),
     [sortedData, idKey]
   );
 

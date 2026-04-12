@@ -9,10 +9,7 @@ import { Loader2, ArrowLeft, Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 function DetailRow({
   label,
@@ -41,6 +38,7 @@ export default function AdminDrawDetailPage() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
@@ -54,12 +52,14 @@ export default function AdminDrawDetailPage() {
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {
     setSaving(true);
     setError("");
+    setSuccess("");
     try {
       await reviewDraw({
         id,
         status,
         adminNotes: notes || undefined,
       });
+      setSuccess(`Draw request ${status === "approved" ? "approved" : status === "denied" ? "denied" : "updated"} successfully.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update draw request");
     } finally {
@@ -106,6 +106,7 @@ export default function AdminDrawDetailPage() {
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
+          {success && <p className="text-sm text-green-600">{success}</p>}
           {isTerminal && (
             <p className="text-sm text-muted-foreground">
               This draw request has been {draw.status} and cannot be changed.

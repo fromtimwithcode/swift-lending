@@ -10,10 +10,7 @@ import { Loader2, ArrowLeft, Download, MessageSquare, Pencil, Save, X } from "lu
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 export default function AdminBorrowerDetailPage() {
   const params = useParams();
@@ -23,6 +20,7 @@ export default function AdminBorrowerDetailPage() {
   const toggleActive = useMutation(api.users.toggleUserActive);
   const updateProfile = useMutation(api.users.updateUserProfile);
 
+  const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,7 +66,16 @@ export default function AdminBorrowerDetailPage() {
   };
 
   const handleSaveProfile = async () => {
+    if (!editData.displayName.trim()) {
+      setError("Display name is required");
+      return;
+    }
+    if (!editData.email.trim()) {
+      setError("Email is required");
+      return;
+    }
     setSaving(true);
+    setError("");
     try {
       await updateProfile({
         id,
@@ -79,7 +86,7 @@ export default function AdminBorrowerDetailPage() {
       });
       setEditing(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update profile");
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -300,6 +307,10 @@ export default function AdminBorrowerDetailPage() {
           )}
         </div>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-500">{error}</p>
+      )}
 
       {/* Loans */}
       <div className="rounded-xl border border-border bg-card p-6">

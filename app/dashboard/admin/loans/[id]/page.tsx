@@ -19,17 +19,13 @@ import {
   Download,
   FileText,
   Trash2,
-  ChevronDown,
   ChevronUp,
   Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 const STATUSES = [
   "submitted",
@@ -64,10 +60,9 @@ export default function LoanDetailPage() {
   const router = useRouter();
   const id = params.id as Id<"loans">;
   const loan = useQuery(api.admin.getLoan, { id });
-  const drawRequests = useQuery(api.draws.getAllDrawRequests, {});
+  const drawRequests = useQuery(api.draws.getDrawRequestsForLoan, { loanId: id });
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
   const closingStatementUrl = useQuery(api.admin.getClosingStatementUrl, { loanId: id });
-  const paymentStats = useQuery(api.loanPayments.getPaymentStats, { loanId: id });
   const payments = useQuery(api.loanPayments.getPaymentsForLoan, { loanId: id });
   const updateStatus = useMutation(api.admin.updateLoanStatus);
   const updateLoan = useMutation(api.admin.updateLoan);
@@ -92,8 +87,18 @@ export default function LoanDetailPage() {
     notes: "",
   });
 
-  // Filter draws for this loan
-  const loanDraws = drawRequests?.filter((d) => d.loanId === id) ?? [];
+  const loanDraws = drawRequests ?? [];
+
+  // Compute payment stats client-side from payments data (avoids duplicate query)
+  const paymentStats = payments && payments.length > 0 ? (() => {
+    const totalReceived = payments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0);
+    const paymentCount = payments.length;
+    const onTimeCount = payments.filter((p) => p.status === "on_time").length;
+    const lateCount = payments.filter((p) => p.status === "late").length;
+    const missedCount = payments.filter((p) => p.status === "missed").length;
+    const partialCount = payments.filter((p) => p.status === "partial").length;
+    return { totalReceived, paymentCount, onTimeCount, lateCount, missedCount, partialCount };
+  })() : null;
 
   if (loan === undefined) {
     return (
@@ -189,8 +194,11 @@ export default function LoanDetailPage() {
         headers: { "Content-Type": file.type },
         body: file,
       });
+      if (!result.ok) throw new Error("Upload failed: " + result.statusText);
       const { storageId } = await result.json();
       await attachClosingStatement({ loanId: id, fileId: storageId });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to upload closing statement");
     } finally {
       setClosingUploading(false);
     }
@@ -568,26 +576,28 @@ export default function LoanDetailPage() {
           <h3 className="text-sm font-medium text-muted-foreground">
             Payment History
           </h3>
-          <button
-            onClick={() => {
-              setPaymentFormOpen((v) => !v);
-              if (!paymentFormOpen) {
-                setPaymentData((prev) => ({
-                  ...prev,
-                  amount: loan.monthlyPayment ? String(loan.monthlyPayment) : "",
-                }));
-              }
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-          >
-            {paymentFormOpen ? <ChevronUp className="size-3" /> : <Plus className="size-3" />}
-            Record Payment
-          </button>
+          {["funded", "closed", "sent_to_title"].includes(loan.status) && (
+            <button
+              onClick={() => {
+                setPaymentFormOpen((v) => !v);
+                if (!paymentFormOpen) {
+                  setPaymentData((prev) => ({
+                    ...prev,
+                    amount: loan.monthlyPayment ? String(loan.monthlyPayment) : "",
+                  }));
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+            >
+              {paymentFormOpen ? <ChevronUp className="size-3" /> : <Plus className="size-3" />}
+              Record Payment
+            </button>
+          )}
         </div>
 
         {/* Payment Stats */}
-        {paymentStats && paymentStats.paymentCount > 0 && (
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {paymentStats && (
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Total Received</p>
               <p className="text-sm font-semibold">{formatCurrency(paymentStats.totalReceived)}</p>
@@ -599,14 +609,16 @@ export default function LoanDetailPage() {
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">On Time</p>
               <p className="text-sm font-semibold text-green-600">
-                {paymentStats.paymentCount > 0
-                  ? Math.round((paymentStats.onTimeCount / paymentStats.paymentCount) * 100)
-                  : 0}%
+                {Math.round((paymentStats.onTimeCount / paymentStats.paymentCount) * 100)}%
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Late</p>
               <p className="text-sm font-semibold text-amber-600">{paymentStats.lateCount}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Partial</p>
+              <p className="text-sm font-semibold text-orange-600">{paymentStats.partialCount}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Missed</p>

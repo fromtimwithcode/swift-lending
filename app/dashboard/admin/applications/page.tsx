@@ -12,10 +12,7 @@ import { ExportButton } from "@/components/dashboard/export-button";
 import { FileText, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback } from "react";
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 type TabFilter = "all" | "submitted" | "under_review" | "additional_info_needed";
 
@@ -153,8 +150,8 @@ export default function AdminApplicationsPage() {
       ) : (
         <EmptyState
           icon={FileText}
-          title="No pending applications"
-          description="New loan applications from borrowers will appear here."
+          title={search || activeTab !== "all" ? "No matching applications" : "No pending applications"}
+          description={search || activeTab !== "all" ? "Try adjusting your search or filter." : "New loan applications from borrowers will appear here."}
         />
       )}
     </div>

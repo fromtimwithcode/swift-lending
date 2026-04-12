@@ -12,11 +12,7 @@ import { Loader2, ArrowLeft, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-
-
-function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
-}
+import { formatCurrency } from "@/lib/format";
 
 function DetailRow({
   label,
@@ -170,34 +166,52 @@ export default function BorrowerLoanDetailPage() {
           <h3 className="mb-4 text-sm font-medium text-muted-foreground">
             Draw Funds
           </h3>
-          <div className="space-y-3">
-            <DetailRow
-              label="Total Draw Funds"
-              value={
-                loan.drawFundsTotal
-                  ? formatCurrency(loan.drawFundsTotal)
-                  : undefined
-              }
-            />
-            <DetailRow
-              label="Used"
-              value={
-                loan.drawFundsUsed
-                  ? formatCurrency(loan.drawFundsUsed)
-                  : "$0"
-              }
-            />
-            <DetailRow
-              label="Remaining"
-              value={
-                loan.drawFundsTotal
-                  ? formatCurrency(
-                      loan.drawFundsTotal - (loan.drawFundsUsed ?? 0)
-                    )
-                  : undefined
-              }
-            />
-          </div>
+          {(() => {
+            const pendingTotal = (draws ?? [])
+              .filter((d) => (d.status as string) === "pending" || (d.status as string) === "under_review")
+              .reduce((sum, d) => sum + (d.amountRequested as number), 0);
+            const available = loan.drawFundsTotal
+              ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal
+              : undefined;
+            return (
+              <div className="space-y-3">
+                <DetailRow
+                  label="Total Draw Funds"
+                  value={
+                    loan.drawFundsTotal
+                      ? formatCurrency(loan.drawFundsTotal)
+                      : undefined
+                  }
+                />
+                <DetailRow
+                  label="Used"
+                  value={
+                    loan.drawFundsUsed
+                      ? formatCurrency(loan.drawFundsUsed)
+                      : "$0"
+                  }
+                />
+                {pendingTotal > 0 && (
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+                    <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
+                      Pending
+                    </span>
+                    <span className="text-sm text-amber-600 font-medium">
+                      {formatCurrency(pendingTotal)}
+                    </span>
+                  </div>
+                )}
+                <DetailRow
+                  label="Available"
+                  value={
+                    available !== undefined
+                      ? formatCurrency(available)
+                      : undefined
+                  }
+                />
+              </div>
+            );
+          })()}
         </div>
       </div>
 

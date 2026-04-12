@@ -1,7 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireRole, requireAnyRole } from "./lib/auth";
+import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
+import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 
 export const getAllDrawRequests = query({
   args: {
@@ -22,9 +23,9 @@ export const getAllDrawRequests = query({
       draws = await ctx.db
         .query("drawRequests")
         .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
-        .collect();
+        .take(1000);
     } else {
-      draws = await ctx.db.query("drawRequests").collect();
+      draws = await ctx.db.query("drawRequests").take(1000);
     }
 
     // Batch-load unique borrowers and loans instead of N+1
@@ -51,6 +52,28 @@ export const getAllDrawRequests = query({
   },
 });
 
+export const getDrawRequestsForLoan = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, "admin");
+
+    const draws = await ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
+      .collect();
+
+    const borrowerIds = [...new Set(draws.map((d) => d.borrowerId))];
+    const borrowerMap = new Map(
+      (await Promise.all(borrowerIds.map((id) => ctx.db.get(id)))).map((b, i) => [borrowerIds[i], b])
+    );
+
+    return draws.map((draw) => ({
+      ...draw,
+      borrowerName: borrowerMap.get(draw.borrowerId)?.displayName ?? "Unknown",
+    }));
+  },
+});
+
 export const getDrawRequest = query({
   args: { id: v.id("drawRequests") },
   handler: async (ctx, args) => {
@@ -58,22 +81,19 @@ export const getDrawRequest = query({
     const draw = await ctx.db.get(args.id);
     if (!draw) throw new Error("Draw request not found");
 
-    // Verify ownership or admin
-    if (profile.role !== "admin" && draw.borrowerId !== profile._id) {
+    // Verify ownership or admin/developer
+    if (!isAdminLike(profile.role) && draw.borrowerId !== profile._id) {
       throw new Error("Not authorized");
     }
 
     const borrower = await ctx.db.get(draw.borrowerId);
     const loan = await ctx.db.get(draw.loanId);
 
-    // Get documents attached to this draw
-    const documents = await ctx.db
+    // Get documents attached to this draw using dedicated index
+    const drawDocs = await ctx.db
       .query("documents")
-      .withIndex("by_loanId", (q) => q.eq("loanId", draw.loanId))
+      .withIndex("by_drawRequestId", (q) => q.eq("drawRequestId", args.id))
       .collect();
-    const drawDocs = documents.filter(
-      (d) => d.drawRequestId === args.id
-    );
     const docsWithUrls = await Promise.all(
       drawDocs.map(async (doc) => ({
         ...doc,
@@ -106,12 +126,9 @@ export const bulkReviewDrawRequests = mutation({
   handler: async (ctx, args) => {
     const admin = await requireRole(ctx, "admin");
 
-    if (args.drawIds.length > 50) throw new Error("Maximum 50 items per bulk operation");
-
-    const statusLabels: Record<string, string> = {
-      approved: "Approved",
-      denied: "Denied",
-    };
+    if (args.drawIds.length > MAX_BULK_OPERATION_SIZE) {
+      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+    }
 
     const results: { drawId: string; success: boolean; error?: string }[] = [];
 
@@ -129,14 +146,16 @@ export const bulkReviewDrawRequests = mutation({
       // Check fund limit before approving
       if (args.status === "approved") {
         const loan = await ctx.db.get(draw.loanId);
-        if (loan) {
-          const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
-          if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
-            results.push({ drawId, success: false, error: "Would exceed fund limit" });
-            continue;
-          }
-          await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
+        if (!loan) {
+          results.push({ drawId, success: false, error: "Loan not found" });
+          continue;
         }
+        const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+        if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
+          results.push({ drawId, success: false, error: "Would exceed fund limit" });
+          continue;
+        }
+        await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
       }
 
       await ctx.db.patch(drawId, {
@@ -149,14 +168,23 @@ export const bulkReviewDrawRequests = mutation({
       await ctx.runMutation(internal.notifications.createNotification, {
         recipientId: draw.borrowerId,
         type: "draw_reviewed",
-        title: "Draw Request " + (statusLabels[args.status] ?? args.status),
-        body: `Your draw request for $${draw.amountRequested.toLocaleString()} has been ${statusLabels[args.status]?.toLowerCase() ?? args.status}.`,
+        title: "Draw Request " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
+        body: `Your draw request for ${formatCurrencyPlain(draw.amountRequested)} has been ${DRAW_STATUS_LABELS[args.status]?.toLowerCase() ?? args.status}.`,
         loanId: draw.loanId,
         drawRequestId: drawId,
       });
 
       results.push({ drawId, success: true });
     }
+
+    const successCount = results.filter((r) => r.success).length;
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "draw.bulkReview",
+      entityType: "draw",
+      details: `Bulk ${args.status} ${successCount}/${args.drawIds.length} draw requests`,
+    });
 
     return results;
   },
@@ -181,14 +209,7 @@ export const reviewDrawRequest = mutation({
       throw new Error(`Draw request has already been ${draw.status}`);
     }
 
-    await ctx.db.patch(args.id, {
-      status: args.status,
-      adminNotes: args.adminNotes,
-      reviewedBy: admin._id,
-      reviewedAt: Date.now(),
-    });
-
-    // If approved, update loan drawFundsUsed
+    // If approved, check and update loan drawFundsUsed BEFORE patching draw status
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
       if (loan) {
@@ -200,19 +221,32 @@ export const reviewDrawRequest = mutation({
       }
     }
 
-    // Notify borrower of draw review
-    const statusLabels: Record<string, string> = {
-      under_review: "Under Review",
-      approved: "Approved",
-      denied: "Denied",
-    };
-    await ctx.runMutation(internal.notifications.createNotification, {
-      recipientId: draw.borrowerId,
-      type: "draw_reviewed",
-      title: "Draw Request " + (statusLabels[args.status] ?? args.status),
-      body: `Your draw request for $${draw.amountRequested.toLocaleString()} has been ${statusLabels[args.status]?.toLowerCase() ?? args.status}.`,
-      loanId: draw.loanId,
-      drawRequestId: args.id,
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      adminNotes: args.adminNotes,
+      reviewedBy: admin._id,
+      reviewedAt: Date.now(),
+    });
+
+    // Notify borrower only for final decisions (skip under_review — intermediate step, noisy)
+    if (args.status !== "under_review") {
+      await ctx.runMutation(internal.notifications.createNotification, {
+        recipientId: draw.borrowerId,
+        type: "draw_reviewed",
+        title: "Draw Request " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
+        body: `Your draw request for ${formatCurrencyPlain(draw.amountRequested)} has been ${DRAW_STATUS_LABELS[args.status]?.toLowerCase() ?? args.status}.`,
+        loanId: draw.loanId,
+        drawRequestId: args.id,
+      });
+    }
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "draw.review",
+      entityType: "draw",
+      entityId: args.id,
+      details: `${DRAW_STATUS_LABELS[args.status] ?? args.status} draw request for ${formatCurrencyPlain(draw.amountRequested)}`,
     });
 
     return args.id;

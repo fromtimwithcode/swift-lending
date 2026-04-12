@@ -9,6 +9,7 @@ const schema = defineSchema({
     tokenIdentifier: v.string(),
     role: v.union(
       v.literal("admin"),
+      v.literal("developer"),
       v.literal("borrower"),
       v.literal("investor")
     ),
@@ -117,7 +118,9 @@ const schema = defineSchema({
   })
     .index("by_ownerId", ["ownerId"])
     .index("by_loanId", ["loanId"])
-    .index("by_type", ["type"]),
+    .index("by_type", ["type"])
+    .index("by_drawRequestId", ["drawRequestId"])
+    .index("by_loanId_and_type", ["loanId", "type"]),
 
   messages: defineTable({
     senderId: v.id("userProfiles"),
@@ -147,6 +150,7 @@ const schema = defineSchema({
     type: v.union(
       v.literal("loan_status_changed"),
       v.literal("draw_reviewed"),
+      v.literal("draw_submitted"),
       v.literal("application_submitted"),
       v.literal("document_uploaded"),
       v.literal("message_received"),
@@ -198,6 +202,28 @@ const schema = defineSchema({
     yearBuilt: v.number(),
     source: v.string(),
   }).index("by_loanId", ["loanId"]),
+
+  activityLog: defineTable({
+    userId: v.id("userProfiles"),
+    userName: v.string(),
+    action: v.string(),
+    entityType: v.union(
+      v.literal("loan"),
+      v.literal("draw"),
+      v.literal("user"),
+      v.literal("investment"),
+      v.literal("payment"),
+      v.literal("document"),
+      v.literal("message"),
+      v.literal("system")
+    ),
+    entityId: v.optional(v.string()),
+    details: v.optional(v.string()),
+    metadata: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_entityType", ["entityType"])
+    .index("by_action", ["action"]),
 });
 
 export default schema;

@@ -20,6 +20,7 @@ Internal portal for Swift Capital, a hard-money lender that currently tracks loa
 | Role | Access | Status |
 |------|--------|--------|
 | **Admin** | Full loan management, KPIs, borrower/investor management, approvals | Phase 1 |
+| **Developer** | Full admin access + activity log visibility (super-admin) | Phase 6 |
 | **Borrower** | Loan status, draw requests, applications, document uploads | Phase 2 |
 | **Investor** | Investment tracking, payment history | Phase 3 |
 
@@ -54,10 +55,11 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Responsive: desktop (full sidebar), tablet (collapsed icons), mobile (overlay drawer)
 
 ### Admin KPI Dashboard
-- [x] 5 KPI cards: Total Loans, Total Capital, Revenue Earned, Monthly Cash Flow, Pipeline Value
+- [x] 5 KPI cards: Total Loans, Total Capital, Closed Loan Revenue, Monthly Cash Flow, Pipeline Value
 - [x] Loan Volume by Month bar chart
 - [x] Loan Status Distribution donut chart
 - [x] Recent Loans table with row click → detail
+- [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
 - [x] Loans list with tabs (All / Pipeline / Closed), search, sort
@@ -93,11 +95,14 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ### Draw Requests
 - [x] Borrower submits draw request (select funded loan, amount, work description)
-- [x] Shows remaining draw funds on the form
-- [x] Admin reviews and approves/denies draws with notes
+- [x] Shows remaining draw funds on the form (including pending draws and available balance)
+- [x] Draw amount validated against available funds (total - used - pending) on both client and server
+- [x] Work description trimmed and validated non-empty server-side
+- [x] Admin reviews and approves/denies draws with notes (success feedback shown)
 - [x] Approved draws auto-update `loan.drawFundsUsed`
 - [x] Admin draw request list with status tab filters
 - [x] Admin draw detail page with review actions
+- [x] Bulk draw review handles partial failures (per-item results shown to user)
 
 ### Document Management
 - [x] File upload via Convex storage (generateUploadUrl → POST → saveDocument)
@@ -157,7 +162,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Phase 4 — Notifications, Payments & Reporting (Completed)
 
 ### Notifications System
-- [x] `notifications` table with type-based categorization (loan_status_changed, draw_reviewed, application_submitted, document_uploaded, message_received, payment_recorded, payment_overdue)
+- [x] `notifications` table with type-based categorization (loan_status_changed, draw_reviewed, draw_submitted, application_submitted, document_uploaded, message_received, payment_recorded, payment_overdue)
 - [x] `createNotification` internalMutation — called from existing mutations to fire in-app + email
 - [x] Email delivery via Resend (`convex/email.ts`, Node.js action, fire-and-forget)
 - [x] Notification bell in topbar with unread badge + dropdown (recent 10, click to navigate, mark all read)
@@ -168,6 +173,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Loan status change → notify borrower
 - [x] Draw request reviewed → notify borrower
 - [x] Loan application submitted → notify all admins
+- [x] Draw request submitted → notify all admins
 - [x] Document uploaded (borrower) → notify all admins
 - [x] Message sent → notify recipient
 
@@ -232,29 +238,67 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ---
 
+## Phase 6 — Developer Role & Activity Log (Completed)
+
+### Developer Role
+- [x] Added `"developer"` to `userProfiles.role` union in schema
+- [x] `isAdminLike(role)` helper — returns true for `"admin"` or `"developer"`
+- [x] `requireRole(ctx, "admin")` and `requireAnyRole(ctx, ["admin", ...])` automatically accept developers
+- [x] `getAdminLikeUsers(ctx)` helper — queries both admin and developer profiles (for notifications)
+- [x] All hardcoded `role === "admin"` checks replaced with `isAdminLike()` (messages, draws, documents)
+- [x] Notification recipients (application submitted, draw submitted, document uploaded) include developers
+- [x] Dashboard redirect: developer → `/dashboard/admin`
+- [x] Sidebar: developer gets full admin navigation
+- [x] Notification bell: developer treated as admin for link routing
+- [x] `getAdminUsers` returns both admins and developers, accessible to all authenticated users (fixes borrower/investor "New Message" flow)
+
+### Activity Log
+- [x] `activityLog` table (userId, userName, action, entityType, entityId, details, metadata)
+- [x] `activityLog.log` — `internalMutation` (secure, cannot be called from client)
+- [x] `activityLog.getRecentActivity` — admin-only query, returns latest 100 entries
+- [x] `activityLog.getActivityForEntity` — admin-only query by entityId
+- [x] All write mutations instrumented with activity logging (26 log points across 7 files)
+- [x] `ACTIVITY_ACTION_LABELS` (28 action→label mappings) and `ENTITY_TYPE_LABELS` in constants
+- [x] Activity Log page with table, entity type filter tabs (All/Loan/Draw/User/Investment/Payment/Document), search
+- [x] Activity Log nav item in admin sidebar (visible to admins and developers)
+
+### Instrumented Mutations
+- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, createInvestment, updateInvestment, deleteInvestment, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
+- `convex/draws.ts` — reviewDrawRequest, bulkReviewDrawRequests
+- `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile
+- `convex/loanPayments.ts` — recordPayment, deletePayment, bulkDeletePayments
+- `convex/documents.ts` — deleteDocument
+- `convex/comps.ts` — fetchComps
+- `convex/borrower.ts` — submitApplication, submitDrawRequest
+
+---
+
 ## File Structure
 
 ```
 convex/
-  schema.ts               Full schema (10 tables: userProfiles, loans, rehabBudgetItems, drawRequests, documents, messages, investments, notifications, loanPayments, propertyComps)
+  schema.ts               Full schema (11 tables: userProfiles, loans, rehabBudgetItems, drawRequests, documents, messages, investments, notifications, loanPayments, propertyComps, activityLog)
   auth.ts                 Auth providers (Google OAuth)
   auth.config.ts          JWT config
   http.ts                 HTTP routes
-  lib/auth.ts             getCurrentUser, requireAdmin, requireRole
+  lib/auth.ts             getCurrentUser, requireAdmin, requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers
+  lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
   admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, createInvestment, updateInvestment, getInvestorDetail, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investor.ts             Investor queries (getMyInvestments, getMyInvestment, getPortfolioStats, getInvestmentStatement)
   documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
-  draws.ts                Draw request management (getAllDrawRequests, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
+  draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
   messages.ts             Messaging (getConversations, getDirectMessages, sendMessage, markMessagesRead, getUnreadCount)
   notifications.ts        Notification system (getMyNotifications, getUnreadCount, markAsRead, markAllRead, bulkMarkAsRead, createNotification [internal], markEmailSent [internal])
   email.ts                Email delivery via Resend ("use node" action: sendNotificationEmail [internal])
-  loanPayments.ts         Payment tracking (getPaymentsForLoan, getPaymentStats, getAllPaymentsSummary, recordPayment, bulkDeletePayments, deletePayment)
+  loanPayments.ts         Payment tracking (getPaymentsForLoan, getAllPaymentsSummary, recordPayment, bulkDeletePayments, deletePayment)
+  activityLog.ts          Activity logging (log [internal], getRecentActivity, getActivityForEntity)
 
 lib/
   utils.ts                Utility functions (cn)
+  format.ts               Shared currency formatters (formatCurrency, formatCurrencyShort)
   export.ts               Client-side export: exportToCsv, exportToExcel, exportToPdf
 
 app/
@@ -280,6 +324,7 @@ app/
       messages/page.tsx        Admin messaging (two-panel)
       notifications/page.tsx   Notification feed
       settings/page.tsx        User management (Borrowers/Investors tabs, quick toggles)
+      activity/page.tsx        Activity log (table, entity type filter tabs, search)
     borrower/
       page.tsx            My Loans dashboard (KPIs + table)
       loans/[id]/page.tsx Loan detail (read-only, timeline, payments, draws, documents)
@@ -325,20 +370,37 @@ components/
 
 ## Known Issues & Notes
 
-- First admin must be manually seeded in Convex dashboard
+- First admin/developer must be manually seeded in Convex dashboard
 - Email/OTP login UI exists but backend not wired (Google OAuth only for now)
 - Loan dates stored as strings (MM/DD/YYYY); investment dates use timestamps (`v.number()`)
-- Payment dates stored as strings (MM/DD/YYYY) to match loan date convention
+- Payment dates stored as strings (MM/DD/YYYY) with full calendar validation (impossible dates like 02/31 rejected)
 - `getOverviewStats` uses `.collect()` on all loans — fine for now, may need optimization at scale
-- Messaging queries use `.collect()` on sent/received — works at low volume, may need pagination at scale
+- Messaging queries bounded with `.take(5000)` on sent/received — works at moderate volume, may need pagination at scale
 - `RESEND_API_KEY` must be set in Convex dashboard environment variables (not .env.local — runs in Convex Node.js runtime)
 - Email failures are caught and logged, never block in-app notification delivery
+- Pending user profiles expire after 30 days (must be re-created by admin if unclaimed)
+- Messaging enforces relationship boundaries (non-admins can only message admins or users sharing a loan; deactivated users cannot be messaged)
+- Cross-field loan validation enforced: loanAmount <= purchasePrice, drawFundsUsed <= drawFundsTotal
+- Draw amount validation includes pending/under_review draws when computing available funds
+- File uploads validated client-side: 10MB max, restricted file types (PDF, images, Office docs)
+- Payments only allowed on funded/sent_to_title/closed loans; Record Payment button hidden on other statuses
+- Missed payments allow $0 amount; missed payments excluded from totalReceived/totalRevenue
+- Payment stats include partial payment count; on-time % consistently uses explicit on_time count / total across all reports
+- Closing statement replace deletes old file from storage (no orphans)
+- Email notifications skip deactivated users
+- markAllRead loops in batches (handles 200+ unread)
+- Payment stats computed client-side from payments data (eliminates duplicate getPaymentStats query)
+- Admin error handling still uses `alert()` in several pages (future: replace with toast component)
+- Activity log `getRecentActivity` returns latest 100 entries (limit capped at 500); `getActivityForEntity` scans 500 — may need pagination at scale
+- Developer role has identical permissions to admin; differentiation is organizational only
 
 ## Convex File Upload Pattern
 
 Used in `FileUploadDialog` component and closing statement upload:
-1. Call `documents.generateUploadUrl` mutation → get signed URL
-2. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
-3. Extract `storageId` from response JSON
-4. Call `documents.saveDocument` mutation with `{ fileId: storageId, fileName, fileSize, type, loanId? }`
+1. Client-side validation: file type (`accept` attribute) + 10MB size limit
+2. Call `documents.generateUploadUrl` mutation → get signed URL
+3. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
+4. Check `result.ok` before parsing response
+5. Extract `storageId` from response JSON
+6. Call `documents.saveDocument` mutation with `{ fileId: storageId, fileName, fileSize, type, loanId? }`
    — OR for closing statements: `admin.attachClosingStatement` with `{ loanId, fileId: storageId }`

@@ -22,7 +22,7 @@ export function SearchInput({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      onChange(internal);
+      onChange(internal.trim());
     }, 300);
     return () => clearTimeout(timer);
   }, [internal, onChange]);

@@ -32,6 +32,9 @@ export const saveComps = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new Error("Loan not found — cannot save comps for non-existent loan");
+
     for (const comp of args.comps) {
       await ctx.db.insert("propertyComps", {
         loanId: args.loanId,
@@ -54,7 +57,7 @@ function randomBetween(min: number, max: number): number {
 export const fetchComps = mutation({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
 
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new Error("Loan not found");
@@ -63,7 +66,7 @@ export const fetchComps = mutation({
     const existing = await ctx.db
       .query("propertyComps")
       .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-      .take(50);
+      .collect();
     for (const comp of existing) {
       await ctx.db.delete(comp._id);
     }
@@ -100,6 +103,15 @@ export const fetchComps = mutation({
     await ctx.runMutation(internal.comps.saveComps, {
       loanId: args.loanId,
       comps,
+    });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "comps.fetch",
+      entityType: "loan",
+      entityId: args.loanId,
+      details: `Fetched ${comps.length} property comps for ${loan.propertyAddress}`,
     });
 
     return comps;

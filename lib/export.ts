@@ -12,12 +12,22 @@ function getValue(row: Record<string, unknown>, key: string): string {
   return String(val);
 }
 
+/** Returns the raw value, preserving number/boolean types for Excel */
+function getRawValue(row: Record<string, unknown>, key: string): unknown {
+  const val = row[key];
+  if (val == null) return "";
+  if (typeof val === "object") return JSON.stringify(val);
+  return val;
+}
+
 function escapeCsvField(field: string): string {
   // Prevent CSV injection — prefix formula-triggering characters with a single quote
   const first = field.charAt(0);
   if (first === "=" || first === "+" || first === "-" || first === "@" || first === "\t" || first === "\r") {
     field = "'" + field;
   }
+  // Also neutralize formula triggers after newlines within multi-line fields
+  field = field.replace(/\n([=+\-@\t\r])/g, "\n'$1");
   if (field.includes(",") || field.includes('"') || field.includes("\n")) {
     return `"${field.replace(/"/g, '""')}"`;
   }
@@ -45,7 +55,7 @@ export function exportToCsv(
     columns.map((c) => escapeCsvField(getValue(row, c.key))).join(",")
   );
   const csv = [header, ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   triggerDownload(blob, filename.endsWith(".csv") ? filename : `${filename}.csv`);
 }
 
@@ -58,7 +68,7 @@ export async function exportToExcel(
     const XLSX = await import("xlsx");
     const wsData = [
       columns.map((c) => c.header),
-      ...data.map((row) => columns.map((c) => getValue(row, c.key))),
+      ...data.map((row) => columns.map((c) => getRawValue(row, c.key))),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();

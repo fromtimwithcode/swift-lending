@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { formatCurrencyShort } from "@/lib/format";
 import {
   BarChart,
   Bar,
@@ -28,12 +29,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
-function formatCurrency(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
-}
 
 const STATUS_COLORS: Record<string, string> = {
   submitted: "#9ca3af",
@@ -59,12 +54,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function AdminOverviewPage() {
   const stats = useQuery(api.admin.getOverviewStats);
-  const loans = useQuery(api.admin.getLoans, {});
   const paymentsSummary = useQuery(api.loanPayments.getAllPaymentsSummary);
   const borrowerPerformance = useQuery(api.admin.getBorrowerPerformance);
   const router = useRouter();
 
-  if (stats === undefined || loans === undefined) {
+  if (stats === undefined) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary" />
@@ -72,35 +66,14 @@ export default function AdminOverviewPage() {
     );
   }
 
-  // Status distribution for pie chart
-  const statusCounts = (loans ?? []).reduce(
-    (acc, loan) => {
-      acc[loan.status] = (acc[loan.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
-  const pieData = Object.entries(statusCounts).map(([status, count]) => ({
+  // Use pre-computed chart data from getOverviewStats (no duplicate getLoans call)
+  const pieData = Object.entries(stats.statusCounts).map(([status, count]) => ({
     name: STATUS_LABELS[status] ?? status,
     value: count,
     fill: STATUS_COLORS[status] ?? "#9ca3af",
   }));
 
-  // Monthly volume (group by close month)
-  const monthlyVolume = (loans ?? [])
-    .filter((l) => l.closeDate)
-    .reduce(
-      (acc, loan) => {
-        const parts = loan.closeDate!.split("/");
-        const monthKey = parts.length >= 2 ? `${parts[0]}/${parts[2] ?? ""}` : loan.closeDate!;
-        acc[monthKey] = (acc[monthKey] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-  const barData = Object.entries(monthlyVolume)
+  const barData = Object.entries(stats.monthlyVolume)
     .sort((a, b) => {
       const [am, ay] = a[0].split("/").map(Number);
       const [bm, by_] = b[0].split("/").map(Number);
@@ -112,10 +85,7 @@ export default function AdminOverviewPage() {
       loans: count,
     }));
 
-  // Recent loans for table
-  const recentLoans = [...(loans ?? [])]
-    .sort((a, b) => b._creationTime - a._creationTime)
-    .slice(0, 10);
+  const recentLoans = stats.recentLoans;
 
   const columns: Column<(typeof recentLoans)[number]>[] = [
     {
@@ -133,13 +103,13 @@ export default function AdminOverviewPage() {
       key: "loanAmount",
       header: "Loan Amount",
       sortable: true,
-      render: (row) => formatCurrency(row.loanAmount),
+      render: (row) => formatCurrencyShort(row.loanAmount),
     },
     {
       key: "monthlyPayment",
       header: "Monthly Payment",
       sortable: true,
-      render: (row) => formatCurrency(row.monthlyPayment),
+      render: (row) => formatCurrencyShort(row.monthlyPayment),
     },
     {
       key: "status",
@@ -167,37 +137,37 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
-          subtitle={`${stats.openLoans} open / ${stats.closedLoans} closed`}
+          subtitle={`${stats.activePipeline} active / ${stats.closedLoans} closed`}
           icon={Landmark}
         />
         <KpiCard
           label="Total Capital"
-          value={formatCurrency(stats.totalCapital)}
+          value={formatCurrencyShort(stats.totalCapital)}
           subtitle="All loan amounts"
           icon={DollarSign}
         />
         <KpiCard
-          label="Revenue Earned"
-          value={formatCurrency(stats.revenueEarned)}
-          subtitle="Points + interest"
+          label="Closed Loan Revenue"
+          value={formatCurrencyShort(stats.closedLoanRevenue)}
+          subtitle="Points + interest (closed)"
           icon={TrendingUp}
         />
         <KpiCard
           label="Monthly Cash Flow"
-          value={formatCurrency(stats.monthlyCashFlow)}
+          value={formatCurrencyShort(stats.monthlyCashFlow)}
           subtitle="Active loan payments"
           icon={Wallet}
         />
         <KpiCard
           label="Pipeline Value"
-          value={formatCurrency(stats.pipelineValue)}
+          value={formatCurrencyShort(stats.pipelineValue)}
           subtitle="Non-closed loans"
           icon={BarChart3}
         />
       </div>
 
       {/* Charts */}
-      {loans.length > 0 && (
+      {stats.totalLoans > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Loan Volume by Month */}
           {barData.length > 0 && (
@@ -285,7 +255,7 @@ export default function AdminOverviewPage() {
               <BarChart data={paymentsSummary.monthlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
+                <YAxis className="text-xs" tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "var(--card)",
@@ -323,7 +293,7 @@ export default function AdminOverviewPage() {
                     <tr key={b._id} className="border-b border-border/50">
                       <td className="py-2 pr-3 font-medium">{b.displayName}</td>
                       <td className="py-2 pr-3">{b.totalLoans}</td>
-                      <td className="py-2 pr-3">{formatCurrency(b.totalCapital)}</td>
+                      <td className="py-2 pr-3">{formatCurrencyShort(b.totalCapital)}</td>
                       <td className="py-2 pr-3">{b.totalPayments}</td>
                       <td className="py-2 pr-3 text-amber-600">{b.latePayments}</td>
                       <td className="py-2">
