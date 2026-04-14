@@ -7,7 +7,6 @@ const schema = defineSchema({
 
   userProfiles: defineTable({
     authUserId: v.optional(v.id("users")),
-    tokenIdentifier: v.optional(v.string()), // TEMPORARY: kept for widen-migrate-narrow deploy
     role: v.union(
       v.literal("admin"),
       v.literal("developer"),

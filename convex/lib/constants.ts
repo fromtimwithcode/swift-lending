@@ -47,6 +47,14 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+/** Role labels for display */
+export const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  developer: "Developer",
+  borrower: "Borrower",
+  investor: "Investor",
+};
+
 /** Activity log action labels for display */
 export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "loan.create": "Created Loan",
@@ -74,6 +82,8 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "payment.bulkDelete": "Bulk Deleted Payments",
   "document.delete": "Deleted Document",
   "comps.fetch": "Fetched Property Comps",
+  "user.create": "Created User",
+  "user.changeRole": "Changed User Role",
   "application.submit": "Submitted Loan Application",
 };
 
