@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAdmin, requireUser } from "./lib/auth";
@@ -18,45 +19,43 @@ const PENDING_PROFILE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 export const getMe = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
 
     const profile = await ctx.db
       .query("userProfiles")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", userId))
       .unique();
 
     return profile;
   },
 });
 
+
 export const claimProfile = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
 
     // Check if user already has a profile linked
     const existing = await ctx.db
       .query("userProfiles")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", userId))
       .unique();
 
     if (existing) return existing._id;
 
     // Look for a pre-created profile with matching email (admin-created borrower)
-    const email = identity.email?.toLowerCase();
+    const identity = await ctx.auth.getUserIdentity();
+    const email = identity?.email?.toLowerCase();
     if (email) {
       const pendingProfile = await ctx.db
         .query("userProfiles")
         .withIndex("by_email", (q) => q.eq("email", email))
         .unique();
 
-      if (pendingProfile && pendingProfile.tokenIdentifier === "") {
+      if (pendingProfile && pendingProfile.authUserId === undefined) {
         // Reject stale pending profiles (older than 30 days)
         const profileAge = Date.now() - pendingProfile._creationTime;
         if (profileAge > PENDING_PROFILE_MAX_AGE_MS) {
@@ -64,7 +63,7 @@ export const claimProfile = mutation({
         }
 
         await ctx.db.patch(pendingProfile._id, {
-          tokenIdentifier: identity.tokenIdentifier,
+          authUserId: userId,
           onboardedAt: Date.now(),
         });
         return pendingProfile._id;
@@ -162,7 +161,6 @@ export const createBorrower = mutation({
     if (existing) throw new Error("A user with this email already exists");
 
     const id = await ctx.db.insert("userProfiles", {
-      tokenIdentifier: "", // Will be claimed when borrower logs in
       role: "borrower",
       displayName,
       email,
@@ -210,7 +208,6 @@ export const createInvestor = mutation({
     if (existing) throw new Error("A user with this email already exists");
 
     const id = await ctx.db.insert("userProfiles", {
-      tokenIdentifier: "",
       role: "investor",
       displayName,
       email,

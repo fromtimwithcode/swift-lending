@@ -6,7 +6,8 @@ const schema = defineSchema({
   ...authTables,
 
   userProfiles: defineTable({
-    tokenIdentifier: v.string(),
+    authUserId: v.optional(v.id("users")),
+    tokenIdentifier: v.optional(v.string()), // TEMPORARY: kept for widen-migrate-narrow deploy
     role: v.union(
       v.literal("admin"),
       v.literal("developer"),
@@ -20,7 +21,7 @@ const schema = defineSchema({
     isActive: v.boolean(),
     onboardedAt: v.optional(v.number()),
   })
-    .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_authUserId", ["authUserId"])
     .index("by_role", ["role"])
     .index("by_email", ["email"]),
 

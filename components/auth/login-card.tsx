@@ -45,12 +45,12 @@ export function LoginCard() {
       setOauthLoading(true);
 
       try {
-        await signIn(provider);
+        await signIn(provider, { redirectTo: "/dashboard" });
       } catch {
         // First attempt can fail if stale cookies weren't fully cleared yet.
         // The proxy clears them on failure, so one retry is safe.
         try {
-          await signIn(provider);
+          await signIn(provider, { redirectTo: "/dashboard" });
         } catch {
           signingIn.current = false;
           setOauthLoading(false);
