@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 
 type Role = "admin" | "developer" | "borrower" | "investor";
@@ -8,16 +9,14 @@ export function isAdminLike(role: string): boolean {
 }
 
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
     throw new Error("Not authenticated");
   }
 
   const profile = await ctx.db
     .query("userProfiles")
-    .withIndex("by_tokenIdentifier", (q) =>
-      q.eq("tokenIdentifier", identity.tokenIdentifier)
-    )
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", userId))
     .unique();
 
   if (!profile) {
