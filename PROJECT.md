@@ -26,14 +26,14 @@ Internal portal for Swift Capital, a hard-money lender that currently tracks loa
 
 ### Admin Creation
 
-The first admin must be seeded manually in the Convex dashboard by inserting a `userProfiles` document. All other users (borrowers, investors) are created by admins through the portal.
+The first admin must be seeded manually in the Convex dashboard by inserting a `userProfiles` document. After that, admins can create users of any role (admin, developer, borrower, investor) from the unified Users page.
 
 ---
 
 ## Phase 1 — Admin Foundation (Completed)
 
 ### Database Schema
-- [x] `userProfiles` — role-based user records linked to auth via `tokenIdentifier`
+- [x] `userProfiles` — role-based user records linked to auth via `authUserId`
 - [x] `loans` — core loan records (system of record)
 - [x] `rehabBudgetItems` — line items for rehab budgets
 - [x] `drawRequests` — borrower draw request records
@@ -258,18 +258,62 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] `activityLog.getRecentActivity` — admin-only query, returns latest 100 entries
 - [x] `activityLog.getActivityForEntity` — admin-only query by entityId
 - [x] All write mutations instrumented with activity logging (26 log points across 7 files)
-- [x] `ACTIVITY_ACTION_LABELS` (28 action→label mappings) and `ENTITY_TYPE_LABELS` in constants
+- [x] `ACTIVITY_ACTION_LABELS` (30 action→label mappings) and `ENTITY_TYPE_LABELS` in constants
 - [x] Activity Log page with table, entity type filter tabs (All/Loan/Draw/User/Investment/Payment/Document), search
 - [x] Activity Log nav item in admin sidebar (visible to admins and developers)
 
 ### Instrumented Mutations
 - `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, createInvestment, updateInvestment, deleteInvestment, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
 - `convex/draws.ts` — reviewDrawRequest, bulkReviewDrawRequests
-- `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile
+- `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile, createUser, updateUserRole
 - `convex/loanPayments.ts` — recordPayment, deletePayment, bulkDeletePayments
 - `convex/documents.ts` — deleteDocument
 - `convex/comps.ts` — fetchComps
 - `convex/borrower.ts` — submitApplication, submitDrawRequest
+
+---
+
+## Auth Migration — tokenIdentifier → authUserId (Completed)
+
+- [x] Widened schema: added `authUserId: v.optional(v.id("users"))` + `by_authUserId` index
+- [x] Migration script backfilled `authUserId` from auth `users` table (email matching)
+- [x] All auth helpers (`getCurrentUser`, `requireUser`, etc.) updated to use `authUserId` + `by_authUserId` index
+- [x] `claimProfile` links `authUserId` on first login (replaces old tokenIdentifier flow)
+- [x] Narrowed schema: removed `tokenIdentifier` field, deleted `convex/migrations.ts`
+
+---
+
+## Unified User Management (Completed)
+
+### Admin Users Page
+- [x] `/dashboard/admin/users` — all users in one table with role filtering
+- [x] Role tabs via `StatusTabFilter`: All | Admins (admin+developer) | Borrowers | Investors — each with count
+- [x] Status filter dropdown: All Status / Active / Inactive
+- [x] Search by name, email, company (debounced)
+- [x] Columns: Name (sortable), Role (badge via `ROLE_LABELS`), Email (sortable), Company (hidden mobile), Status (active/inactive badge)
+- [x] Row click: borrower → borrower detail, investor → investor detail, admin/developer → no-op
+- [x] Bulk activate/deactivate via existing `bulkToggleActive`
+- [x] Export CSV/Excel/PDF (Name, Role, Email, Company, Phone, Status)
+- [x] Selection cleared on any filter change
+
+### Create User (Any Role)
+- [x] `/dashboard/admin/users/new` — create user form with role selector
+- [x] `createUser` mutation: accepts all 4 roles, same validation/trimming as `createBorrower`
+- [x] Role selector defaults to Borrower, contextual help text per role
+- [x] Activity log: `user.create`
+
+### Update User Role
+- [x] `updateUserRole` mutation (backend only, no UI wired yet)
+- [x] Guards: can't change own role, must keep at least 1 active admin-like user
+- [x] Activity log: `user.changeRole`
+
+### Sidebar
+- [x] "Users" nav item with `ShieldCheck` icon, between "Draw Requests" and "Borrowers"
+- [x] Borrowers and Investors links kept (role-specific detail views)
+
+### Constants
+- [x] `ROLE_LABELS` added to `convex/lib/constants.ts`
+- [x] `ACTIVITY_ACTION_LABELS` updated: `user.create`, `user.changeRole`
 
 ---
 
@@ -282,9 +326,9 @@ convex/
   auth.config.ts          JWT config
   http.ts                 HTTP routes
   lib/auth.ts             getCurrentUser, requireAdmin, requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers
-  lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
+  lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
   admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, createInvestment, updateInvestment, getInvestorDetail, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
-  users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile)
+  users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investor.ts             Investor queries (getMyInvestments, getMyInvestment, getPortfolioStats, getInvestmentStatement)
   documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
@@ -323,6 +367,8 @@ app/
       draws/[id]/page.tsx      Draw detail + review actions
       messages/page.tsx        Admin messaging (two-panel)
       notifications/page.tsx   Notification feed
+      users/page.tsx           Unified users list (all roles, role tabs, status filter, bulk ops, export)
+      users/new/page.tsx       Add user form (any role, with contextual help)
       settings/page.tsx        User management (Borrowers/Investors tabs, quick toggles)
       activity/page.tsx        Activity log (table, entity type filter tabs, search)
     borrower/
@@ -344,7 +390,7 @@ app/
 components/
   theme-provider.tsx      next-themes wrapper
   dashboard/
-    sidebar.tsx           Collapsible role-based sidebar (with message + notification badges)
+    sidebar.tsx           Collapsible role-based sidebar (with message + notification badges, Users link for admins)
     topbar.tsx            Sticky topbar (with notification bell)
     theme-toggle.tsx      Dark/light toggle
     notification-bell.tsx Notification bell dropdown with unread badge
@@ -370,7 +416,7 @@ components/
 
 ## Known Issues & Notes
 
-- First admin/developer must be manually seeded in Convex dashboard
+- First admin/developer must be manually seeded in Convex dashboard; subsequent users of any role can be created from the admin Users page
 - Email/OTP login UI exists but backend not wired (Google OAuth only for now)
 - Loan dates stored as strings (MM/DD/YYYY); investment dates use timestamps (`v.number()`)
 - Payment dates stored as strings (MM/DD/YYYY) with full calendar validation (impossible dates like 02/31 rejected)
