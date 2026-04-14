@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   Bell,
   Activity,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
@@ -49,6 +50,11 @@ const adminNav: NavItem[] = [
     label: "Draw Requests",
     href: "/dashboard/admin/draws",
     icon: <HandCoins className="size-5" />,
+  },
+  {
+    label: "Users",
+    href: "/dashboard/admin/users",
+    icon: <ShieldCheck className="size-5" />,
   },
   {
     label: "Borrowers",

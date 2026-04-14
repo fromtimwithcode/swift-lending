@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAdmin, requireUser } from "./lib/auth";
+import { requireAdmin, requireUser, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
 
@@ -400,5 +400,147 @@ export const updateUserProfile = mutation({
     });
 
     return id;
+  },
+});
+
+export const getAllUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const allUsers = await ctx.db.query("userProfiles").collect();
+
+    // Batch-load loans and investments once
+    const allLoans = await ctx.db.query("loans").collect();
+    const loansByBorrower = new Map<string, typeof allLoans>();
+    for (const loan of allLoans) {
+      const existing = loansByBorrower.get(loan.borrowerId) ?? [];
+      existing.push(loan);
+      loansByBorrower.set(loan.borrowerId, existing);
+    }
+
+    const allInvestments = await ctx.db.query("investments").collect();
+    const investmentsByInvestor = new Map<string, typeof allInvestments>();
+    for (const inv of allInvestments) {
+      const existing = investmentsByInvestor.get(inv.investorId) ?? [];
+      existing.push(inv);
+      investmentsByInvestor.set(inv.investorId, existing);
+    }
+
+    return allUsers.map((user) => {
+      const loans = loansByBorrower.get(user._id) ?? [];
+      const activeLoans = loans.filter((l) => l.status !== "closed" && l.status !== "denied");
+      const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+
+      const investments = investmentsByInvestor.get(user._id) ?? [];
+      const totalInvested = investments.reduce((sum, i) => sum + i.investmentAmount, 0);
+
+      return {
+        ...user,
+        activeLoanCount: user.role === "borrower" ? activeLoans.length : undefined,
+        totalCapital: user.role === "borrower" ? totalCapital : undefined,
+        investmentCount: user.role === "investor" ? investments.length : undefined,
+        totalInvested: user.role === "investor" ? totalInvested : undefined,
+      };
+    });
+  },
+});
+
+export const createUser = mutation({
+  args: {
+    role: v.union(v.literal("admin"), v.literal("developer"), v.literal("borrower"), v.literal("investor")),
+    email: v.string(),
+    displayName: v.string(),
+    company: v.optional(v.string()),
+    phone: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+
+    const displayName = args.displayName.trim();
+    const email = args.email.trim().toLowerCase();
+    const phone = args.phone?.trim() || undefined;
+    const company = args.company?.trim() || undefined;
+    if (!displayName) throw new Error("Display name cannot be empty");
+    if (!email) throw new Error("Email cannot be empty");
+    validateEmail(email);
+
+    const existing = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    if (existing) throw new Error("A user with this email already exists");
+
+    const id = await ctx.db.insert("userProfiles", {
+      role: args.role,
+      displayName,
+      email,
+      phone,
+      company,
+      isActive: true,
+    });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "user.create",
+      entityType: "user",
+      entityId: id,
+      details: `Created ${args.role} "${displayName}" (${email})`,
+    });
+
+    return id;
+  },
+});
+
+export const updateUserRole = mutation({
+  args: {
+    id: v.id("userProfiles"),
+    role: v.union(v.literal("admin"), v.literal("developer"), v.literal("borrower"), v.literal("investor")),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+
+    if (args.id === admin._id) {
+      throw new Error("Cannot change your own role");
+    }
+
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("User not found");
+
+    if (user.role === args.role) return args.id;
+
+    // Guard: must keep at least 1 active admin-like user
+    if (isAdminLike(user.role) && !isAdminLike(args.role)) {
+      const admins = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_role", (q) => q.eq("role", "admin"))
+        .collect();
+      const developers = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_role", (q) => q.eq("role", "developer"))
+        .collect();
+      const activeAdminLike = [...admins, ...developers].filter(
+        (u) => u.isActive && u._id !== user._id
+      );
+      if (activeAdminLike.length === 0) {
+        throw new Error("Cannot change role: at least one active admin must remain");
+      }
+    }
+
+    const oldRole = user.role;
+    await ctx.db.patch(args.id, { role: args.role });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "user.changeRole",
+      entityType: "user",
+      entityId: args.id,
+      details: `Changed role for "${user.displayName}" from ${oldRole} to ${args.role}`,
+    });
+
+    return args.id;
   },
 });
