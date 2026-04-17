@@ -31,24 +31,9 @@ const ROLE_BADGE_COLORS: Record<string, string> = {
 };
 
 const THEME_OPTIONS = [
-  {
-    value: "light" as const,
-    label: "Light",
-    description: "Light background with dark text",
-    icon: Sun,
-  },
-  {
-    value: "dark" as const,
-    label: "Dark",
-    description: "Dark background with light text",
-    icon: Moon,
-  },
-  {
-    value: "system" as const,
-    label: "System",
-    description: "Follows your device settings",
-    icon: Monitor,
-  },
+  { value: "light" as const, label: "Light", icon: Sun },
+  { value: "dark" as const, label: "Dark", icon: Moon },
+  { value: "system" as const, label: "System", icon: Monitor },
 ];
 
 function getQuickLinks(role: string) {
@@ -153,40 +138,25 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader title="Settings" />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Profile Card */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+        {/* Profile & Edit Card */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Profile</h2>
-          <div className="flex items-center gap-4">
-            <div className="flex size-16 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
               {initial}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-lg font-semibold truncate">{me.displayName}</p>
               <p className="text-sm text-muted-foreground truncate">{me.email}</p>
-              <span
-                className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_BADGE_COLORS[me.role] ?? "bg-muted text-muted-foreground"}`}
-              >
-                {ROLE_LABELS[me.role] ?? me.role}
-              </span>
             </div>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_BADGE_COLORS[me.role] ?? "bg-muted text-muted-foreground"}`}
+            >
+              {ROLE_LABELS[me.role] ?? me.role}
+            </span>
           </div>
-          {me.phone && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Phone: {me.phone}
-            </p>
-          )}
-          {me.company && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Company: {me.company}
-            </p>
-          )}
-        </div>
 
-        {/* Edit Profile Card */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Edit Profile</h2>
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-1">Display Name</label>
               <input
@@ -205,7 +175,7 @@ export default function SettingsPage() {
                 className="w-full rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Email is managed by your Google account and cannot be changed here.
+                Managed by your Google account.
               </p>
             </div>
             <div>
@@ -228,15 +198,9 @@ export default function SettingsPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
+          </div>
 
-            {feedback && (
-              <p
-                className={`text-sm ${feedback.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-              >
-                {feedback.message}
-              </p>
-            )}
-
+          <div className="mt-4 flex items-center gap-3">
             <button
               onClick={handleSave}
               disabled={isClean || saving}
@@ -244,62 +208,67 @@ export default function SettingsPage() {
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
+            {feedback && (
+              <p
+                className={`text-sm ${feedback.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+              >
+                {feedback.message}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Appearance Card */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Appearance</h2>
-          <div className="grid grid-cols-3 gap-3">
-            {THEME_OPTIONS.map((opt) => {
-              const isActive = mounted && theme === opt.value;
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setTheme(opt.value)}
-                  className={`relative flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors ${
-                    isActive
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
-                  }`}
-                >
-                  {isActive && (
-                    <div className="absolute right-2 top-2">
-                      <Check className="size-4 text-primary" />
-                    </div>
-                  )}
-                  <Icon className={`size-6 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-sm font-medium">{opt.label}</span>
-                  <span className="text-xs text-muted-foreground leading-tight">{opt.description}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Quick Links Card */}
-        {quickLinks.length > 0 && (
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Appearance Card */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold mb-4">Quick Links</h2>
+            <h2 className="text-sm font-semibold mb-3">Appearance</h2>
             <div className="space-y-2">
-              {quickLinks.map((link) => {
-                const Icon = link.icon;
+              {THEME_OPTIONS.map((opt) => {
+                const isActive = mounted && theme === opt.value;
+                const Icon = opt.icon;
                 return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted"
+                  <button
+                    key={opt.value}
+                    onClick={() => setTheme(opt.value)}
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                    }`}
                   >
-                    <Icon className="size-4 text-muted-foreground" />
-                    <span className="flex-1">{link.label}</span>
-                    <ExternalLink className="size-3.5 text-muted-foreground" />
-                  </Link>
+                    <Icon className={`size-4 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="flex-1 font-medium">{opt.label}</span>
+                    {isActive && <Check className="size-4 text-primary shrink-0" />}
+                  </button>
                 );
               })}
             </div>
           </div>
-        )}
+
+          {/* Quick Links Card */}
+          {quickLinks.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="text-sm font-semibold mb-3">Quick Links</h2>
+              <div className="space-y-1">
+                {quickLinks.map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted"
+                    >
+                      <Icon className="size-4 text-muted-foreground" />
+                      <span className="flex-1">{link.label}</span>
+                      <ExternalLink className="size-3.5 text-muted-foreground" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

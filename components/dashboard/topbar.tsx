@@ -2,7 +2,6 @@
 
 import { Menu, Settings } from "lucide-react";
 import Link from "next/link";
-import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./notification-bell";
 
 interface TopbarProps {
@@ -31,7 +30,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         >
           <Settings className="size-5" />
         </Link>
-        <ThemeToggle />
       </div>
     </header>
   );
