@@ -5,18 +5,15 @@ import { api } from "@/convex/_generated/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Loader2, Banknote } from "lucide-react";
+import { Banknote } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function InvestorPaymentsPage() {
   const investments = useQuery(api.investor.getMyInvestments);
 
   if (investments === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const columns: Column<(typeof investments)[number]>[] = [

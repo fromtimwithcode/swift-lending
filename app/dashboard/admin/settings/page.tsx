@@ -8,6 +8,9 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { SearchInput } from "@/components/dashboard/search-input";
 import { Loader2, Settings } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminSettingsPage() {
   const borrowers = useQuery(api.users.getAllBorrowers);
@@ -18,6 +21,7 @@ export default function AdminSettingsPage() {
   );
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
@@ -47,28 +51,38 @@ export default function AdminSettingsPage() {
   }, [investors, search]);
 
   if (borrowers === undefined || investors === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const handleToggle = async (id: string, name: string, isActive: boolean) => {
-    if (
-      isActive &&
-      !confirm(`Are you sure you want to deactivate ${name}?`)
-    ) {
+    if (isActive) {
+      setConfirmDeactivate({ id, name });
       return;
     }
     setTogglingId(id);
     setError("");
     try {
       await toggleActive({ id: id as Id<"userProfiles"> });
+      toast.success(`${name} activated`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to toggle user status");
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const executeDeactivate = async () => {
+    if (!confirmDeactivate) return;
+    setTogglingId(confirmDeactivate.id);
+    setError("");
+    try {
+      await toggleActive({ id: confirmDeactivate.id as Id<"userProfiles"> });
+      toast.success(`${confirmDeactivate.name} deactivated`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle user status");
+    } finally {
+      setTogglingId(null);
+      setConfirmDeactivate(null);
     }
   };
 
@@ -246,6 +260,16 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDeactivate !== null}
+        title={`Deactivate ${confirmDeactivate?.name ?? ""}?`}
+        description="This user will lose access to the portal."
+        confirmLabel="Deactivate"
+        variant="destructive"
+        loading={togglingId !== null}
+        onConfirm={executeDeactivate}
+        onCancel={() => setConfirmDeactivate(null)}
+      />
     </div>
   );
 }

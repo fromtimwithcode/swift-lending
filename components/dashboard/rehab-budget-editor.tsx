@@ -5,6 +5,8 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { Loader2, Plus, Pencil, Save, X, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { formatCurrency } from "@/lib/format";
 import { REHAB_CATEGORIES } from "@/convex/lib/constants";
 
@@ -34,6 +36,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   if (items === undefined) {
     return (
@@ -102,12 +105,13 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this budget item?")) return;
     setDeleting(id);
     try {
       await deleteItem({ id: id as Id<"rehabBudgetItems"> });
+      toast.success("Budget item deleted");
     } finally {
       setDeleting(null);
+      setConfirmDelete(null);
     }
   };
 
@@ -395,7 +399,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                             <Pencil className="size-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(item._id)}
+                            onClick={() => setConfirmDelete(item._id)}
                             disabled={deleting === item._id}
                             className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
                           >
@@ -419,6 +423,16 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
           No budget items yet. Add items to track rehab costs.
         </p>
       )}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete budget item?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleting !== null}
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

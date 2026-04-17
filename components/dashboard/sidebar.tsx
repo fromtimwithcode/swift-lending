@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   Landmark,
@@ -199,7 +200,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
+          "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar shadow-[1px_0_0_0_var(--sidebar-border)] transition-all duration-300",
           collapsed ? "w-16" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
@@ -208,13 +209,13 @@ export function Sidebar({
         {/* Logo */}
         <div
           className={cn(
-            "flex h-16 items-center border-b border-sidebar-border px-4",
+            "flex h-16 items-center border-b border-sidebar-border/50 px-4",
             collapsed ? "justify-center" : "justify-between"
           )}
         >
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.45_0.24_264_/_25%)]">
                 <Landmark className="size-4 text-primary-foreground" />
               </div>
               <span className="text-lg font-bold tracking-tight">
@@ -223,14 +224,14 @@ export function Sidebar({
             </Link>
           )}
           {collapsed && (
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.45_0.24_264_/_25%)]">
               <Landmark className="size-4 text-primary-foreground" />
             </div>
           )}
           {/* Mobile close button */}
           <button
             onClick={onClose}
-            className="lg:hidden rounded-lg p-1 text-muted-foreground hover:bg-muted"
+            className="lg:hidden rounded-xl p-1 text-muted-foreground hover:bg-muted"
           >
             <X className="size-5" />
           </button>
@@ -245,14 +246,22 @@ export function Sidebar({
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                     isActive(item.href)
-                      ? "bg-primary/10 text-primary"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      ? "bg-primary/8 text-primary shadow-[inset_0_1px_2px_oklch(0_0_0_/_3%)]"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                     collapsed && "justify-center px-2"
                   )}
                   title={collapsed ? item.label : undefined}
                 >
+                  {/* Active indicator pill */}
+                  {isActive(item.href) && !collapsed && (
+                    <motion.span
+                      layoutId="sidebar-active"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-full"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
                   {item.icon}
                   {!collapsed && <span>{item.label}</span>}
                   {item.label === "Messages" &&
@@ -276,14 +285,14 @@ export function Sidebar({
         </nav>
 
         {/* User info + sign out */}
-        <div className="border-t border-sidebar-border p-3">
+        <div className="border-t border-sidebar-border/50 p-3">
           <div
             className={cn(
               "flex items-center gap-3",
               collapsed && "justify-center"
             )}
           >
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 text-sm font-semibold text-primary ring-1 ring-primary/15">
               {displayName.charAt(0).toUpperCase()}
             </div>
             {!collapsed && (
@@ -297,7 +306,7 @@ export function Sidebar({
             {!collapsed && (
               <button
                 onClick={() => signOut()}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-xl p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 title="Sign out"
               >
                 <LogOut className="size-4" />

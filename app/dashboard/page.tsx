@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { api } from "@/convex/_generated/api";
-import { Loader2 } from "lucide-react";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function DashboardPage() {
   const profile = useQuery(api.users.getMe);
@@ -27,9 +27,5 @@ export default function DashboardPage() {
     }
   }, [profile, router]);
 
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <Loader2 className="size-8 animate-spin text-primary" />
-    </div>
-  );
+  return <PageSkeleton />;
 }

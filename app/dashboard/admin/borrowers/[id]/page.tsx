@@ -11,6 +11,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminBorrowerDetailPage() {
   const params = useParams();
@@ -22,6 +25,7 @@ export default function AdminBorrowerDetailPage() {
 
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({
@@ -32,26 +36,33 @@ export default function AdminBorrowerDetailPage() {
   });
 
   if (data === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const { profile, loans, draws, documents } = data;
 
   const handleToggleActive = async () => {
-    if (
-      !profile.isActive ||
-      confirm(`Are you sure you want to deactivate ${profile.displayName}?`)
-    ) {
-      setToggling(true);
-      try {
-        await toggleActive({ id });
-      } finally {
-        setToggling(false);
-      }
+    if (profile.isActive) {
+      setConfirmDeactivate(true);
+      return;
+    }
+    setToggling(true);
+    try {
+      await toggleActive({ id });
+      toast.success(`${profile.displayName} activated`);
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const executeDeactivate = async () => {
+    setToggling(true);
+    try {
+      await toggleActive({ id });
+      toast.success(`${profile.displayName} deactivated`);
+    } finally {
+      setToggling(false);
+      setConfirmDeactivate(false);
     }
   };
 
@@ -385,6 +396,16 @@ export default function AdminBorrowerDetailPage() {
           <p className="text-sm text-muted-foreground">No documents</p>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeactivate}
+        title={`Deactivate ${profile.displayName}?`}
+        description="This borrower will lose access to the portal."
+        confirmLabel="Deactivate"
+        variant="destructive"
+        loading={toggling}
+        onConfirm={executeDeactivate}
+        onCancel={() => setConfirmDeactivate(false)}
+      />
     </div>
   );
 }

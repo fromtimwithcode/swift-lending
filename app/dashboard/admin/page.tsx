@@ -7,16 +7,18 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 import {
   Landmark,
   DollarSign,
   TrendingUp,
   Wallet,
   BarChart3,
-  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatCurrencyShort } from "@/lib/format";
+import { motion } from "framer-motion";
+import { staggerContainer } from "@/lib/animations";
 import {
   BarChart,
   Bar,
@@ -59,11 +61,7 @@ export default function AdminOverviewPage() {
   const router = useRouter();
 
   if (stats === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   // Use pre-computed chart data from getOverviewStats (no duplicate getLoans call)
@@ -121,7 +119,7 @@ export default function AdminOverviewPage() {
       key: "closeDate",
       header: "Close Date",
       sortable: true,
-      render: (row) => row.closeDate ?? "—",
+      render: (row) => row.closeDate ?? "\u2014",
     },
   ];
 
@@ -133,7 +131,12 @@ export default function AdminOverviewPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5"
+      >
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
@@ -164,14 +167,14 @@ export default function AdminOverviewPage() {
           subtitle="Non-closed loans"
           icon={BarChart3}
         />
-      </div>
+      </motion.div>
 
       {/* Charts */}
       {stats.totalLoans > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Loan Volume by Month */}
           {barData.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-6">
+            <div className="card-premium p-6">
               <h3 className="mb-4 text-sm font-medium text-muted-foreground">
                 Loan Volume by Month
               </h3>
@@ -184,7 +187,7 @@ export default function AdminOverviewPage() {
                     contentStyle={{
                       backgroundColor: "var(--card)",
                       border: "1px solid var(--border)",
-                      borderRadius: "8px",
+                      borderRadius: "12px",
                     }}
                   />
                   <Bar
@@ -199,7 +202,7 @@ export default function AdminOverviewPage() {
 
           {/* Status Distribution */}
           {pieData.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-6">
+            <div className="card-premium p-6">
               <h3 className="mb-4 text-sm font-medium text-muted-foreground">
                 Loan Status Distribution
               </h3>
@@ -222,7 +225,7 @@ export default function AdminOverviewPage() {
                     contentStyle={{
                       backgroundColor: "var(--card)",
                       border: "1px solid var(--border)",
-                      borderRadius: "8px",
+                      borderRadius: "12px",
                     }}
                   />
                 </PieChart>
@@ -247,7 +250,7 @@ export default function AdminOverviewPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revenue by Month */}
         {paymentsSummary && paymentsSummary.monthlyRevenue.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="card-premium p-6">
             <h3 className="mb-4 text-sm font-medium text-muted-foreground">
               Revenue by Month
             </h3>
@@ -260,7 +263,7 @@ export default function AdminOverviewPage() {
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     border: "1px solid var(--border)",
-                    borderRadius: "8px",
+                    borderRadius: "12px",
                   }}
                   formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
                 />
@@ -272,7 +275,7 @@ export default function AdminOverviewPage() {
 
         {/* Borrower Performance */}
         {borrowerPerformance && borrowerPerformance.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="card-premium p-6">
             <h3 className="mb-4 text-sm font-medium text-muted-foreground">
               Borrower Performance
             </h3>

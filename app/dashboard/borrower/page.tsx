@@ -6,10 +6,13 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Landmark, Plus, Loader2, HandCoins } from "lucide-react";
+import { Landmark, Plus, HandCoins } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/format";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);
@@ -17,11 +20,7 @@ export default function BorrowerDashboardPage() {
   const router = useRouter();
 
   if (loans === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const activeLoans = loans.filter(
@@ -94,17 +93,23 @@ export default function BorrowerDashboardPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <motion.div
+        className="grid gap-4 sm:grid-cols-3"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         {kpis.map((kpi) => (
-          <div
+          <motion.div
             key={kpi.label}
+            variants={staggerItem}
             className="rounded-xl border border-border bg-card p-5"
           >
             <p className="text-sm text-muted-foreground">{kpi.label}</p>
             <p className="mt-1 text-2xl font-bold">{kpi.value}</p>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Loans Table */}
       {loans.length > 0 ? (

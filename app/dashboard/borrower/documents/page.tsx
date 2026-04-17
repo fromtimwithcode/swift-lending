@@ -10,6 +10,9 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { FileText, Upload, Download, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function BorrowerDocumentsPage() {
   const documents = useQuery(api.documents.getMyDocuments);
@@ -17,13 +20,10 @@ export default function BorrowerDocumentsPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"documents"> | null>(null);
 
   if (documents === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const filtered =
@@ -37,12 +37,13 @@ export default function BorrowerDocumentsPage() {
   ];
 
   const handleDelete = async (id: Id<"documents">) => {
-    if (!confirm("Delete this document?")) return;
     setDeleting(id);
     try {
       await deleteDocument({ id });
+      toast.success("Document deleted");
     } finally {
       setDeleting(null);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -129,7 +130,7 @@ export default function BorrowerDocumentsPage() {
                   </a>
                 )}
                 <button
-                  onClick={() => handleDelete(doc._id)}
+                  onClick={() => setConfirmDeleteId(doc._id)}
                   disabled={deleting === doc._id}
                   className="rounded-lg p-2 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 disabled:opacity-50"
                 >
@@ -163,6 +164,16 @@ export default function BorrowerDocumentsPage() {
       <FileUploadDialog
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title="Delete this document?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleting !== null}
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
       />
     </div>
   );

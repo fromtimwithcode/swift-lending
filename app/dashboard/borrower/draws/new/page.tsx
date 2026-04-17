@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function NewDrawRequestPage() {
   const router = useRouter();
@@ -29,11 +30,7 @@ export default function NewDrawRequestPage() {
   const submitDraw = useMutation(api.borrower.submitDrawRequest);
 
   if (loans === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const fundedLoans = loans.filter((l) => l.status === "funded");

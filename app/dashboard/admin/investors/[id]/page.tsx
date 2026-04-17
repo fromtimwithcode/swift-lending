@@ -19,6 +19,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminInvestorDetailPage() {
   const params = useParams();
@@ -32,6 +35,8 @@ export default function AdminInvestorDetailPage() {
 
   const [error, setError] = useState("");
   const [deletingInvestment, setDeletingInvestment] = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmDeleteInvestment, setConfirmDeleteInvestment] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,31 +73,39 @@ export default function AdminInvestorDetailPage() {
   const [savingInvestment, setSavingInvestment] = useState(false);
 
   if (data === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const { profile, investments } = data;
 
   const handleToggleActive = async () => {
-    if (
-      !profile.isActive ||
-      confirm(
-        `Are you sure you want to deactivate ${profile.displayName}?`
-      )
-    ) {
-      setToggling(true);
-      setError("");
-      try {
-        await toggleActive({ id });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to toggle status");
-      } finally {
-        setToggling(false);
-      }
+    if (profile.isActive) {
+      setConfirmDeactivate(true);
+      return;
+    }
+    setToggling(true);
+    setError("");
+    try {
+      await toggleActive({ id });
+      toast.success(`${profile.displayName} activated`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle status");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const executeDeactivate = async () => {
+    setToggling(true);
+    setError("");
+    try {
+      await toggleActive({ id });
+      toast.success(`${profile.displayName} deactivated`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle status");
+    } finally {
+      setToggling(false);
+      setConfirmDeactivate(false);
     }
   };
 
@@ -210,15 +223,16 @@ export default function AdminInvestorDetailPage() {
   };
 
   const handleDeleteInvestment = async (investmentId: string) => {
-    if (!confirm("Delete this investment?")) return;
     setDeletingInvestment(investmentId);
     setError("");
     try {
       await deleteInvestmentMut({ id: investmentId as Id<"investments"> });
+      toast.success("Investment deleted");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete investment");
     } finally {
       setDeletingInvestment(null);
+      setConfirmDeleteInvestment(null);
     }
   };
 
@@ -359,7 +373,7 @@ export default function AdminInvestorDetailPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteInvestment(row._id);
+                setConfirmDeleteInvestment(row._id);
               }}
               disabled={deletingInvestment === row._id}
               className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
@@ -690,6 +704,26 @@ export default function AdminInvestorDetailPage() {
           <p className="text-sm text-muted-foreground">No investments yet</p>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeactivate}
+        title={`Deactivate ${profile.displayName}?`}
+        description="This investor will lose access to the portal."
+        confirmLabel="Deactivate"
+        variant="destructive"
+        loading={toggling}
+        onConfirm={executeDeactivate}
+        onCancel={() => setConfirmDeactivate(false)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteInvestment !== null}
+        title="Delete this investment?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deletingInvestment !== null}
+        onConfirm={() => confirmDeleteInvestment && handleDeleteInvestment(confirmDeleteInvestment)}
+        onCancel={() => setConfirmDeleteInvestment(null)}
+      />
     </div>
   );
 }

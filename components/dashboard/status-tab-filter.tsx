@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 interface Tab {
   label: string;
   value: string;
@@ -18,7 +20,7 @@ export function StatusTabFilter({
   onChange,
 }: StatusTabFilterProps) {
   return (
-    <div className="flex items-center gap-6 border-b border-border overflow-x-auto">
+    <div className="flex items-center gap-8 border-b border-border/50 overflow-x-auto">
       {tabs.map((tab) => (
         <button
           key={tab.value}
@@ -27,17 +29,21 @@ export function StatusTabFilter({
           className={`relative shrink-0 pb-3 text-sm font-medium transition-colors ${
             activeTab === tab.value
               ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground/70 hover:text-foreground"
           }`}
         >
           {tab.label}
           {tab.count !== undefined && (
-            <span className="ml-1.5 text-xs text-muted-foreground">
+            <span className="ml-1.5 text-xs text-muted-foreground/50">
               {tab.count}
             </span>
           )}
           {activeTab === tab.value && (
-            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
+            <motion.span
+              layoutId="tab-indicator"
+              className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            />
           )}
         </button>
       ))}

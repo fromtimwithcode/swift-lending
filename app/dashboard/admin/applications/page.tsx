@@ -9,10 +9,11 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback } from "react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 type TabFilter = "all" | "submitted" | "under_review" | "additional_info_needed";
 
@@ -47,11 +48,7 @@ export default function AdminApplicationsPage() {
   const handleSearch = useCallback((v: string) => setSearch(v), []);
 
   if (applications === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const tabs = [

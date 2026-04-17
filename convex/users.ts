@@ -32,6 +32,26 @@ export const getMe = query({
 });
 
 
+/** Reactive check: does an unclaimed profile exist for the current user's email? */
+export const hasPendingProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+
+    const identity = await ctx.auth.getUserIdentity();
+    const email = identity?.email?.toLowerCase();
+    if (!email) return false;
+
+    const pending = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    return pending !== null && pending.authUserId === undefined;
+  },
+});
+
 export const claimProfile = mutation({
   args: {},
   handler: async (ctx) => {
@@ -44,34 +64,38 @@ export const claimProfile = mutation({
       .withIndex("by_authUserId", (q) => q.eq("authUserId", userId))
       .unique();
 
-    if (existing) return existing._id;
+    if (existing) return { status: "linked" as const, profileId: existing._id };
 
     // Look for a pre-created profile with matching email (admin-created borrower)
     const identity = await ctx.auth.getUserIdentity();
     const email = identity?.email?.toLowerCase();
-    if (email) {
-      const pendingProfile = await ctx.db
-        .query("userProfiles")
-        .withIndex("by_email", (q) => q.eq("email", email))
-        .unique();
 
-      if (pendingProfile && pendingProfile.authUserId === undefined) {
-        // Reject stale pending profiles (older than 30 days)
-        const profileAge = Date.now() - pendingProfile._creationTime;
-        if (profileAge > PENDING_PROFILE_MAX_AGE_MS) {
-          throw new Error("This invitation has expired. Please contact an administrator for a new invitation.");
-        }
-
-        await ctx.db.patch(pendingProfile._id, {
-          authUserId: userId,
-          onboardedAt: Date.now(),
-        });
-        return pendingProfile._id;
-      }
+    if (!email) {
+      // Identity token not yet populated — caller should retry
+      return { status: "no_email" as const, profileId: null };
     }
 
-    // No profile found — return null (admin must create one)
-    return null;
+    const pendingProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    if (pendingProfile && pendingProfile.authUserId === undefined) {
+      // Reject stale pending profiles (older than 30 days)
+      const profileAge = Date.now() - pendingProfile._creationTime;
+      if (profileAge > PENDING_PROFILE_MAX_AGE_MS) {
+        throw new Error("This invitation has expired. Please contact an administrator for a new invitation.");
+      }
+
+      await ctx.db.patch(pendingProfile._id, {
+        authUserId: userId,
+        onboardedAt: Date.now(),
+      });
+      return { status: "claimed" as const, profileId: pendingProfile._id };
+    }
+
+    // No matching profile — admin must create one
+    return { status: "not_found" as const, profileId: null };
   },
 });
 

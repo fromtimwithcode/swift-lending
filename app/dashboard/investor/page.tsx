@@ -5,19 +5,18 @@ import { api } from "@/convex/_generated/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Loader2, TrendingUp, DollarSign, Percent, Calendar } from "lucide-react";
+import { TrendingUp, DollarSign, Percent, Calendar } from "lucide-react";
+import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/format";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function InvestorDashboardPage() {
   const stats = useQuery(api.investor.getPortfolioStats);
   const investments = useQuery(api.investor.getMyInvestments);
 
   if (stats === undefined || investments === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const kpis = [
@@ -97,10 +96,16 @@ export default function InvestorDashboardPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         {kpis.map((kpi) => (
-          <div
+          <motion.div
             key={kpi.label}
+            variants={staggerItem}
             className="rounded-xl border border-border bg-card p-6"
           >
             <div className="flex items-center gap-3">
@@ -112,9 +117,9 @@ export default function InvestorDashboardPage() {
                 <p className="text-xl font-bold">{kpi.value}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Investments Table */}
       {investments.length > 0 ? (

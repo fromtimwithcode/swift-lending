@@ -87,14 +87,12 @@ export function DataTable<T extends Record<string, unknown>>({
   const handleSelectAll = () => {
     if (!onSelectionChange) return;
     if (allSelected) {
-      // Deselect all visible
       const next = new Set(selectedIds);
       for (const id of allVisibleIds) {
         next.delete(id);
       }
       onSelectionChange(next);
     } else {
-      // Select all visible
       const next = new Set(selectedIds);
       for (const id of allVisibleIds) {
         next.add(id);
@@ -116,7 +114,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border py-16 text-muted-foreground">
+      <div className="flex items-center justify-center rounded-xl border border-border/60 py-16 text-muted-foreground">
         {emptyMessage}
       </div>
     );
@@ -125,14 +123,14 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border",
+        "overflow-hidden rounded-xl border border-border/60 shadow-[0_1px_3px_oklch(0_0_0_/_3%)]",
         className
       )}
     >
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/50">
+            <tr className="border-b border-border/40 bg-muted/30">
               {selectable && (
                 <th className="w-10 px-3 py-3">
                   <input
@@ -148,7 +146,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <th
                   key={col.key}
                   className={cn(
-                    "px-4 py-3 text-left font-medium text-muted-foreground",
+                    "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                     col.sortable && "cursor-pointer select-none hover:text-foreground",
                     col.className
                   )}
@@ -183,14 +181,18 @@ export function DataTable<T extends Record<string, unknown>>({
                 <tr
                   key={row[idKey] != null ? String(row[idKey]) : i}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  style={{
+                    opacity: 0,
+                    animation: `fadeIn 0.2s ease forwards ${Math.min(i, 10) * 0.02}s`,
+                  }}
                   className={cn(
-                    "border-b border-border last:border-0 transition-colors",
-                    onRowClick && "cursor-pointer hover:bg-muted/50",
+                    "border-b border-border/40 last:border-0 transition-colors duration-150",
+                    onRowClick && "cursor-pointer hover:bg-muted/30 active:bg-muted/50",
                     isSelected && "bg-primary/5"
                   )}
                 >
                   {selectable && (
-                    <td className="w-10 px-3 py-3">
+                    <td className="w-10 px-3 py-3.5">
                       <input
                         type="checkbox"
                         checked={isSelected ?? false}
@@ -205,10 +207,10 @@ export function DataTable<T extends Record<string, unknown>>({
                     </td>
                   )}
                   {columns.map((col) => (
-                    <td key={col.key} className={cn("px-4 py-3", col.className)}>
+                    <td key={col.key} className={cn("px-4 py-3.5", col.className)}>
                       {col.render
                         ? col.render(row)
-                        : (row[col.key] as ReactNode) ?? "—"}
+                        : (row[col.key] as ReactNode) ?? "\u2014"}
                     </td>
                   ))}
                 </tr>

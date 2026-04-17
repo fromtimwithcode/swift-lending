@@ -9,11 +9,14 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { SearchInput } from "@/components/dashboard/search-input";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { Users, Plus, Loader2, UserCheck, UserX } from "lucide-react";
+import { Users, Plus, UserCheck, UserX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminBorrowersPage() {
   const borrowers = useQuery(api.users.getAllBorrowers);
@@ -22,6 +25,7 @@ export default function AdminBorrowersPage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
 
   const filtered = useMemo(() => {
     if (!borrowers) return [];
@@ -43,11 +47,7 @@ export default function AdminBorrowersPage() {
   }, [search]);
 
   if (borrowers === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const columns: Column<(typeof borrowers)[number]>[] = [
@@ -107,23 +107,30 @@ export default function AdminBorrowersPage() {
     { header: "Active", key: "isActive" },
   ];
 
-  const handleBulkAction = async (isActive: boolean) => {
+  const handleBulkAction = (isActive: boolean) => {
     const label = isActive ? "Activate" : "Deactivate";
-    if (!confirm(`${label} ${selectedIds.size} borrower(s)?`)) return;
-    const userIds = [...selectedIds] as Id<"userProfiles">[];
-    setBulkLoading(true);
-    try {
-      const results = await bulkToggle({ userIds, isActive });
-      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-      if (failures.length > 0) {
-        alert(`${results.length - failures.length} succeeded, ${failures.length} skipped:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
-      }
-      setSelectedIds(new Set());
-    } catch {
-      alert(`Bulk ${label.toLowerCase()} failed. Please try again.`);
-    } finally {
-      setBulkLoading(false);
-    }
+    setConfirmAction({
+      title: `${label} ${selectedIds.size} borrower(s)?`,
+      action: async () => {
+        const userIds = [...selectedIds] as Id<"userProfiles">[];
+        setBulkLoading(true);
+        try {
+          const results = await bulkToggle({ userIds, isActive });
+          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+          if (failures.length > 0) {
+            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} skipped`);
+          } else {
+            toast.success(`${results.length} borrower(s) updated`);
+          }
+          setSelectedIds(new Set());
+        } catch {
+          toast.error(`Bulk ${label.toLowerCase()} failed. Please try again.`);
+        } finally {
+          setBulkLoading(false);
+          setConfirmAction(null);
+        }
+      },
+    });
   };
 
   const handleBulkActivate = () => handleBulkAction(true);
@@ -208,6 +215,14 @@ export default function AdminBorrowersPage() {
             variant: "destructive",
           },
         ]}
+      />
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.title ?? ""}
+        confirmLabel="Confirm"
+        loading={bulkLoading}
+        onConfirm={() => confirmAction?.action()}
+        onCancel={() => setConfirmAction(null)}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
 function DetailRow({
   label,
@@ -42,11 +43,7 @@ export default function AdminDrawDetailPage() {
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {

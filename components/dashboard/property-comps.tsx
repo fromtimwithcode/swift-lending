@@ -6,6 +6,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { DataTable, type Column } from "./data-table";
 import { Loader2, MapPin, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
 
 interface PropertyCompsProps {
@@ -22,7 +23,7 @@ export function PropertyComps({ loanId }: PropertyCompsProps) {
     try {
       await fetchComps({ loanId });
     } catch {
-      alert("Failed to fetch comps. Please try again.");
+      toast.error("Failed to fetch comps. Please try again.");
     } finally {
       setFetching(false);
     }
