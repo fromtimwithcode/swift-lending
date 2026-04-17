@@ -403,6 +403,55 @@ export const updateUserProfile = mutation({
   },
 });
 
+export const updateMyProfile = mutation({
+  args: {
+    displayName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    company: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    const updates: Record<string, unknown> = {};
+
+    if (args.displayName !== undefined) {
+      const displayName = args.displayName.trim();
+      if (!displayName) throw new Error("Display name cannot be empty");
+      updates.displayName = displayName;
+    }
+
+    const clearPhone = args.phone !== undefined && !args.phone.trim();
+    const clearCompany = args.company !== undefined && !args.company.trim();
+
+    if (args.phone !== undefined) {
+      const phone = args.phone.trim();
+      if (phone) updates.phone = phone;
+    }
+    if (args.company !== undefined) {
+      const company = args.company.trim();
+      if (company) updates.company = company;
+    }
+
+    if (clearPhone) updates.phone = undefined;
+    if (clearCompany) updates.company = undefined;
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(user._id, updates);
+    }
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: user._id,
+      userName: user.displayName,
+      action: "user.updateOwnProfile",
+      entityType: "user",
+      entityId: user._id,
+      details: `Updated own profile`,
+    });
+
+    return user._id;
+  },
+});
+
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {

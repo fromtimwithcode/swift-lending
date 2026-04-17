@@ -1,6 +1,7 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu, Settings } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./notification-bell";
 
@@ -23,6 +24,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
       <div className="flex items-center gap-2">
         <NotificationBell />
+        <Link
+          href="/dashboard/settings"
+          className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Settings"
+        >
+          <Settings className="size-5" />
+        </Link>
         <ThemeToggle />
       </div>
     </header>
