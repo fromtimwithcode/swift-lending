@@ -182,10 +182,10 @@ export function Sidebar({
   const unreadCount = useQuery(api.messages.getUnreadCount);
   const notifUnreadCount = useQuery(api.notifications.getUnreadCount);
 
+  const rootPaths = ["/dashboard/admin", "/dashboard/borrower", "/dashboard/investor"];
   const isActive = (href: string) => {
-    if (href === "/dashboard/admin" && pathname === "/dashboard/admin") return true;
-    if (href !== "/dashboard/admin" && pathname.startsWith(href)) return true;
-    return false;
+    if (rootPaths.includes(href)) return pathname === href;
+    return pathname.startsWith(href);
   };
 
   return (

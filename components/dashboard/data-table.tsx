@@ -182,8 +182,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   key={row[idKey] != null ? String(row[idKey]) : i}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={{
-                    opacity: 0,
-                    animation: `fadeIn 0.2s ease forwards ${Math.min(i, 10) * 0.02}s`,
+                    animation: `fadeIn 0.2s ease both ${Math.min(i, 10) * 0.02}s`,
                   }}
                   className={cn(
                     "border-b border-border/40 last:border-0 transition-colors duration-150",

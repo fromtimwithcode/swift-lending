@@ -31,7 +31,9 @@ function AnimatedNumber({ display }: { display: string }) {
 
   const motionVal = useMotionValue(0);
   const rounded = useTransform(motionVal, (v) => {
-    const formatted = hasDecimals ? v.toFixed(decimalPlaces) : Math.round(v).toLocaleString();
+    const formatted = hasDecimals
+      ? v.toLocaleString(undefined, { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces })
+      : Math.round(v).toLocaleString();
     return `${prefix}${formatted}${suffix}`;
   });
 
@@ -76,6 +78,8 @@ export function KpiCard({
   return (
     <motion.div
       variants={staggerItem}
+      initial="hidden"
+      animate="visible"
       className={cn(
         "card-premium group relative overflow-hidden p-6",
         className

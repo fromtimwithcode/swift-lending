@@ -721,7 +721,7 @@ export default function AdminInvestorDetailPage() {
         confirmLabel="Delete"
         variant="destructive"
         loading={deletingInvestment !== null}
-        onConfirm={() => confirmDeleteInvestment && handleDeleteInvestment(confirmDeleteInvestment)}
+        onConfirm={async () => { if (confirmDeleteInvestment) await handleDeleteInvestment(confirmDeleteInvestment); }}
         onCancel={() => setConfirmDeleteInvestment(null)}
       />
     </div>

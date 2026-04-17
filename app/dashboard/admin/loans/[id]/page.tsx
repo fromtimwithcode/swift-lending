@@ -83,6 +83,8 @@ export default function LoanDetailPage() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
   const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
+  const [deletingPayment, setDeletingPayment] = useState(false);
+  const [removingClosing, setRemovingClosing] = useState(false);
   const [paymentData, setPaymentData] = useState({
     amount: "",
     paymentDate: "",
@@ -110,10 +112,15 @@ export default function LoanDetailPage() {
   }
 
   const handleStatusChange = async (newStatus: string) => {
-    await updateStatus({
-      id,
-      status: newStatus as (typeof STATUSES)[number],
-    });
+    try {
+      await updateStatus({
+        id,
+        status: newStatus as (typeof STATUSES)[number],
+      });
+      toast.success("Status updated");
+    } catch {
+      toast.error("Failed to update status");
+    }
   };
 
   const startEditing = () => {
@@ -809,12 +816,19 @@ export default function LoanDetailPage() {
         description="This action cannot be undone."
         confirmLabel="Delete"
         variant="destructive"
-        onConfirm={() => {
-          if (confirmDeletePayment) {
-            deletePayment({ id: confirmDeletePayment as Id<"loanPayments"> });
+        loading={deletingPayment}
+        onConfirm={async () => {
+          if (!confirmDeletePayment) return;
+          setDeletingPayment(true);
+          try {
+            await deletePayment({ id: confirmDeletePayment as Id<"loanPayments"> });
             toast.success("Payment deleted");
+            setConfirmDeletePayment(null);
+          } catch {
+            toast.error("Failed to delete payment");
+          } finally {
+            setDeletingPayment(false);
           }
-          setConfirmDeletePayment(null);
         }}
         onCancel={() => setConfirmDeletePayment(null)}
       />
@@ -824,10 +838,18 @@ export default function LoanDetailPage() {
         description="This will remove the attached closing statement file."
         confirmLabel="Remove"
         variant="destructive"
-        onConfirm={() => {
-          removeClosingStatement({ loanId: id });
-          toast.success("Closing statement removed");
-          setConfirmRemoveClosing(false);
+        loading={removingClosing}
+        onConfirm={async () => {
+          setRemovingClosing(true);
+          try {
+            await removeClosingStatement({ loanId: id });
+            toast.success("Closing statement removed");
+            setConfirmRemoveClosing(false);
+          } catch {
+            toast.error("Failed to remove closing statement");
+          } finally {
+            setRemovingClosing(false);
+          }
         }}
         onCancel={() => setConfirmRemoveClosing(false)}
       />

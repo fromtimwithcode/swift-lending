@@ -72,7 +72,7 @@ export function NotificationBell() {
         className="relative inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label="Notifications"
       >
-        <Bell className={`size-5 ${unreadCount && unreadCount > 0 ? "animate-wiggle" : ""}`} />
+        <Bell key={unreadCount ?? 0} className={`size-5 ${unreadCount && unreadCount > 0 ? "animate-wiggle" : ""}`} />
         {unreadCount !== undefined && unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex size-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background">
             {unreadCount > 99 ? "99+" : unreadCount}

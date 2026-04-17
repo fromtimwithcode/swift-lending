@@ -41,6 +41,8 @@ export default function BorrowerDocumentsPage() {
     try {
       await deleteDocument({ id });
       toast.success("Document deleted");
+    } catch {
+      toast.error("Failed to delete document");
     } finally {
       setDeleting(null);
       setConfirmDeleteId(null);
@@ -172,7 +174,7 @@ export default function BorrowerDocumentsPage() {
         confirmLabel="Delete"
         variant="destructive"
         loading={deleting !== null}
-        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onConfirm={async () => { if (confirmDeleteId) await handleDelete(confirmDeleteId); }}
         onCancel={() => setConfirmDeleteId(null)}
       />
     </div>

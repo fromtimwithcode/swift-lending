@@ -159,7 +159,7 @@
   box-shadow:
     0 1px 3px oklch(0 0 0 / 4%),
     0 4px 12px oklch(0 0 0 / 2%);
-  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .card-premium:hover {
@@ -167,7 +167,6 @@
     0 2px 8px oklch(0 0 0 / 6%),
     0 8px 24px oklch(0 0 0 / 4%);
   border-color: oklch(0 0 0 / 10%);
-  transform: translateY(-1px);
 }
 
 :is(.dark) .card-premium {
@@ -213,22 +212,6 @@
     oklch(1 0 0 / 4%) 75%
   );
   background-size: 200% 100%;
-}
-
-/* ── Page entrance animation ── */
-@keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-page-enter {
-  animation: page-enter 0.4s ease-out both;
 }
 
 /* ── Animated gradient mesh ── */
@@ -372,6 +355,15 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 /* ── Video loading bar ── */

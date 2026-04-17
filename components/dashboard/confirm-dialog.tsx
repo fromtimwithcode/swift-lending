@@ -3,10 +3,11 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useCallback, useId } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   title: string;
   description?: string;
@@ -25,6 +26,20 @@ export function ConfirmDialog({
   variant = "default",
   loading = false,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+  const handleEscape = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) onCancel();
+    },
+    [loading, onCancel]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open, handleEscape]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -36,19 +51,25 @@ export function ConfirmDialog({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-50 bg-black/50"
-            onClick={onCancel}
+            onClick={loading ? undefined : onCancel}
           />
           {/* Dialog */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={loading ? undefined : onCancel}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
               className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-6 shadow-[0_4px_24px_oklch(0_0_0_/_12%)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-semibold">{title}</h3>
+              <h3 id={titleId} className="text-lg font-semibold">{title}</h3>
               {description && (
                 <p className="mt-2 text-sm text-muted-foreground">
                   {description}

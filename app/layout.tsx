@@ -40,7 +40,6 @@ export default function RootLayout({
               {children}
               <Toaster
                 position="bottom-right"
-                richColors
                 closeButton
                 toastOptions={{
                   style: {
