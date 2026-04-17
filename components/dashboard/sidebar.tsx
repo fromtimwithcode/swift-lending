@@ -11,7 +11,6 @@ import {
   Users,
   PiggyBank,
   MessageSquare,
-  Settings,
   LogOut,
   X,
   Bell,
@@ -79,11 +78,6 @@ const adminNav: NavItem[] = [
     label: "Activity Log",
     href: "/dashboard/admin/activity",
     icon: <Activity className="size-5" />,
-  },
-  {
-    label: "Settings",
-    href: "/dashboard/admin/settings",
-    icon: <Settings className="size-5" />,
   },
 ];
 
