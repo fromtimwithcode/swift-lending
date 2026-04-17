@@ -14,7 +14,6 @@ import {
   Settings,
   LogOut,
   X,
-  ChevronLeft,
   Bell,
   Activity,
   ShieldCheck,
@@ -282,21 +281,6 @@ export function Sidebar({
           </ul>
         </nav>
 
-        {/* Collapse toggle (desktop only) */}
-        <div className="hidden lg:block border-t border-sidebar-border px-3 py-2">
-          <button
-            onClick={onToggleCollapse}
-            className="flex w-full items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ChevronLeft
-              className={cn(
-                "size-4 transition-transform",
-                collapsed && "rotate-180"
-              )}
-            />
-          </button>
-        </div>
-
         {/* User info + sign out */}
         <div className="border-t border-sidebar-border p-3">
           <div
@@ -327,6 +311,13 @@ export function Sidebar({
             )}
           </div>
         </div>
+
+        {/* Edge handle — click to toggle sidebar (desktop only) */}
+        <button
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden lg:block absolute inset-y-0 right-0 w-1.5 z-10 cursor-col-resize bg-transparent transition-colors duration-150 hover:bg-primary/40 active:bg-primary/60"
+        />
       </aside>
     </>
   );
