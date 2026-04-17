@@ -85,6 +85,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "user.create": "Created User",
   "user.changeRole": "Changed User Role",
   "application.submit": "Submitted Loan Application",
+  "user.updateOwnProfile": "Updated Own Profile",
 };
 
 /** Entity type labels for display */
