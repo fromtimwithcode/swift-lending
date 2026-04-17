@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import NextTopLoader from "nextjs-toploader";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -19,6 +20,12 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="en" className="h-full antialiased" suppressHydrationWarning>
         <body className="relative min-h-full flex flex-col">
+          <NextTopLoader
+            color="oklch(0.80 0.15 264)"
+            height={2}
+            showSpinner={false}
+            shadow={false}
+          />
           <ConvexClientProvider>
             <ThemeProvider>{children}</ThemeProvider>
           </ConvexClientProvider>
