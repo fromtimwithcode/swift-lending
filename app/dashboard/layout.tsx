@@ -13,6 +13,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { FloatingMessenger } from "@/components/dashboard/floating-messenger";
 
 function AuthLoadingSkeleton() {
   return (
@@ -151,6 +152,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
           <AnimatedPage>{children}</AnimatedPage>
         </main>
       </div>
+      <FloatingMessenger />
     </div>
   );
 }
