@@ -54,57 +54,36 @@ function AnimatedPage({ children }: { children: ReactNode }) {
 function DashboardShell({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getMe);
   const claimProfile = useMutation(api.users.claimProfile);
-  const [claimDone, setClaimDone] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Attempt to claim profile on first load, with retries if identity isn't ready
+  // Link authUserId on pending profiles (admin-created, not yet claimed).
+  // getMe already returns pending profiles via email fallback, so the user
+  // sees the dashboard immediately — this just finalises the link.
   useEffect(() => {
-    if (profile !== null || claimDone) return;
+    if (!profile || profile.authUserId) return;
 
     let cancelled = false;
-    let attempt = 0;
-    const maxAttempts = 5;
 
-    async function tryToClaim() {
-      while (!cancelled && attempt < maxAttempts) {
-        attempt++;
+    async function claim() {
+      for (let i = 0; i < 3 && !cancelled; i++) {
         try {
           const result = await claimProfile();
           if (cancelled) return;
-          if (result.status === "no_email" && attempt < maxAttempts) {
-            // Identity not ready yet — wait and retry
+          if (result.status === "no_email") {
             await new Promise((r) => setTimeout(r, 1000));
             continue;
           }
-          // linked, claimed, or not_found — we're done
-          setClaimDone(true);
           return;
         } catch {
-          // Mutation error (e.g. expired invite) — stop retrying
-          if (!cancelled) setClaimDone(true);
           return;
         }
       }
-      if (!cancelled) setClaimDone(true);
     }
 
-    tryToClaim();
+    claim();
     return () => { cancelled = true; };
-  }, [profile, claimDone, claimProfile]);
-
-  // Reactive watch: when user is in "Account Pending" state and admin creates
-  // a profile for their email, the subscription fires and re-triggers the claim.
-  const hasPending = useQuery(
-    api.users.hasPendingProfile,
-    profile === null && claimDone ? {} : "skip",
-  );
-
-  useEffect(() => {
-    if (hasPending) {
-      setClaimDone(false);
-    }
-  }, [hasPending]);
+  }, [profile, claimProfile]);
 
   // Loading state
   if (profile === undefined) {

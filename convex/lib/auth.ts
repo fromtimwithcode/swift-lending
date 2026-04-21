@@ -14,16 +14,28 @@ export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
     throw new Error("Not authenticated");
   }
 
+  // Fast path: profile already linked by authUserId
   const profile = await ctx.db
     .query("userProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", userId))
     .unique();
 
-  if (!profile) {
-    return null;
+  if (profile) return profile;
+
+  // Fallback: match pending (admin-created) profile by verified OAuth email
+  const identity = await ctx.auth.getUserIdentity();
+  const email = identity?.email?.toLowerCase();
+  if (email) {
+    const pending = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (pending && pending.authUserId === undefined) {
+      return pending;
+    }
   }
 
-  return profile;
+  return null;
 }
 
 export async function requireUser(ctx: QueryCtx | MutationCtx) {
