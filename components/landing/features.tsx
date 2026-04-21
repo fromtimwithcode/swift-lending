@@ -65,8 +65,8 @@ export function Features() {
             <span className="text-sm font-medium uppercase tracking-widest text-teal/70">
               Why Choose Us
             </span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
-              Our Commitment to Every Deal
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl lg:text-5xl">
+              Our Commitment to Every <span className="text-gradient-gold">Deal</span>
             </h2>
             <p className="mt-4 leading-relaxed text-gray-500">
               At Swift Lending, we believe every investor deserves a lending

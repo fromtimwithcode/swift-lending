@@ -30,8 +30,8 @@ export function About() {
               Meet the Swift Capital Team
             </span>
 
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
-              Milwaukee&apos;s Real Estate Financing Experts
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl lg:text-5xl">
+              Milwaukee&apos;s Real Estate <span className="text-gradient-gold">Financing Experts</span>
             </h2>
 
             <p className="mt-5 leading-relaxed text-gray-500">
@@ -39,14 +39,14 @@ export function About() {
               for real estate investors across the Milwaukee metro area. Our
               experienced team combines deep local market knowledge with
               streamlined underwriting, so you get customized loan structures
-              that close fast — whether you&apos;re flipping, building, or
+              that close fast — whether you&apos;re flipping, rehabbing, or
               scaling your portfolio.
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href="#contact"
-                className="inline-flex h-14 items-center justify-center rounded-full bg-teal px-10 text-base font-semibold text-white transition-shadow duration-300 hover:shadow-[0_0_24px_oklch(0.45_0.24_264/30%)]"
+                className="inline-flex h-14 items-center justify-center rounded-full bg-teal px-10 text-base font-semibold text-white transition-shadow duration-300 hover:shadow-[0_0_24px_oklch(0.30_0.10_250/30%)]"
               >
                 Learn More
               </Link>

@@ -21,7 +21,7 @@ export function SimpleFast() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex-1"
+            className="w-full flex-1"
           >
             <div className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-8">
               <div className="space-y-2">
@@ -73,9 +73,9 @@ export function SimpleFast() {
             <span className="text-sm font-medium uppercase tracking-widest text-teal/70">
               Simple Process
             </span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl lg:text-5xl">
               From Application to{" "}
-              <span className="text-teal">Funding</span> in Days
+              <span className="text-gradient-gold">Funding</span> in Days
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-500">
               Our streamlined process means less paperwork and faster closings.
@@ -98,8 +98,8 @@ export function SimpleFast() {
             <span className="text-sm font-medium uppercase tracking-widest text-teal/70">
               Speed Matters
             </span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
-              Never Miss a <span className="text-teal">Deal</span> Again
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl lg:text-5xl">
+              Never Miss a <span className="text-gradient-gold">Deal</span> Again
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-500">
               In real estate, timing is everything. Our capital is ready when you
@@ -114,7 +114,7 @@ export function SimpleFast() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="flex-1"
+            className="w-full flex-1"
           >
             <div className="rounded-2xl border border-gray-100 bg-[#FAFAFA] p-8">
               <div className="grid grid-cols-2 gap-4">

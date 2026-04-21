@@ -5,36 +5,24 @@ import { motion } from "framer-motion";
 import { SectionWrapper } from "./section-wrapper";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  BadgeDollarSignIcon,
   FlashIcon,
   Building04Icon,
-  Agreement02Icon,
 } from "@hugeicons/core-free-icons";
 
 const services = [
   {
-    icon: BadgeDollarSignIcon,
-    title: "Hard Money Loans",
-    description: "Fast, flexible funding built for deals that can't wait.",
-    image: "/images/services/hard-money-loans.jpg",
-  },
-  {
     icon: FlashIcon,
-    title: "Fix & Flip Financing",
-    description: "Close fast. Renovate confidently. Exit profitably.",
+    title: "Fix & Flip Loans",
+    description:
+      "Buy it, renovate it, sell it. We provide the capital so you can move quickly on distressed properties with funding in days, not weeks.",
     image: "/images/services/fix-and-flip.jpg",
   },
   {
     icon: Building04Icon,
-    title: "Rehab & Renovate",
-    description: "One loan for purchase and rehab — simple, local, reliable.",
+    title: "BRRRR Strategy Loans",
+    description:
+      "Buy, rehab, rent, refinance, repeat. Short-term funding to execute the full BRRRR cycle and grow your portfolio.",
     image: "/images/services/rehab-and-renovate.jpg",
-  },
-  {
-    icon: Agreement02Icon,
-    title: "Investor-Friendly",
-    description: "Milwaukee-based lending that fits your market.",
-    image: "/images/services/investor-friendly.png",
   },
 ];
 
@@ -52,9 +40,9 @@ export function Services() {
           <span className="text-sm font-medium uppercase tracking-widest text-teal/70">
             Swift Capital Services
           </span>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl lg:text-5xl">
             Hard Money Loans for Wisconsin
-            <br className="hidden sm:block" /> Real Estate Investors
+            <br className="hidden sm:block" /> <span className="text-gradient-gold">Real Estate Investors</span>
           </h2>
         </div>
 
@@ -64,7 +52,7 @@ export function Services() {
           whileInView="show"
           viewport={{ once: true, margin: "-60px" }}
           transition={{ staggerChildren: 0.12 }}
-          className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-14 mx-auto grid max-w-5xl gap-8 sm:grid-cols-2"
         >
           {services.map((service) => (
             <motion.div
@@ -72,10 +60,10 @@ export function Services() {
               variants={cardVariants}
               transition={{ duration: 0.5, ease: "easeOut" }}
               whileHover={{ y: -4 }}
-              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-lg hover:shadow-teal/5"
+              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-lg hover:shadow-lime/10 hover:border-lime/30"
             >
               {/* Image */}
-              <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 lg:aspect-[3/3.5]">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-100">
                 <Image
                   src={service.image}
                   alt={service.title}
