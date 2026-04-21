@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 
 /* ── Scroll-reveal text — split into words ── */
 const revealText =
-  "We fund deals other lenders won't touch. Closing in days, not months. Bridge loans, fix & flip, ground-up construction, and DSCR rentals with rates and terms that make sense.";
+  "We fund deals other lenders won't touch. Closing in days, not months. Hard money loans for buy, rehab, and resell with rates and terms that make sense.";
 const words = revealText.split(" ");
 
 /* ── Floating SVG icons — large, detailed, real-estate themed ── */
@@ -173,8 +173,8 @@ export function LoanCard() {
           >
             <defs>
               <linearGradient id={`icon-gradient-${i}`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="oklch(0.45 0.24 264)" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="oklch(0.80 0.15 264)" stopOpacity="0.2" />
+                <stop offset="0%" stopColor="oklch(0.30 0.10 250)" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="oklch(0.76 0.14 80)" stopOpacity="0.2" />
               </linearGradient>
             </defs>
             {icon.paths.map((d, j) => (
@@ -209,19 +209,19 @@ export function LoanCard() {
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-xl shadow-black/[0.08]">
           <div className="flex items-center gap-3 sm:justify-between">
             <span className="text-sm text-gray-400">Loan Summary</span>
-            <span className="rounded-full bg-lime/30 px-3 py-1 text-xs font-medium text-teal">
+            <span className="rounded-full bg-gradient-to-r from-lime/20 to-lime/30 px-3 py-1 text-xs font-medium text-teal ring-1 ring-lime/20">
               Pre-Approved
             </span>
           </div>
           <div className="mt-4">
             <div className="text-3xl font-bold text-gray-900">$425,000</div>
-            <div className="text-sm text-gray-400">Bridge Loan</div>
+            <div className="text-sm text-gray-400">Hard Money Loan</div>
           </div>
           <div className="mt-6 grid grid-cols-2 gap-4">
             {[
-              { label: "Rate", value: "9.5%" },
-              { label: "Term", value: "12 mo" },
-              { label: "LTV", value: "85%" },
+              { label: "Rate", value: "13%" },
+              { label: "Term", value: "6 mo" },
+              { label: "LTV", value: "100%" },
               { label: "Close", value: "5 days" },
             ].map((item) => (
               <div
@@ -244,7 +244,7 @@ export function LoanCard() {
           className="absolute -top-4 right-0 sm:-right-4 rounded-xl bg-white/90 backdrop-blur-sm p-3 shadow-xl shadow-black/[0.08]"
         >
           <div className="text-xs text-gray-400">Funded Today</div>
-          <div className="text-lg font-bold text-teal">$1.2M</div>
+          <div className="text-lg font-bold text-gradient-gold">$1.2M</div>
         </motion.div>
 
         {/* Floating badge — bottom left */}

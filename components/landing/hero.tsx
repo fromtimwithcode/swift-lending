@@ -59,15 +59,15 @@ export function Hero() {
             className="mx-auto mt-4 max-w-5xl text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-7xl lg:text-8xl"
           >
             Fast Capital for{" "}
-            <span className="lg:whitespace-nowrap">Real Estate Investors</span>
+            <span className="lg:whitespace-nowrap text-gradient-gold">Real Estate Investors</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="mx-auto mt-5 max-w-2xl text-base text-white/70 sm:text-lg lg:text-xl"
           >
-            Close in as few as 5 days. Bridge loans, fix &amp; flip financing,
-            and commercial lending — with rates and terms that make sense.
+            We fund deals other lenders won&apos;t touch. Hard money loans for
+            fix &amp; flip and BRRRR investors, closing in days, not months.
           </motion.p>
 
           <motion.div
@@ -78,7 +78,7 @@ export function Hero() {
               whileHover="hover"
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="relative flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full bg-teal px-10 lg:px-12 text-base lg:text-lg font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              className="relative flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full bg-gradient-to-r from-teal to-teal-light px-10 lg:px-12 text-base lg:text-lg font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <div className="shimmer-bar" />
               <span className="relative">Get Funding Now</span>
@@ -133,12 +133,12 @@ export function Hero() {
             <div className="flex items-center gap-6 sm:gap-8">
               {[
                 { value: "5 Day", label: "Closings" },
-                { value: "90%", label: "LTV" },
+                { value: "100%", label: "Financing Available" },
                 { value: "4.9★", label: "Rating" },
               ].map((stat, i, arr) => (
                 <div key={stat.label} className="flex items-center gap-6 sm:gap-8">
                   <div className="text-center">
-                    <div className="text-lg font-bold text-white sm:text-xl">
+                    <div className="text-lg font-bold text-lime sm:text-xl">
                       {stat.value}
                     </div>
                     <div className="mt-0.5 text-[11px] text-white/50">{stat.label}</div>

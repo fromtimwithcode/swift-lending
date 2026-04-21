@@ -22,16 +22,14 @@ const fadeUp = {
 };
 
 const contactItems = [
-  { icon: Call02Icon, label: "(262) 264-8606" },
+  { icon: Call02Icon, label: "(262) 565-3210" },
   { icon: Location01Icon, label: "Milwaukee, WI" },
-  { icon: Clock01Icon, label: "Mon–Fri, 9–5 CST" },
+  { icon: Clock01Icon, label: "M–F, 9–5 CST" },
 ];
 
 const serviceOptions = [
-  "Bridge Loans",
-  "Fix & Flip",
-  "Construction",
-  "DSCR Rental",
+  "Fix & Flip Loans",
+  "BRRRR Strategy Loans",
 ];
 
 const faqs = [
@@ -45,11 +43,11 @@ const faqs = [
   },
   {
     q: "What types of properties do you finance?",
-    a: "We fund single-family, multi-family (2–4 units), mixed-use, and small commercial properties across Wisconsin. Fix-and-flip, ground-up construction, bridge, and DSCR rental loans are all available.",
+    a: "We fund single-family and multi-family (2–4 units) properties across Wisconsin. Our hard money loans cover fix-and-flip and rehab projects for buy-rehab-resell and BRRRR strategy investors.",
   },
   {
     q: "What are typical loan terms and rates?",
-    a: "Bridge and fix-and-flip loans typically run 6–18 months with interest rates starting at 9.99%. DSCR rental loans offer 30-year terms with rates starting at 7.5%. Every deal is different — reach out for a custom quote.",
+    a: "Our hard money loans typically run 6 months with interest rates starting at 13%. Interest-only payments with origination points paid upfront. Up to 100% project funding available. Every deal is different — reach out for a custom quote.",
   },
   {
     q: "Do I need perfect credit to qualify?",
@@ -60,12 +58,10 @@ const faqs = [
 const inputClasses =
   "w-full rounded-xl border border-white/10 bg-teal-dark/40 px-4 py-3.5 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)] placeholder:text-white/40 outline-none transition-all duration-200 focus:border-white/25 focus:bg-teal-dark/50";
 
-function FAQItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
-
+function FAQItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
   return (
     <button
-      onClick={() => setOpen(!open)}
+      onClick={onToggle}
       className="w-full rounded-2xl border border-gray-200 px-6 py-5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/50"
     >
       <div className="flex items-center justify-between gap-4">
@@ -98,6 +94,8 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 export function CTASection() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
     <section
       id="contact"
@@ -106,14 +104,14 @@ export function CTASection() {
       <div className="relative mx-auto max-w-7xl px-6">
         {/* ── Contact Form Panel ── */}
         <div className="relative overflow-hidden rounded-3xl bg-teal p-8 sm:p-12 lg:p-16">
-          {/* Single subtle lighter wash — top right */}
+          {/* Subtle lighter wash — top right */}
           <div className="pointer-events-none absolute -top-24 -right-24 h-[500px] w-[500px] rounded-full bg-teal-light/10 blur-[140px]" />
 
           <div className="relative grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
             {/* ── Left column — Form ── */}
             <div>
               <motion.h2
-                className="text-4xl font-bold tracking-tight sm:text-5xl"
+                className="text-4xl font-bold tracking-tight text-balance sm:text-5xl"
                 variants={fadeUp}
                 initial="hidden"
                 whileInView="visible"
@@ -236,7 +234,7 @@ export function CTASection() {
 
               {/* Floating contact card */}
               <motion.div
-                className="absolute -bottom-5 inset-x-3 rounded-2xl border border-white/[0.12] bg-white/[0.08] px-6 py-4 backdrop-blur-2xl sm:inset-x-4"
+                className="relative mt-4 sm:absolute sm:mt-0 sm:-bottom-5 inset-x-0 sm:inset-x-4 rounded-2xl border border-white/[0.12] bg-white/[0.08] px-6 py-4 backdrop-blur-2xl"
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -246,7 +244,7 @@ export function CTASection() {
                   ease: [0.25, 0.46, 0.45, 0.94],
                 }}
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   {contactItems.map((item) => (
                     <div key={item.label} className="flex items-center gap-2.5">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10">
@@ -256,7 +254,7 @@ export function CTASection() {
                           strokeWidth={1.5}
                         />
                       </div>
-                      <span className="whitespace-nowrap text-xs text-white/80 sm:text-sm">
+                      <span className="text-xs text-white/80 sm:text-sm">
                         {item.label}
                       </span>
                     </div>
@@ -280,9 +278,9 @@ export function CTASection() {
               <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
                 FAQ
               </span>
-              <h3 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              <h3 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 text-balance sm:text-4xl">
                 Frequently Asked{" "}
-                <span className="text-teal">Questions</span>
+                <span className="text-gradient-gold">Questions</span>
               </h3>
               <a
                 href="#contact"
@@ -300,8 +298,14 @@ export function CTASection() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1, ease }}
             >
-              {faqs.map((faq) => (
-                <FAQItem key={faq.q} q={faq.q} a={faq.a} />
+              {faqs.map((faq, i) => (
+                <FAQItem
+                  key={faq.q}
+                  q={faq.q}
+                  a={faq.a}
+                  open={openFaq === i}
+                  onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+                />
               ))}
             </motion.div>
           </div>

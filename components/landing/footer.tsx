@@ -7,14 +7,12 @@ const footerLinks = {
     { label: "Blog", href: "#" },
   ],
   "Loan Programs": [
-    { label: "Bridge Loans", href: "#" },
-    { label: "Fix & Flip", href: "#" },
-    { label: "Construction", href: "#" },
-    { label: "DSCR Rental", href: "#" },
+    { label: "Fix & Flip Loans", href: "#" },
+    { label: "BRRRR Strategy Loans", href: "#" },
   ],
   Contact: [
-    { label: "info@swiftcapitallending.com", href: "mailto:info@swiftcapitallending.com" },
-    { label: "(262) 264-8606", href: "tel:+12622648606" },
+    { label: "craig@swiftcapitallenders.com", href: "mailto:craig@swiftcapitallenders.com" },
+    { label: "(262) 565-3210", href: "tel:+12625653210" },
     { label: "Milwaukee, WI", href: "#" },
   ],
 };
@@ -22,15 +20,15 @@ const footerLinks = {
 export function Footer() {
   return (
     <footer className="overflow-hidden bg-[#0a0a0a]">
-      {/* Gradient top border */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      {/* Gold gradient top border */}
+      <div className="h-px bg-gradient-to-r from-transparent via-lime/40 to-transparent" />
 
       <div className="mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-16 md:grid-cols-4">
           {/* Branding */}
           <div>
             <div className="flex items-center gap-2">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-teal font-bold text-white text-sm">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal to-teal-light font-bold text-white text-sm">
                 SC
               </div>
               <span className="text-lg font-bold text-white">
