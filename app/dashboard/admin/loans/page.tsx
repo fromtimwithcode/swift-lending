@@ -11,12 +11,15 @@ import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { Landmark, Plus, Loader2 } from "lucide-react";
+import { Landmark, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { exportToCsv } from "@/lib/export";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 type TabFilter = "all" | "pipeline" | "closed";
 
@@ -49,6 +52,7 @@ export default function AdminLoansPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
 
   const filteredLoans = useMemo(() => {
     if (!loans) return [];
@@ -83,11 +87,7 @@ export default function AdminLoansPage() {
   }, [search, activeTab]);
 
   if (loans === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const tabs = [
@@ -171,26 +171,33 @@ export default function AdminLoansPage() {
       ? filteredLoans.filter((l) => selectedIds.has(l._id))
       : filteredLoans;
 
-  const handleBulkStatusChange = async (status: string) => {
-    if (!confirm(`Change status of ${selectedIds.size} loan(s) to "${status}"?`)) return;
-    const loanIds = [...selectedIds] as Id<"loans">[];
-    setBulkLoading(true);
-    try {
-      const results = await bulkUpdateStatus({
-        loanIds,
-        status: status as (typeof LOAN_STATUSES)[number],
-      });
-      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-      if (failures.length > 0) {
-        alert(`${results.length - failures.length} succeeded, ${failures.length} failed:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
-      }
-      setSelectedIds(new Set());
-      setBulkStatusOpen(false);
-    } catch {
-      alert("Bulk status update failed. Please try again.");
-    } finally {
-      setBulkLoading(false);
-    }
+  const handleBulkStatusChange = (status: string) => {
+    setConfirmAction({
+      title: `Change status of ${selectedIds.size} loan(s) to "${status}"?`,
+      action: async () => {
+        const loanIds = [...selectedIds] as Id<"loans">[];
+        setBulkLoading(true);
+        try {
+          const results = await bulkUpdateStatus({
+            loanIds,
+            status: status as (typeof LOAN_STATUSES)[number],
+          });
+          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+          if (failures.length > 0) {
+            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} failed`);
+          } else {
+            toast.success(`${results.length} loan(s) updated`);
+          }
+          setSelectedIds(new Set());
+          setBulkStatusOpen(false);
+        } catch {
+          toast.error("Bulk status update failed. Please try again.");
+        } finally {
+          setBulkLoading(false);
+          setConfirmAction(null);
+        }
+      },
+    });
   };
 
   return (
@@ -287,7 +294,7 @@ export default function AdminLoansPage() {
                   selected as unknown as Record<string, unknown>[]
                 );
               } catch {
-                alert("Export failed. Please try again.");
+                toast.error("Export failed. Please try again.");
               }
             },
           },
@@ -310,6 +317,14 @@ export default function AdminLoansPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.title ?? ""}
+        confirmLabel="Confirm"
+        loading={bulkLoading}
+        onConfirm={() => confirmAction?.action()}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

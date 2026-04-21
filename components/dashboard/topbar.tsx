@@ -10,11 +10,11 @@ interface TopbarProps {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-sm sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-background/70 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8">
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
-        className="lg:hidden rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="lg:hidden rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Menu className="size-5" />
       </button>
@@ -25,7 +25,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <NotificationBell />
         <Link
           href="/dashboard/settings"
-          className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Settings"
         >
           <Settings className="size-5" />

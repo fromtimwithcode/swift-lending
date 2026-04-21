@@ -2,11 +2,11 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { SearchInput } from "@/components/dashboard/search-input";
 import { ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS } from "@/convex/lib/constants";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -54,11 +54,7 @@ export default function ActivityLogPage() {
   }, [activity, entityFilter, search]);
 
   if (activity === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (

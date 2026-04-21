@@ -6,9 +6,10 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { MessageThread } from "@/components/dashboard/message-thread";
 import { ConversationList } from "@/components/dashboard/conversation-list";
-import { Loader2, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function AdminMessagesPage() {
   const profile = useQuery(api.users.getMe);
@@ -34,11 +35,7 @@ export default function AdminMessagesPage() {
   );
 
   if (profile === undefined || conversations === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!profile) return null;

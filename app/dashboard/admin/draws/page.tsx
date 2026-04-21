@@ -11,10 +11,13 @@ import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { HandCoins, Loader2, Check, XCircle } from "lucide-react";
+import { HandCoins, Check, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
@@ -26,6 +29,7 @@ export default function AdminDrawsPage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
 
   const filtered = useMemo(() => {
     if (!draws) return [];
@@ -53,11 +57,7 @@ export default function AdminDrawsPage() {
   }, [search, activeTab]);
 
   if (draws === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const tabs = [
@@ -105,23 +105,30 @@ export default function AdminDrawsPage() {
     { header: "Status", key: "status" },
   ];
 
-  const handleBulkAction = async (status: "approved" | "denied") => {
+  const handleBulkAction = (status: "approved" | "denied") => {
     const label = status === "approved" ? "Approve" : "Deny";
-    if (!confirm(`${label} ${selectedIds.size} draw request(s)?`)) return;
-    const drawIds = [...selectedIds] as Id<"drawRequests">[];
-    setBulkLoading(true);
-    try {
-      const results = await bulkReview({ drawIds, status });
-      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-      if (failures.length > 0) {
-        alert(`${results.length - failures.length} succeeded, ${failures.length} failed:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
-      }
-      setSelectedIds(new Set());
-    } catch {
-      alert(`Bulk ${label.toLowerCase()} failed. Please try again.`);
-    } finally {
-      setBulkLoading(false);
-    }
+    setConfirmAction({
+      title: `${label} ${selectedIds.size} draw request(s)?`,
+      action: async () => {
+        const drawIds = [...selectedIds] as Id<"drawRequests">[];
+        setBulkLoading(true);
+        try {
+          const results = await bulkReview({ drawIds, status });
+          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+          if (failures.length > 0) {
+            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} failed`);
+          } else {
+            toast.success(`${results.length} draw request(s) ${status}`);
+          }
+          setSelectedIds(new Set());
+        } catch {
+          toast.error(`Bulk ${label.toLowerCase()} failed. Please try again.`);
+        } finally {
+          setBulkLoading(false);
+          setConfirmAction(null);
+        }
+      },
+    });
   };
 
   const handleBulkApprove = () => handleBulkAction("approved");
@@ -192,6 +199,14 @@ export default function AdminDrawsPage() {
             variant: "destructive",
           },
         ]}
+      />
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.title ?? ""}
+        confirmLabel="Confirm"
+        loading={bulkLoading}
+        onConfirm={() => confirmAction?.action()}
+        onCancel={() => setConfirmAction(null)}
       />
     </div>
   );

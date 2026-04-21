@@ -26,6 +26,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 const STATUSES = [
   "submitted",
@@ -78,6 +81,10 @@ export default function LoanDetailPage() {
   const [closingUploading, setClosingUploading] = useState(false);
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
+  const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
+  const [deletingPayment, setDeletingPayment] = useState(false);
+  const [removingClosing, setRemovingClosing] = useState(false);
   const [paymentData, setPaymentData] = useState({
     amount: "",
     paymentDate: "",
@@ -101,18 +108,19 @@ export default function LoanDetailPage() {
   })() : null;
 
   if (loan === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const handleStatusChange = async (newStatus: string) => {
-    await updateStatus({
-      id,
-      status: newStatus as (typeof STATUSES)[number],
-    });
+    try {
+      await updateStatus({
+        id,
+        status: newStatus as (typeof STATUSES)[number],
+      });
+      toast.success("Status updated");
+    } catch {
+      toast.error("Failed to update status");
+    }
   };
 
   const startEditing = () => {
@@ -162,8 +170,9 @@ export default function LoanDetailPage() {
         notes: editData.notes || undefined,
       });
       setEditing(false);
+      toast.success("Loan saved");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save loan");
+      toast.error(err instanceof Error ? err.message : "Failed to save loan");
     } finally {
       setSaving(false);
     }
@@ -175,13 +184,13 @@ export default function LoanDetailPage() {
 
     const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      alert("Only PDF and image files (PNG, JPEG, WebP) are allowed.");
+      toast.error("Only PDF and image files (PNG, JPEG, WebP) are allowed.");
       e.target.value = "";
       return;
     }
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      alert("File size must be under 10MB.");
+      toast.error("File size must be under 10MB.");
       e.target.value = "";
       return;
     }
@@ -197,8 +206,9 @@ export default function LoanDetailPage() {
       if (!result.ok) throw new Error("Upload failed: " + result.statusText);
       const { storageId } = await result.json();
       await attachClosingStatement({ loanId: id, fileId: storageId });
+      toast.success("Closing statement uploaded");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to upload closing statement");
+      toast.error(err instanceof Error ? err.message : "Failed to upload closing statement");
     } finally {
       setClosingUploading(false);
     }
@@ -226,8 +236,9 @@ export default function LoanDetailPage() {
         status: "on_time",
         notes: "",
       });
+      toast.success("Payment recorded");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to record payment");
+      toast.error(err instanceof Error ? err.message : "Failed to record payment");
     } finally {
       setPaymentSaving(false);
     }
@@ -272,9 +283,7 @@ export default function LoanDetailPage() {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (confirm("Are you sure you want to delete this payment?")) {
-              deletePayment({ id: row._id as Id<"loanPayments"> });
-            }
+            setConfirmDeletePayment(row._id as string);
           }}
           className="rounded p-1 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
         >
@@ -529,9 +538,7 @@ export default function LoanDetailPage() {
             </label>
             <button
               onClick={() => {
-                if (confirm("Are you sure you want to remove the closing statement?")) {
-                  removeClosingStatement({ loanId: id });
-                }
+                setConfirmRemoveClosing(true);
               }}
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
@@ -802,6 +809,49 @@ export default function LoanDetailPage() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         loanId={id}
+      />
+      <ConfirmDialog
+        open={confirmDeletePayment !== null}
+        title="Delete this payment?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deletingPayment}
+        onConfirm={async () => {
+          if (!confirmDeletePayment) return;
+          setDeletingPayment(true);
+          try {
+            await deletePayment({ id: confirmDeletePayment as Id<"loanPayments"> });
+            toast.success("Payment deleted");
+            setConfirmDeletePayment(null);
+          } catch {
+            toast.error("Failed to delete payment");
+          } finally {
+            setDeletingPayment(false);
+          }
+        }}
+        onCancel={() => setConfirmDeletePayment(null)}
+      />
+      <ConfirmDialog
+        open={confirmRemoveClosing}
+        title="Remove closing statement?"
+        description="This will remove the attached closing statement file."
+        confirmLabel="Remove"
+        variant="destructive"
+        loading={removingClosing}
+        onConfirm={async () => {
+          setRemovingClosing(true);
+          try {
+            await removeClosingStatement({ loanId: id });
+            toast.success("Closing statement removed");
+            setConfirmRemoveClosing(false);
+          } catch {
+            toast.error("Failed to remove closing statement");
+          } finally {
+            setRemovingClosing(false);
+          }
+        }}
+        onCancel={() => setConfirmRemoveClosing(false)}
       />
     </div>
   );

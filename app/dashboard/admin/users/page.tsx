@@ -10,11 +10,14 @@ import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { ShieldCheck, Plus, Loader2, UserCheck, UserX } from "lucide-react";
+import { ShieldCheck, Plus, UserCheck, UserX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { ROLE_LABELS } from "@/convex/lib/constants";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminUsersPage() {
   const users = useQuery(api.users.getAllUsers);
@@ -25,6 +28,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
 
   const filtered = useMemo(() => {
     if (!users) return [];
@@ -78,11 +82,7 @@ export default function AdminUsersPage() {
   }, [search, roleTab, statusFilter]);
 
   if (users === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const columns: Column<(typeof users)[number]>[] = [
@@ -129,23 +129,30 @@ export default function AdminUsersPage() {
     { header: "Status", key: "isActive" },
   ];
 
-  const handleBulkAction = async (isActive: boolean) => {
+  const handleBulkAction = (isActive: boolean) => {
     const label = isActive ? "Activate" : "Deactivate";
-    if (!confirm(`${label} ${selectedIds.size} user(s)?`)) return;
-    const userIds = [...selectedIds] as Id<"userProfiles">[];
-    setBulkLoading(true);
-    try {
-      const results = await bulkToggle({ userIds, isActive });
-      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-      if (failures.length > 0) {
-        alert(`${results.length - failures.length} succeeded, ${failures.length} skipped:\n${failures.map((f: { error?: string }) => f.error).join("\n")}`);
-      }
-      setSelectedIds(new Set());
-    } catch {
-      alert(`Bulk ${label.toLowerCase()} failed. Please try again.`);
-    } finally {
-      setBulkLoading(false);
-    }
+    setConfirmAction({
+      title: `${label} ${selectedIds.size} user(s)?`,
+      action: async () => {
+        const userIds = [...selectedIds] as Id<"userProfiles">[];
+        setBulkLoading(true);
+        try {
+          const results = await bulkToggle({ userIds, isActive });
+          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+          if (failures.length > 0) {
+            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} skipped`);
+          } else {
+            toast.success(`${results.length} user(s) updated`);
+          }
+          setSelectedIds(new Set());
+        } catch {
+          toast.error(`Bulk ${label.toLowerCase()} failed. Please try again.`);
+        } finally {
+          setBulkLoading(false);
+          setConfirmAction(null);
+        }
+      },
+    });
   };
 
   const handleBulkActivate = () => handleBulkAction(true);
@@ -258,6 +265,14 @@ export default function AdminUsersPage() {
             variant: "destructive",
           },
         ]}
+      />
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.title ?? ""}
+        confirmLabel="Confirm"
+        loading={bulkLoading}
+        onConfirm={() => confirmAction?.action()}
+        onCancel={() => setConfirmAction(null)}
       />
     </div>
   );

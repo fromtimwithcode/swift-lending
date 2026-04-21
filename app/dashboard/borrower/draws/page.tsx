@@ -6,10 +6,11 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { HandCoins, Plus, Loader2 } from "lucide-react";
+import { HandCoins, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
@@ -18,11 +19,7 @@ export default function BorrowerDrawsPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
   if (draws === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const filtered = useMemo(() => {

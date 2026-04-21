@@ -8,11 +8,12 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
-import { Loader2, ArrowLeft, Upload, Download } from "lucide-react";
+import { ArrowLeft, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
 function DetailRow({
   label,
@@ -41,11 +42,7 @@ export default function BorrowerLoanDetailPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
 
   if (loan === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   const drawColumns: Column<Record<string, unknown>>[] = [

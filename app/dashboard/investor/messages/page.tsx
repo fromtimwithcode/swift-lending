@@ -6,8 +6,9 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { MessageThread } from "@/components/dashboard/message-thread";
 import { ConversationList } from "@/components/dashboard/conversation-list";
-import { Loader2, MessageSquare, Plus } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 import { useState } from "react";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 export default function InvestorMessagesPage() {
   const profile = useQuery(api.users.getMe);
@@ -24,11 +25,7 @@ export default function InvestorMessagesPage() {
   );
 
   if (profile === undefined || conversations === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!profile) return null;

@@ -6,7 +6,6 @@ import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ROLE_LABELS } from "@/convex/lib/constants";
 import {
-  Loader2,
   Settings,
   Sun,
   Moon,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
@@ -88,11 +88,7 @@ export default function SettingsPage() {
   }, [me, formInitialized]);
 
   if (me === undefined) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!me) {

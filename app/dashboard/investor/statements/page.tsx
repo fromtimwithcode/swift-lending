@@ -5,18 +5,17 @@ import { api } from "@/convex/_generated/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
-import { DollarSign, TrendingUp, Percent, Wallet, Loader2 } from "lucide-react";
+import { DollarSign, TrendingUp, Percent, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { motion } from "framer-motion";
+import { staggerContainer } from "@/lib/animations";
 
 export default function InvestorStatementsPage() {
   const statement = useQuery(api.investor.getInvestmentStatement);
 
   if (statement === undefined) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const columns: Column<Record<string, unknown>>[] = [
@@ -60,7 +59,12 @@ export default function InvestorStatementsPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+      >
         <KpiCard
           label="Total Invested"
           value={formatCurrency(statement.totalInvested)}
@@ -85,7 +89,7 @@ export default function InvestorStatementsPage() {
           subtitle="Projected yearly returns"
           icon={Wallet}
         />
-      </div>
+      </motion.div>
 
       {/* Investments Breakdown */}
       <div>
