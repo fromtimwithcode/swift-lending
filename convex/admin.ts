@@ -163,6 +163,22 @@ export const createLoan = mutation({
     if (!borrower) throw new Error("Borrower not found");
     if (borrower.role !== "borrower") throw new Error("User is not a borrower");
 
+    // Trim string inputs
+    const borrowerName = args.borrowerName.trim();
+    const entityName = args.entityName.trim();
+    const propertyAddress = args.propertyAddress.trim();
+    const terms = args.terms.trim();
+    const titleCompany = args.titleCompany?.trim() || undefined;
+    const titleCompanyContact = args.titleCompanyContact?.trim() || undefined;
+    const notes = args.notes?.trim() || undefined;
+    const closeDate = args.closeDate?.trim() || undefined;
+    const maturityDate = args.maturityDate?.trim() || undefined;
+
+    if (!borrowerName) throw new Error("Borrower name cannot be empty");
+    if (!entityName) throw new Error("Entity name cannot be empty");
+    if (!propertyAddress) throw new Error("Property address cannot be empty");
+    if (!terms) throw new Error("Terms cannot be empty");
+
     // Validate financial fields
     if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
@@ -196,6 +212,15 @@ export const createLoan = mutation({
 
     const id = await ctx.db.insert("loans", {
       ...args,
+      borrowerName,
+      entityName,
+      propertyAddress,
+      terms,
+      titleCompany,
+      titleCompanyContact,
+      notes,
+      closeDate,
+      maturityDate,
       createdBy: admin._id,
     });
 
@@ -205,7 +230,7 @@ export const createLoan = mutation({
       action: "loan.create",
       entityType: "loan",
       entityId: id,
-      details: `Created loan for ${args.propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
+      details: `Created loan for ${propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
     });
 
     return id;
@@ -284,15 +309,30 @@ export const updateLoan = mutation({
       throw new Error("After repair value should not be less than purchase price");
     }
 
-    // Only patch fields that were provided (treat empty strings as undefined for optional fields)
+    // Trim string fields and validate required ones
+    const requiredStringFields = new Set([
+      "borrowerName", "entityName", "propertyAddress", "terms",
+    ]);
     const optionalStringFields = new Set([
       "closeDate", "maturityDate", "titleCompany", "titleCompanyContact", "notes",
     ]);
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) {
-        if (optionalStringFields.has(key) && value === "") continue;
-        updates[key] = value;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (requiredStringFields.has(key)) {
+            if (!trimmed) throw new Error(`${key} cannot be empty`);
+            updates[key] = trimmed;
+          } else if (optionalStringFields.has(key)) {
+            if (!trimmed) continue; // skip empty optional strings
+            updates[key] = trimmed;
+          } else {
+            updates[key] = value;
+          }
+        } else {
+          updates[key] = value;
+        }
       }
     }
 

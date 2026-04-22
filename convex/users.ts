@@ -51,27 +51,6 @@ export const getMe = query({
 });
 
 
-/** Reactive check: does an unclaimed profile exist for the current user's email? */
-export const hasPendingProfile = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return false;
-
-    // Read email from auth users table (JWT doesn't include email claim)
-    const authUser = await ctx.db.get(userId);
-    const email = authUser?.email?.toLowerCase();
-    if (!email) return false;
-
-    const pending = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
-
-    return pending !== null && pending.authUserId === undefined;
-  },
-});
-
 export const claimProfile = mutation({
   args: {},
   handler: async (ctx) => {

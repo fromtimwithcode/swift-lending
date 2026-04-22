@@ -53,59 +53,27 @@ function AnimatedPage({ children }: { children: ReactNode }) {
 
 function DashboardShell({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getMe);
-  const hasPending = useQuery(api.users.hasPendingProfile);
   const claimProfile = useMutation(api.users.claimProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [claimExhausted, setClaimExhausted] = useState(false);
 
   // Link authUserId on pending profiles (admin-created, not yet claimed).
-  // getMe already returns pending profiles via email fallback, so the user
-  // sees the dashboard immediately — this just finalises the link.
-  // Also fires when getMe returns null but hasPendingProfile detects a match
-  // (covers the race where identity email hasn't populated for the first query).
+  // getMe returns pending profiles via email fallback from the auth users
+  // table, so the dashboard renders immediately — this just finalises the
+  // authUserId link for future fast-path lookups.
   useEffect(() => {
-    const shouldClaim =
-      (profile && !profile.authUserId) ||
-      (profile === null && hasPending);
+    if (!profile || profile.authUserId) return;
 
-    if (!shouldClaim) return;
-
-    let cancelled = false;
-    setClaimExhausted(false);
-
-    async function claim() {
-      for (let i = 0; i < 5 && !cancelled; i++) {
-        try {
-          const result = await claimProfile();
-          if (cancelled) return;
-          if (result.status === "no_email") {
-            await new Promise((r) => setTimeout(r, 1000));
-            continue;
-          }
-          return;
-        } catch {
-          return;
-        }
-      }
-      if (!cancelled) setClaimExhausted(true);
-    }
-
-    claim();
-    return () => { cancelled = true; };
-  }, [profile, hasPending, claimProfile]);
+    claimProfile().catch(() => {});
+  }, [profile, claimProfile]);
 
   // Loading state
   if (profile === undefined) {
     return <AuthLoadingSkeleton />;
   }
 
-  // No profile found — try claiming first, then show pending
+  // No profile found — admin hasn't created one for this email yet
   if (profile === null) {
-    // Still checking or actively claiming (with timeout fallback)
-    if ((hasPending === undefined || hasPending) && !claimExhausted) {
-      return <AuthLoadingSkeleton />;
-    }
     return <AccountPending />;
   }
 
