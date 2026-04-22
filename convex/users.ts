@@ -29,9 +29,12 @@ export const getMe = query({
       .unique();
     if (profile) return profile;
 
-    // Fallback: match pending (admin-created) profile by verified OAuth email
-    const identity = await ctx.auth.getUserIdentity();
-    const email = identity?.email?.toLowerCase();
+    // Fallback: match pending (admin-created) profile by email from the auth
+    // users table. We read from ctx.db.get(userId) instead of
+    // ctx.auth.getUserIdentity() because the Convex Auth JWT does not include
+    // the email claim — only the auth users table stores it.
+    const authUser = await ctx.db.get(userId);
+    const email = authUser?.email?.toLowerCase();
     if (!email) return null;
 
     const pending = await ctx.db
@@ -55,8 +58,9 @@ export const hasPendingProfile = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return false;
 
-    const identity = await ctx.auth.getUserIdentity();
-    const email = identity?.email?.toLowerCase();
+    // Read email from auth users table (JWT doesn't include email claim)
+    const authUser = await ctx.db.get(userId);
+    const email = authUser?.email?.toLowerCase();
     if (!email) return false;
 
     const pending = await ctx.db
@@ -82,12 +86,12 @@ export const claimProfile = mutation({
 
     if (existing) return { status: "linked" as const, profileId: existing._id };
 
-    // Look for a pre-created profile with matching email (admin-created borrower)
-    const identity = await ctx.auth.getUserIdentity();
-    const email = identity?.email?.toLowerCase();
+    // Read email from auth users table (JWT doesn't include email claim)
+    const authUser = await ctx.db.get(userId);
+    const email = authUser?.email?.toLowerCase();
 
     if (!email) {
-      // Identity token not yet populated — caller should retry
+      // Auth user record doesn't have an email yet — caller should retry
       return { status: "no_email" as const, profileId: null };
     }
 
