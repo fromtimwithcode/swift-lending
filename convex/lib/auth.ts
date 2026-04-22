@@ -22,9 +22,11 @@ export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
 
   if (profile) return profile;
 
-  // Fallback: match pending (admin-created) profile by verified OAuth email
-  const identity = await ctx.auth.getUserIdentity();
-  const email = identity?.email?.toLowerCase();
+  // Fallback: match pending (admin-created) profile by email from the auth
+  // users table. The Convex Auth JWT does not include email claims, so we
+  // read from the auth users record directly.
+  const authUser = await ctx.db.get(userId);
+  const email = authUser?.email?.toLowerCase();
   if (email) {
     const pending = await ctx.db
       .query("userProfiles")
