@@ -215,7 +215,7 @@ export function Sidebar({
         >
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.45_0.24_264_/_25%)]">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.30_0.10_250_/_25%)]">
                 <Landmark className="size-4 text-primary-foreground" />
               </div>
               <span className="text-lg font-bold tracking-tight">
@@ -224,7 +224,7 @@ export function Sidebar({
             </Link>
           )}
           {collapsed && (
-            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.45_0.24_264_/_25%)]">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.30_0.10_250_/_25%)]">
               <Landmark className="size-4 text-primary-foreground" />
             </div>
           )}

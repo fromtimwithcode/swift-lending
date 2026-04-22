@@ -37,7 +37,7 @@ export function Features() {
             <div className="aspect-[4/5] rounded-2xl overflow-hidden relative">
               <Image
                 src="/team.jpg"
-                alt="Swift Lending team"
+                alt="Swift Capital Lending team"
                 fill
                 className="object-cover"
               />
@@ -69,7 +69,7 @@ export function Features() {
               Our Commitment to Every <span className="text-gradient-gold">Deal</span>
             </h2>
             <p className="mt-4 leading-relaxed text-gray-500">
-              At Swift Lending, we believe every investor deserves a lending
+              At Swift Capital Lending, we believe every investor deserves a lending
               partner who&apos;s transparent, responsive, and built for speed. We
               combine institutional-grade underwriting with the flexibility real
               estate investors need — no hidden fees, no surprises, just clear

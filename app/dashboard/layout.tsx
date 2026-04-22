@@ -53,20 +53,29 @@ function AnimatedPage({ children }: { children: ReactNode }) {
 
 function DashboardShell({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getMe);
+  const hasPending = useQuery(api.users.hasPendingProfile);
   const claimProfile = useMutation(api.users.claimProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [claimExhausted, setClaimExhausted] = useState(false);
 
   // Link authUserId on pending profiles (admin-created, not yet claimed).
   // getMe already returns pending profiles via email fallback, so the user
   // sees the dashboard immediately — this just finalises the link.
+  // Also fires when getMe returns null but hasPendingProfile detects a match
+  // (covers the race where identity email hasn't populated for the first query).
   useEffect(() => {
-    if (!profile || profile.authUserId) return;
+    const shouldClaim =
+      (profile && !profile.authUserId) ||
+      (profile === null && hasPending);
+
+    if (!shouldClaim) return;
 
     let cancelled = false;
+    setClaimExhausted(false);
 
     async function claim() {
-      for (let i = 0; i < 3 && !cancelled; i++) {
+      for (let i = 0; i < 5 && !cancelled; i++) {
         try {
           const result = await claimProfile();
           if (cancelled) return;
@@ -79,19 +88,24 @@ function DashboardShell({ children }: { children: ReactNode }) {
           return;
         }
       }
+      if (!cancelled) setClaimExhausted(true);
     }
 
     claim();
     return () => { cancelled = true; };
-  }, [profile, claimProfile]);
+  }, [profile, hasPending, claimProfile]);
 
   // Loading state
   if (profile === undefined) {
     return <AuthLoadingSkeleton />;
   }
 
-  // No profile found — account pending
+  // No profile found — try claiming first, then show pending
   if (profile === null) {
+    // Still checking or actively claiming (with timeout fallback)
+    if ((hasPending === undefined || hasPending) && !claimExhausted) {
+      return <AuthLoadingSkeleton />;
+    }
     return <AccountPending />;
   }
 
