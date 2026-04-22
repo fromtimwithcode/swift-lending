@@ -40,6 +40,16 @@ export const submitApplication = mutation({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
 
+    // Trim string inputs
+    const entityName = args.entityName.trim();
+    const propertyAddress = args.propertyAddress.trim();
+    const terms = args.terms.trim();
+    const notes = args.notes?.trim() || undefined;
+
+    if (!entityName) throw new Error("Entity name cannot be empty");
+    if (!propertyAddress) throw new Error("Property address cannot be empty");
+    if (!terms) throw new Error("Terms cannot be empty");
+
     if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
     if (args.loanAmount > args.purchasePrice) {
@@ -52,18 +62,18 @@ export const submitApplication = mutation({
     const id = await ctx.db.insert("loans", {
       borrowerId: profile._id,
       borrowerName: profile.displayName,
-      entityName: args.entityName,
-      propertyAddress: args.propertyAddress,
+      entityName,
+      propertyAddress,
       purchasePrice: args.purchasePrice,
       loanAmount: args.loanAmount,
       afterRepairValue: args.afterRepairValue,
       rehabBudgetTotal: args.rehabBudgetTotal,
-      terms: args.terms,
+      terms,
       interestRate: 0,
       monthlyPayment: 0,
       pointsEarned: 0,
       status: "submitted",
-      notes: args.notes,
+      notes,
       createdBy: profile._id,
     });
 
@@ -74,7 +84,7 @@ export const submitApplication = mutation({
         recipientId: admin._id,
         type: "application_submitted",
         title: "New Loan Application",
-        body: `${profile.displayName} submitted a loan application for ${args.propertyAddress}.`,
+        body: `${profile.displayName} submitted a loan application for ${propertyAddress}.`,
         loanId: id,
       });
     }
@@ -85,7 +95,7 @@ export const submitApplication = mutation({
       action: "application.submit",
       entityType: "loan",
       entityId: id,
-      details: `Submitted loan application for ${args.propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
+      details: `Submitted loan application for ${propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
     });
 
     return id;
