@@ -96,9 +96,12 @@ export function Services() {
 
         {/* CTA */}
         <div className="mt-12 flex justify-center">
-          <button className="h-14 cursor-pointer rounded-full bg-teal px-10 font-semibold text-white transition-colors hover:bg-teal-dark">
-            View All Services
-          </button>
+          <a
+            href="#contact"
+            className="inline-flex h-14 items-center justify-center rounded-full bg-teal px-10 font-semibold text-white transition-colors hover:bg-teal-dark"
+          >
+            Get Started
+          </a>
         </div>
       </div>
     </SectionWrapper>

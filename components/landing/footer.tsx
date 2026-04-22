@@ -37,7 +37,7 @@ export function Footer() {
             </div>
             <p className="mt-4 text-sm leading-relaxed text-white/40">
               Fast, flexible hard money lending for real estate investors
-              nationwide. Close in days, not months.
+              across Wisconsin. Close in days, not months.
             </p>
           </div>
 

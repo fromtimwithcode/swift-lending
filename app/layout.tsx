@@ -17,7 +17,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Swift Capital Lending | Hard Money Loans Made Simple",
   description:
-    "Fast, flexible hard money lending for real estate investors. Bridge loans, fix & flip financing, and commercial lending. Close in as few as 5 days.",
+    "Fast, flexible hard money lending for Wisconsin real estate investors. Fix & flip and BRRRR strategy loans, closing in days, not months.",
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
       <html lang="en" className={`h-full antialiased ${jakarta.variable}`} suppressHydrationWarning>
         <body className="relative min-h-full flex flex-col">
           <NextTopLoader
-            color="oklch(0.80 0.15 264)"
+            color="oklch(0.76 0.14 80)"
             height={2}
             showSpinner={false}
             shadow={false}
