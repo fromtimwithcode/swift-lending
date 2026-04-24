@@ -5,7 +5,10 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ArrowLeft, Loader2, Upload, X, ImageIcon } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info } from "lucide-react";
+import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
+import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
+import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -277,6 +280,45 @@ export default function LoanApplicationPage() {
             </div>
           </div>
         </div>
+
+        {/* Estimated Loan Terms */}
+        {Number(form.loanAmount) > 0 && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-6 dark:border-blue-900 dark:bg-blue-950/30">
+            <div className="mb-3 flex items-center gap-2">
+              <Info className="size-4 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                Estimated Loan Terms
+              </h3>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Interest Rate</p>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  {DEFAULT_INTEREST_RATE}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Est. Monthly Payment</p>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  {formatCurrency(
+                    calculateMonthlyPayment(Number(form.loanAmount), DEFAULT_INTEREST_RATE)
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Est. Origination Points ({DEFAULT_POINTS_PERCENTAGE}%)</p>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  {formatCurrency(
+                    calculatePoints(Number(form.loanAmount), DEFAULT_POINTS_PERCENTAGE)
+                  )}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-blue-600 dark:text-blue-400">
+              These are estimates only. Actual terms are subject to approval.
+            </p>
+          </div>
+        )}
 
         {/* Title & Contract Info */}
         <div className="rounded-xl border border-border bg-card p-6">

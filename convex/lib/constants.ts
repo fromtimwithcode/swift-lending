@@ -47,6 +47,17 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+/** Default loan calculation constants */
+export const DEFAULT_INTEREST_RATE = 13;
+export const DEFAULT_POINTS_PERCENTAGE = 3;
+export const DEFAULT_PAYMENT_DUE_DAY = 1;
+
+/** Payment type labels for display */
+export const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  balloon: "Balloon (Interest Due at Payoff)",
+  monthly: "Monthly Interest Payments",
+};
+
 /** Role labels for display */
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",

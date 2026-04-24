@@ -22,6 +22,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as loanPayments from "../loanPayments.js";
 import type * as messages from "../messages.js";
+import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
 
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "lib/constants": typeof lib_constants;
   loanPayments: typeof loanPayments;
   messages: typeof messages;
+  migrations: typeof migrations;
   notifications: typeof notifications;
   users: typeof users;
 }>;

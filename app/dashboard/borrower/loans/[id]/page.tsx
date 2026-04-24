@@ -12,6 +12,8 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
+import { calculatePayoffEstimate } from "@/lib/loan-calc";
+import { PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
 function DetailRow({
@@ -127,10 +129,22 @@ export default function BorrowerLoanDetailPage() {
               value={loan.interestRate ? `${loan.interestRate}%` : "—"}
             />
             <DetailRow
+              label="Payment Type"
+              value={PAYMENT_TYPE_LABELS[loan.paymentType ?? "monthly"]}
+            />
+            <DetailRow
               label="Monthly Payment"
               value={
                 loan.monthlyPayment
                   ? formatCurrency(loan.monthlyPayment)
+                  : "—"
+              }
+            />
+            <DetailRow
+              label="Points / Origination Fee"
+              value={
+                loan.pointsEarned
+                  ? formatCurrency(loan.pointsEarned)
                   : "—"
               }
             />
@@ -219,6 +233,50 @@ export default function BorrowerLoanDetailPage() {
           <p className="text-sm whitespace-pre-wrap">{loan.notes}</p>
         </div>
       )}
+
+      {/* Payoff Estimate */}
+      {["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate && (() => {
+        const totalPaymentsReceived = loanPayments
+          ? loanPayments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
+          : 0;
+        const payoff = calculatePayoffEstimate(
+          loan.loanAmount,
+          loan.interestRate,
+          loan.closeDate,
+          new Date(),
+          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
+          totalPaymentsReceived
+        );
+        if (!payoff) return null;
+        return (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+              Payoff Estimate
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Principal</p>
+                <p className="text-sm font-semibold">{formatCurrency(payoff.principal)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
+                <p className="text-sm font-semibold">{formatCurrency(payoff.accruedInterest)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Total Payoff</p>
+                <p className="text-lg font-bold text-primary">{formatCurrency(payoff.totalPayoff)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Months Since Close</p>
+                <p className="text-sm font-semibold">{payoff.monthsAccrued}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              This is an estimate. Contact your loan officer for the exact payoff amount.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">

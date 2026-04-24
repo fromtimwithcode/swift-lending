@@ -60,6 +60,7 @@ const schema = defineSchema({
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
     desiredCloseDate: v.optional(v.string()),
     closingStatementFileId: v.optional(v.id("_storage")),
+    paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),

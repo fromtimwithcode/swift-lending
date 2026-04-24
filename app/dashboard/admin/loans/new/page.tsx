@@ -7,7 +7,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
+import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
+import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
 
 export default function NewLoanPage() {
   const createLoan = useMutation(api.admin.createLoan);
@@ -28,11 +30,12 @@ export default function NewLoanPage() {
     closeDate: "",
     maturityDate: "",
     terms: "",
-    interestRate: "",
+    interestRate: String(DEFAULT_INTEREST_RATE),
     monthlyPayment: "",
-    paymentDueDay: "",
+    paymentDueDay: String(DEFAULT_PAYMENT_DUE_DAY),
     pointsEarned: "",
     monthlyInterestEarned: "",
+    paymentType: "monthly" as "balloon" | "monthly",
     status: "submitted" as const,
     titleCompany: "",
     titleCompanyContact: "",
@@ -40,6 +43,19 @@ export default function NewLoanPage() {
     drawFundsUsed: "",
     notes: "",
   });
+
+  // Auto-calculate monthly payment and points when loan amount or interest rate changes
+  useEffect(() => {
+    const loanAmount = Number(form.loanAmount) || 0;
+    const rate = Number(form.interestRate) || 0;
+    const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmount, rate);
+    const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+    setForm((prev) => ({
+      ...prev,
+      monthlyPayment: monthly ? String(monthly) : "",
+      pointsEarned: points ? String(points) : "",
+    }));
+  }, [form.loanAmount, form.interestRate, form.paymentType]);
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -120,6 +136,7 @@ export default function NewLoanPage() {
         monthlyInterestEarned: form.monthlyInterestEarned
           ? Number(form.monthlyInterestEarned)
           : undefined,
+        paymentType: form.paymentType,
         status: form.status,
         titleCompany: form.titleCompany || undefined,
         titleCompanyContact: form.titleCompanyContact || undefined,
@@ -312,6 +329,20 @@ export default function NewLoanPage() {
                 onChange={(e) => update("monthlyInterestEarned", e.target.value)}
                 placeholder="Optional"
               />
+            </div>
+            <div>
+              <label className={labelClass}>Payment Type</label>
+              <select
+                className={inputClass}
+                value={form.paymentType}
+                onChange={(e) => update("paymentType", e.target.value)}
+              >
+                {Object.entries(PAYMENT_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelClass}>Rehab Budget Total</label>
