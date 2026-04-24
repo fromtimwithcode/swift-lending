@@ -47,6 +47,17 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+/** Default loan calculation constants */
+export const DEFAULT_INTEREST_RATE = 13;
+export const DEFAULT_POINTS_PERCENTAGE = 3;
+export const DEFAULT_PAYMENT_DUE_DAY = 1;
+
+/** Payment type labels for display */
+export const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  balloon: "Balloon (Interest Due at Payoff)",
+  monthly: "Monthly Interest Payments",
+};
+
 /** Role labels for display */
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -98,6 +109,19 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   document: "Document",
   message: "Message",
   system: "System",
+};
+
+/** Document type labels for display */
+export const DOC_TYPE_LABELS: Record<string, string> = {
+  articles: "Articles of Organization",
+  operating_agreement: "Operating Agreement",
+  closing_statement: "Closing Statement",
+  wire_instructions: "Wire Instructions",
+  property_photo: "Property Photo",
+  receipt: "Receipt",
+  lien_waiver: "Lien Waiver",
+  rehab_budget: "Rehab Budget",
+  other: "Other",
 };
 
 /** Format currency for use in notification bodies (server-side, no browser APIs) */

@@ -151,6 +151,7 @@ export const createLoan = mutation({
     status: loanStatusValidator,
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
+    paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
@@ -221,6 +222,7 @@ export const createLoan = mutation({
       notes,
       closeDate,
       maturityDate,
+      paymentType: args.paymentType ?? "monthly",
       createdBy: admin._id,
     });
 
@@ -255,6 +257,7 @@ export const updateLoan = mutation({
     paymentDueDay: v.optional(v.number()),
     pointsEarned: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
+    paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
     drawFundsTotal: v.optional(v.number()),

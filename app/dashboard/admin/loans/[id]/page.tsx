@@ -26,6 +26,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { calculateMonthlyPayment, calculatePayoffEstimate } from "@/lib/loan-calc";
+import { PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -138,6 +140,7 @@ export default function LoanDetailPage() {
       monthlyPayment: String(loan.monthlyPayment),
       pointsEarned: String(loan.pointsEarned),
       monthlyInterestEarned: loan.monthlyInterestEarned ? String(loan.monthlyInterestEarned) : "",
+      paymentType: loan.paymentType ?? "monthly",
       closeDate: loan.closeDate ?? "",
       maturityDate: loan.maturityDate ?? "",
       titleCompany: loan.titleCompany ?? "",
@@ -163,6 +166,7 @@ export default function LoanDetailPage() {
         monthlyPayment: Number(editData.monthlyPayment),
         pointsEarned: Number(editData.pointsEarned),
         monthlyInterestEarned: editData.monthlyInterestEarned ? Number(editData.monthlyInterestEarned) : undefined,
+        paymentType: editData.paymentType as "balloon" | "monthly",
         closeDate: editData.closeDate || undefined,
         maturityDate: editData.maturityDate || undefined,
         titleCompany: editData.titleCompany || undefined,
@@ -432,7 +436,18 @@ export default function LoanDetailPage() {
               <>
                 <div>
                   <label className="text-sm text-muted-foreground">Loan Amount</label>
-                  <input {...field("loanAmount")} type="number" />
+                  <input
+                    {...field("loanAmount")}
+                    type="number"
+                    onChange={(e) =>
+                      setEditData((prev) => {
+                        const loanAmt = Number(e.target.value) || 0;
+                        const rate = Number(prev.interestRate) || 0;
+                        const monthly = prev.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
+                        return { ...prev, loanAmount: e.target.value, monthlyPayment: String(monthly) };
+                      })
+                    }
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Terms</label>
@@ -440,7 +455,19 @@ export default function LoanDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Interest Rate (%)</label>
-                  <input {...field("interestRate")} type="number" step="0.01" />
+                  <input
+                    {...field("interestRate")}
+                    type="number"
+                    step="0.01"
+                    onChange={(e) =>
+                      setEditData((prev) => {
+                        const loanAmt = Number(prev.loanAmount) || 0;
+                        const rate = Number(e.target.value) || 0;
+                        const monthly = prev.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
+                        return { ...prev, interestRate: e.target.value, monthlyPayment: String(monthly) };
+                      })
+                    }
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Monthly Payment</label>
@@ -453,6 +480,26 @@ export default function LoanDetailPage() {
                 <div>
                   <label className="text-sm text-muted-foreground">Monthly Interest Earned</label>
                   <input {...field("monthlyInterestEarned")} type="number" />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Payment Type</label>
+                  <select
+                    value={editData.paymentType ?? "monthly"}
+                    onChange={(e) =>
+                      setEditData((prev) => {
+                        const paymentType = e.target.value;
+                        const loanAmt = Number(prev.loanAmount) || 0;
+                        const rate = Number(prev.interestRate) || 0;
+                        const monthly = paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
+                        return { ...prev, paymentType, monthlyPayment: String(monthly) };
+                      })
+                    }
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  >
+                    {Object.entries(PAYMENT_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Rehab Budget Total</label>
@@ -469,6 +516,10 @@ export default function LoanDetailPage() {
                 <DetailRow
                   label="Monthly Interest"
                   value={loan.monthlyInterestEarned ? formatCurrency(loan.monthlyInterestEarned) : undefined}
+                />
+                <DetailRow
+                  label="Payment Type"
+                  value={PAYMENT_TYPE_LABELS[loan.paymentType ?? "monthly"]}
                 />
                 <DetailRow
                   label="Rehab Budget"
@@ -570,6 +621,47 @@ export default function LoanDetailPage() {
           <p className="text-sm whitespace-pre-wrap">{loan.notes || "No notes"}</p>
         )}
       </div>
+
+      {/* Payoff Estimate */}
+      {["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate && (() => {
+        const totalPaymentsReceived = payments
+          ? payments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
+          : 0;
+        const payoff = calculatePayoffEstimate(
+          loan.loanAmount,
+          loan.interestRate,
+          loan.closeDate,
+          new Date(),
+          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
+          totalPaymentsReceived
+        );
+        if (!payoff) return null;
+        return (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+              Payoff Estimate
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Principal</p>
+                <p className="text-sm font-semibold">{formatCurrency(payoff.principal)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
+                <p className="text-sm font-semibold">{formatCurrency(payoff.accruedInterest)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Total Payoff</p>
+                <p className="text-lg font-bold text-primary">{formatCurrency(payoff.totalPayoff)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">Months Since Close</p>
+                <p className="text-sm font-semibold">{payoff.monthsAccrued}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Property Comps */}
       <PropertyComps loanId={id} />

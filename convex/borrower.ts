@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain } from "./lib/constants";
+import { formatCurrencyPlain, DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
 
 export const getMyLoans = query({
   args: {},
@@ -75,6 +75,11 @@ export const submitApplication = mutation({
       throw new Error("Maximum 20 photos allowed per application");
     }
 
+    // Calculate default financial fields
+    const interestRate = DEFAULT_INTEREST_RATE;
+    const monthlyPayment = Math.round((interestRate / 100 / 12) * args.loanAmount * 100) / 100;
+    const pointsEarned = Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * args.loanAmount * 100) / 100;
+
     const id = await ctx.db.insert("loans", {
       borrowerId: profile._id,
       borrowerName: profile.displayName,
@@ -85,9 +90,11 @@ export const submitApplication = mutation({
       afterRepairValue: args.afterRepairValue,
       rehabBudgetTotal: args.rehabBudgetTotal,
       terms,
-      interestRate: 0,
-      monthlyPayment: 0,
-      pointsEarned: 0,
+      interestRate,
+      monthlyPayment,
+      paymentDueDay: DEFAULT_PAYMENT_DUE_DAY,
+      pointsEarned,
+      paymentType: "monthly",
       status: "submitted",
       notes,
       isTitleOpen: args.isTitleOpen,
@@ -244,6 +251,25 @@ export const submitDrawRequest = mutation({
     });
 
     return id;
+  },
+});
+
+export const isRepeatEntity = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    const profile = await requireRole(ctx, "borrower");
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan || loan.borrowerId !== profile._id) throw new Error("Not found");
+    if (!loan.entityName?.trim()) return false;
+    const allLoans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
+      .collect();
+    return allLoans.some(
+      (l) =>
+        l._id !== args.loanId &&
+        l.entityName?.trim().toLowerCase() === loan.entityName.trim().toLowerCase()
+    );
   },
 });
 
