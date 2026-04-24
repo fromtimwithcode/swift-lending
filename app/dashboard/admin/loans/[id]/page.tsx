@@ -22,6 +22,7 @@ import {
   ChevronUp,
   Plus,
 } from "lucide-react";
+import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -403,7 +404,7 @@ export default function LoanDetailPage() {
               <>
                 <div>
                   <label className="text-sm text-muted-foreground">Address</label>
-                  <input {...field("propertyAddress")} />
+                  <AddressInput {...field("propertyAddress")} />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Purchase Price</label>

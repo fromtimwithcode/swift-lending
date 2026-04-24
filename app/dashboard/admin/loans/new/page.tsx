@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, type FormEvent } from "react";
@@ -224,7 +225,7 @@ export default function NewLoanPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelClass}>Property Address</label>
-              <input
+              <AddressInput
                 className={inputClass}
                 value={form.propertyAddress}
                 onChange={(e) => update("propertyAddress", e.target.value)}
