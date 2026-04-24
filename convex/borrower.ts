@@ -36,6 +36,16 @@ export const submitApplication = mutation({
     rehabBudgetTotal: v.optional(v.number()),
     terms: v.string(),
     notes: v.optional(v.string()),
+    isTitleOpen: v.optional(v.boolean()),
+    titleCompanyName: v.optional(v.string()),
+    titlePreference: v.optional(v.string()),
+    isUnderContract: v.optional(v.boolean()),
+    acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
+    desiredCloseDate: v.optional(v.string()),
+    photoFileIds: v.array(v.object({
+      storageId: v.id("_storage"),
+      fileName: v.string(),
+    })),
   },
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
@@ -45,6 +55,9 @@ export const submitApplication = mutation({
     const propertyAddress = args.propertyAddress.trim();
     const terms = args.terms.trim();
     const notes = args.notes?.trim() || undefined;
+    const titleCompanyName = args.titleCompanyName?.trim() || undefined;
+    const titlePreference = args.titlePreference?.trim() || undefined;
+    const desiredCloseDate = args.desiredCloseDate?.trim() || undefined;
 
     if (!entityName) throw new Error("Entity name cannot be empty");
     if (!propertyAddress) throw new Error("Property address cannot be empty");
@@ -52,11 +65,14 @@ export const submitApplication = mutation({
 
     if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
-    if (args.loanAmount > args.purchasePrice) {
-      throw new Error("Loan amount cannot exceed purchase price");
-    }
     if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
       throw new Error("After repair value should not be less than purchase price");
+    }
+    if (args.photoFileIds.length === 0) {
+      throw new Error("At least one property photo is required");
+    }
+    if (args.photoFileIds.length > 20) {
+      throw new Error("Maximum 20 photos allowed per application");
     }
 
     const id = await ctx.db.insert("loans", {
@@ -74,8 +90,25 @@ export const submitApplication = mutation({
       pointsEarned: 0,
       status: "submitted",
       notes,
+      isTitleOpen: args.isTitleOpen,
+      titleCompanyName,
+      titlePreference,
+      isUnderContract: args.isUnderContract,
+      acquisitionType: args.acquisitionType,
+      desiredCloseDate,
       createdBy: profile._id,
     });
+
+    // Create document records for uploaded photos
+    for (const photo of args.photoFileIds) {
+      await ctx.db.insert("documents", {
+        ownerId: profile._id,
+        loanId: id,
+        type: "property_photo",
+        fileId: photo.storageId,
+        fileName: photo.fileName,
+      });
+    }
 
     // Notify all admins/developers
     const adminLikeUsers = await getAdminLikeUsers(ctx);
@@ -88,6 +121,13 @@ export const submitApplication = mutation({
         loanId: id,
       });
     }
+
+    // Send alert email to external recipients
+    await ctx.scheduler.runAfter(0, internal.email.sendLoanApplicationAlert, {
+      borrowerName: profile.displayName,
+      propertyAddress,
+      loanId: id,
+    });
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: profile._id,

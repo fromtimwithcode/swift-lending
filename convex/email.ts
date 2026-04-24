@@ -15,6 +15,60 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+export const sendLoanApplicationAlert = internalAction({
+  args: {
+    borrowerName: v.string(),
+    propertyAddress: v.string(),
+    loanId: v.id("loans"),
+  },
+  handler: async (_ctx, args) => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.warn("RESEND_API_KEY not set — skipping loan application alert email");
+      return;
+    }
+
+    const alertEmailsRaw = process.env.LOAN_ALERT_EMAILS;
+    if (!alertEmailsRaw) {
+      console.warn("LOAN_ALERT_EMAILS not set — skipping loan application alert email");
+      return;
+    }
+
+    const recipients = alertEmailsRaw.split(",").map((e) => e.trim()).filter(Boolean);
+    if (recipients.length === 0) return;
+
+    const siteUrl = process.env.SITE_URL ?? "https://swiftcapitallending.com";
+    const loanUrl = `${siteUrl}/dashboard/admin/loans/${args.loanId}`;
+
+    try {
+      const resend = new Resend(apiKey);
+      await resend.emails.send({
+        from: "Swift Capital <notifications@swiftcapitallending.com>",
+        to: recipients,
+        subject: "New Loan Application",
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1a1a2e; padding: 24px; border-radius: 8px 8px 0 0;">
+              <h2 style="color: #fff; margin: 0;">Swift Capital Lending</h2>
+            </div>
+            <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+              <h3 style="margin: 0 0 16px;">New Loan Application Submitted</h3>
+              <p style="margin: 0 0 8px;"><strong>Borrower:</strong> ${escapeHtml(args.borrowerName)}</p>
+              <p style="margin: 0 0 16px;"><strong>Property:</strong> ${escapeHtml(args.propertyAddress)}</p>
+              <a href="${loanUrl}"
+                 style="display: inline-block; background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none;">
+                View Application
+              </a>
+            </div>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error("Failed to send loan application alert email:", error);
+    }
+  },
+});
+
 export const sendNotificationEmail = internalAction({
   args: {
     notificationId: v.id("notifications"),

@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X, ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+interface UploadedPhoto {
+  storageId: Id<"_storage">;
+  fileName: string;
+  previewUrl: string;
+}
 
 export default function LoanApplicationPage() {
   const router = useRouter();
   const submitApplication = useMutation(api.borrower.submitApplication);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,7 +31,17 @@ export default function LoanApplicationPage() {
     rehabBudgetTotal: "",
     terms: "12 months",
     notes: "",
+    isTitleOpen: "" as "" | "yes" | "no",
+    titleCompanyName: "",
+    titlePreference: "",
+    isUnderContract: "" as "" | "yes" | "no",
+    acquisitionType: "" as "" | "wholesaler" | "direct_to_seller",
+    desiredCloseDate: "",
   });
+
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -37,6 +55,72 @@ export default function LoanApplicationPage() {
     className:
       "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30",
   });
+
+  const toggleBtnClass = (active: boolean) =>
+    `flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+      active
+        ? "bg-primary text-primary-foreground"
+        : "border border-border bg-background text-foreground hover:bg-muted"
+    }`;
+
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const maxPhotos = 20;
+    if (uploadedPhotos.length + files.length > maxPhotos) {
+      setError(`Maximum ${maxPhotos} photos allowed.`);
+      return;
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const validFiles = Array.from(files).filter((f) => {
+      if (f.size > maxSize) {
+        setError(`File "${f.name}" exceeds 10MB limit.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      for (const file of validFiles) {
+        const url = await generateUploadUrl();
+        const result = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!result.ok) throw new Error("Upload failed: " + result.statusText);
+        const { storageId } = await result.json();
+
+        setUploadedPhotos((prev) => [
+          ...prev,
+          {
+            storageId,
+            fileName: file.name,
+            previewUrl: URL.createObjectURL(file),
+          },
+        ]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +136,10 @@ export default function LoanApplicationPage() {
       setError("Purchase price cannot be negative.");
       return;
     }
+    if (uploadedPhotos.length === 0) {
+      setError("At least one property photo is required.");
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -65,6 +153,19 @@ export default function LoanApplicationPage() {
         rehabBudgetTotal: form.rehabBudgetTotal ? Number(form.rehabBudgetTotal) : undefined,
         terms: form.terms,
         notes: form.notes || undefined,
+        isTitleOpen: form.isTitleOpen === "yes" ? true : form.isTitleOpen === "no" ? false : undefined,
+        titleCompanyName: form.isTitleOpen === "yes" ? form.titleCompanyName || undefined : undefined,
+        titlePreference: form.isTitleOpen === "no" ? form.titlePreference || undefined : undefined,
+        isUnderContract: form.isUnderContract === "yes" ? true : form.isUnderContract === "no" ? false : undefined,
+        acquisitionType:
+          form.isUnderContract === "yes" && form.acquisitionType
+            ? (form.acquisitionType as "wholesaler" | "direct_to_seller")
+            : undefined,
+        desiredCloseDate: form.desiredCloseDate || undefined,
+        photoFileIds: uploadedPhotos.map((p) => ({
+          storageId: p.storageId,
+          fileName: p.fileName,
+        })),
       });
       router.push(`/dashboard/borrower/loans/${loanId}`);
     } catch (err) {
@@ -177,6 +278,190 @@ export default function LoanApplicationPage() {
           </div>
         </div>
 
+        {/* Title & Contract Info */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+            Title & Contract Info
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Is title open for this property?
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => update("isTitleOpen", form.isTitleOpen === "yes" ? "" : "yes")}
+                  className={toggleBtnClass(form.isTitleOpen === "yes")}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => update("isTitleOpen", form.isTitleOpen === "no" ? "" : "no")}
+                  className={toggleBtnClass(form.isTitleOpen === "no")}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+
+            {form.isTitleOpen === "yes" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">
+                  What title company?
+                </label>
+                <input
+                  {...field("titleCompanyName", { placeholder: "Title company name" })}
+                />
+              </div>
+            )}
+
+            {form.isTitleOpen === "no" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">
+                  Do you have a preference on what title company to use?
+                </label>
+                <input
+                  {...field("titlePreference", { placeholder: "Preferred title company or 'No preference'" })}
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Do you currently have this under contract?
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      isUnderContract: prev.isUnderContract === "yes" ? "" : "yes",
+                      acquisitionType: prev.isUnderContract === "yes" ? "" : prev.acquisitionType,
+                    }))
+                  }
+                  className={toggleBtnClass(form.isUnderContract === "yes")}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      isUnderContract: prev.isUnderContract === "no" ? "" : "no",
+                      acquisitionType: "",
+                    }))
+                  }
+                  className={toggleBtnClass(form.isUnderContract === "no")}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+
+            {form.isUnderContract === "yes" && (
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  Acquisition type
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => update("acquisitionType", "wholesaler")}
+                    className={toggleBtnClass(form.acquisitionType === "wholesaler")}
+                  >
+                    Wholesaler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => update("acquisitionType", "direct_to_seller")}
+                    className={toggleBtnClass(form.acquisitionType === "direct_to_seller")}
+                  >
+                    Direct to Seller
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                What is the desired close date?
+              </label>
+              <input
+                {...field("desiredCloseDate", { type: "date" })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Property Photos */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+            Property Photos <span className="text-red-500">*</span>
+          </h3>
+          <div className="space-y-4">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+            >
+              {uploading ? (
+                <Loader2 className="size-8 animate-spin" />
+              ) : (
+                <Upload className="size-8" />
+              )}
+              <p className="text-sm font-medium">
+                {uploading ? "Uploading..." : "Click to upload property photos"}
+              </p>
+              <p className="text-xs">PNG, JPG, JPEG, or WebP (max 10MB each)</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp"
+                multiple
+                onChange={(e) => handlePhotoUpload(e.target.files)}
+                className="hidden"
+              />
+            </div>
+
+            {uploadedPhotos.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {uploadedPhotos.map((photo, index) => (
+                  <div
+                    key={photo.storageId}
+                    className="group relative overflow-hidden rounded-lg border border-border"
+                  >
+                    <img
+                      src={photo.previewUrl}
+                      alt={photo.fileName}
+                      className="aspect-square w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(index)}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                      <p className="truncate text-xs text-white">{photo.fileName}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {uploadedPhotos.length === 0 && !uploading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ImageIcon className="size-4" />
+                <span>At least 1 photo required to submit</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Notes */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="mb-4 text-sm font-medium text-muted-foreground">
@@ -204,7 +489,7 @@ export default function LoanApplicationPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || uploading}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}

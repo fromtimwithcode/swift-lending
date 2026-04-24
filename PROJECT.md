@@ -89,8 +89,11 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Loan status timeline/tracker (horizontal stepper with denied/info-needed states)
 
 ### Loan Application
-- [x] Borrower-facing loan application form (entity, property, loan request, notes)
-- [x] Application submission creates loan with `status: "submitted"`, zeroes for admin-set fields
+- [x] Borrower-facing loan application form (entity, property, loan request, title & contract info, property photos, notes)
+- [x] Title & contract section: Is title open? (yes → title company name, no → title preference), under contract? (yes → wholesaler/direct-to-seller), desired close date
+- [x] Property photo upload: inline upload via `generateUploadUrl`, thumbnail previews with remove, min 1 / max 20 photos required
+- [x] Application submission creates loan with `status: "submitted"`, zeroes for admin-set fields, creates `property_photo` document records
+- [x] Alert email sent to external recipients on submission via `LOAN_ALERT_EMAILS` env var (fire-and-forget `sendLoanApplicationAlert` internalAction)
 - [x] Applications appear in admin Applications page
 
 ### Draw Requests
@@ -336,7 +339,7 @@ convex/
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
   messages.ts             Messaging (getConversations, getDirectMessages, sendMessage, markMessagesRead, getUnreadCount)
   notifications.ts        Notification system (getMyNotifications, getUnreadCount, markAsRead, markAllRead, bulkMarkAsRead, createNotification [internal], markEmailSent [internal])
-  email.ts                Email delivery via Resend ("use node" action: sendNotificationEmail [internal])
+  email.ts                Email delivery via Resend ("use node" actions: sendNotificationEmail [internal], sendLoanApplicationAlert [internal])
   loanPayments.ts         Payment tracking (getPaymentsForLoan, getAllPaymentsSummary, recordPayment, bulkDeletePayments, deletePayment)
   activityLog.ts          Activity logging (log [internal], getRecentActivity, getActivityForEntity)
 
@@ -423,10 +426,11 @@ components/
 - `getOverviewStats` uses `.collect()` on all loans — fine for now, may need optimization at scale
 - Messaging queries bounded with `.take(5000)` on sent/received — works at moderate volume, may need pagination at scale
 - `RESEND_API_KEY` must be set in Convex dashboard environment variables (not .env.local — runs in Convex Node.js runtime)
+- `LOAN_ALERT_EMAILS` env var (Convex dashboard): comma-separated recipients for new loan application alerts (dev: `hi@timbothe.dev`, prod: `craig@swiftcapitallenders.com,adam@ffs-wi.com`)
 - Email failures are caught and logged, never block in-app notification delivery
 - Pending user profiles expire after 30 days (must be re-created by admin if unclaimed)
 - Messaging enforces relationship boundaries (non-admins can only message admins or users sharing a loan; deactivated users cannot be messaged)
-- Cross-field loan validation enforced: loanAmount <= purchasePrice, drawFundsUsed <= drawFundsTotal
+- Cross-field loan validation enforced: drawFundsUsed <= drawFundsTotal (loanAmount > purchasePrice is allowed for hard money lending)
 - Draw amount validation includes pending/under_review draws when computing available funds
 - File uploads validated client-side: 10MB max, restricted file types (PDF, images, Office docs)
 - Payments only allowed on funded/sent_to_title/closed loans; Record Payment button hidden on other statuses
