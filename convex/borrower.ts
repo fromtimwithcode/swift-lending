@@ -247,6 +247,25 @@ export const submitDrawRequest = mutation({
   },
 });
 
+export const isRepeatEntity = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    const profile = await requireRole(ctx, "borrower");
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan || loan.borrowerId !== profile._id) throw new Error("Not found");
+    if (!loan.entityName?.trim()) return false;
+    const allLoans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
+      .collect();
+    return allLoans.some(
+      (l) =>
+        l._id !== args.loanId &&
+        l.entityName?.trim().toLowerCase() === loan.entityName.trim().toLowerCase()
+    );
+  },
+});
+
 export const getMyLoanPayments = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {

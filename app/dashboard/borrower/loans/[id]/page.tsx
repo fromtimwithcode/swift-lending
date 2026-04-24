@@ -6,12 +6,11 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
-import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
+import { DocumentChecklist } from "@/components/dashboard/document-checklist";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
-import { ArrowLeft, Upload, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
@@ -37,9 +36,8 @@ export default function BorrowerLoanDetailPage() {
   const id = params.id as Id<"loans">;
   const loan = useQuery(api.borrower.getMyLoan, { id });
   const draws = useQuery(api.borrower.getDrawRequestsForLoan, { loanId: id });
-  const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
+  const isRepeatEntity = useQuery(api.borrower.isRepeatEntity, { loanId: id });
   const loanPayments = useQuery(api.borrower.getMyLoanPayments, { loanId: id });
-  const [uploadOpen, setUploadOpen] = useState(false);
 
   if (loan === undefined) {
     return <DetailPageSkeleton />;
@@ -293,55 +291,9 @@ export default function BorrowerLoanDetailPage() {
       </div>
 
       {/* Documents */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Documents
-          </h3>
-          <button
-            onClick={() => setUploadOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-          >
-            <Upload className="size-3" />
-            Upload
-          </button>
-        </div>
-        {documents && documents.length > 0 ? (
-          <div className="divide-y divide-border">
-            {documents.map((doc) => (
-              <div
-                key={doc._id}
-                className="flex items-center justify-between py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium">{doc.fileName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    <StatusBadge status={doc.type} />
-                  </p>
-                </div>
-                {doc.url && (
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Download className="size-4" />
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No documents yet</p>
-        )}
-      </div>
-
-      <FileUploadDialog
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        loanId={id}
-      />
+      {isRepeatEntity !== undefined && (
+        <DocumentChecklist loanId={id} isRepeatEntity={isRepeatEntity} />
+      )}
     </div>
   );
 }

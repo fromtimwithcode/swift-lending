@@ -100,6 +100,19 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   system: "System",
 };
 
+/** Document type labels for display */
+export const DOC_TYPE_LABELS: Record<string, string> = {
+  articles: "Articles of Organization",
+  operating_agreement: "Operating Agreement",
+  closing_statement: "Closing Statement",
+  wire_instructions: "Wire Instructions",
+  property_photo: "Property Photo",
+  receipt: "Receipt",
+  lien_waiver: "Lien Waiver",
+  rehab_budget: "Rehab Budget",
+  other: "Other",
+};
+
 /** Format currency for use in notification bodies (server-side, no browser APIs) */
 export function formatCurrencyPlain(value: number): string {
   return "$" + value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
