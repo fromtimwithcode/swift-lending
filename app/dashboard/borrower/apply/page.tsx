@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info } from "lucide-react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -219,7 +220,7 @@ export default function LoanApplicationPage() {
               <label className="mb-1.5 block text-sm font-medium">
                 Property Address <span className="text-red-500">*</span>
               </label>
-              <input
+              <AddressInput
                 {...field("propertyAddress", {
                   placeholder: "123 Main St, City, State ZIP",
                 })}
