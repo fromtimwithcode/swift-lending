@@ -10,7 +10,7 @@ const navLinks = [
   { label: "Payoff Request", href: "#contact" },
   { label: "Apply", href: "#contact" },
   { label: "Invest", href: "#contact" },
-  { label: "Contact", href: "#contact" },
+  { label: "Log In", href: "/login" },
 ];
 
 export function Navbar() {
@@ -169,15 +169,6 @@ export function Navbar() {
           {/* Desktop right side */}
           <div className="hidden xl:flex items-center gap-5 shrink-0">
             <a
-              href="/login"
-              className={`text-sm font-medium transition-colors duration-500 ${
-                scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/70 hover:text-white"
-              }`}
-            >
-              Log In
-            </a>
-
-            <a
               href="tel:+12625653210"
               className={`flex items-center transition-colors duration-500 ${
                 scrolled ? "text-gray-700" : "text-white"
@@ -272,10 +263,10 @@ export function Navbar() {
                     key={link.label}
                     variants={itemVariants}
                     href={link.href}
-                    onClick={(e) => {
+                    onClick={link.href.startsWith("#") ? (e) => {
                       e.preventDefault();
                       handleNavClick(link.href);
-                    }}
+                    } : undefined}
                     className="group flex items-center justify-between py-3.5 text-2xl font-bold text-white transition-colors hover:text-lime"
                   >
                     <span>{link.label}</span>
@@ -291,12 +282,6 @@ export function Navbar() {
         {/* Pinned bottom actions */}
         <div className="relative shrink-0 px-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
           <div className="flex flex-col gap-3">
-            <a
-              href="/login"
-              className="flex h-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
-            >
-              Log In
-            </a>
             <a
               href="tel:+12625653210"
               className="flex h-14 items-center justify-center gap-2.5 rounded-2xl bg-white/[0.06] text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
