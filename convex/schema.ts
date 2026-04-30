@@ -57,6 +57,7 @@ const schema = defineSchema({
     titleCompanyName: v.optional(v.string()),
     titlePreference: v.optional(v.string()),
     isUnderContract: v.optional(v.boolean()),
+    strategy: v.optional(v.union(v.literal("flip_and_resell"), v.literal("brrrr"))),
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
     desiredCloseDate: v.optional(v.string()),
     closingStatementFileId: v.optional(v.id("_storage")),

@@ -26,9 +26,9 @@ import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatFileSize } from "@/lib/format";
 import { calculateMonthlyPayment, calculatePayoffEstimate } from "@/lib/loan-calc";
-import { PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -146,6 +146,7 @@ export default function LoanDetailPage() {
       maturityDate: loan.maturityDate ?? "",
       titleCompany: loan.titleCompany ?? "",
       titleCompanyContact: loan.titleCompanyContact ?? "",
+      strategy: loan.strategy ?? "",
       notes: loan.notes ?? "",
     });
   };
@@ -172,6 +173,7 @@ export default function LoanDetailPage() {
         maturityDate: editData.maturityDate || undefined,
         titleCompany: editData.titleCompany || undefined,
         titleCompanyContact: editData.titleCompanyContact || undefined,
+        strategy: (editData.strategy || undefined) as "flip_and_resell" | "brrrr" | undefined,
         notes: editData.notes || undefined,
       });
       setEditing(false);
@@ -193,9 +195,8 @@ export default function LoanDetailPage() {
       e.target.value = "";
       return;
     }
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      toast.error("File size must be under 10MB.");
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`File is too large (${formatFileSize(file.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
       e.target.value = "";
       return;
     }
@@ -403,6 +404,21 @@ export default function LoanDetailPage() {
             {editing ? (
               <>
                 <div>
+                  <label className="text-sm text-muted-foreground">Strategy</label>
+                  <select
+                    className={field("strategy").className}
+                    value={editData.strategy}
+                    onChange={(e) => setEditData((p) => ({ ...p, strategy: e.target.value }))}
+                  >
+                    <option value="">— None —</option>
+                    {Object.entries(STRATEGY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="text-sm text-muted-foreground">Address</label>
                   <AddressInput {...field("propertyAddress")} />
                 </div>
@@ -417,6 +433,10 @@ export default function LoanDetailPage() {
               </>
             ) : (
               <>
+                <DetailRow
+                  label="Strategy"
+                  value={loan.strategy ? STRATEGY_LABELS[loan.strategy] : undefined}
+                />
                 <DetailRow label="Address" value={loan.propertyAddress} />
                 <DetailRow label="Purchase Price" value={formatCurrency(loan.purchasePrice)} />
                 <DetailRow

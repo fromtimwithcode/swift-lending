@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { DOC_TYPE_LABELS } from "@/convex/lib/constants";
+import { DOC_TYPE_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import {
   CheckCircle2,
   Circle,
@@ -122,7 +123,6 @@ export function DocumentChecklist({
   }
 
   async function handleUpload(row: DocRow, files: FileList) {
-    const maxSize = 10 * 1024 * 1024;
     setError("");
     setUploadingRow(row.label);
 
@@ -133,8 +133,8 @@ export function DocumentChecklist({
     try {
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
-        if (file.size > maxSize) {
-          skipped.push(file.name);
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          skipped.push(`${file.name} (${formatFileSize(file.size)})`);
           setUploadProgress({ current: i + 1, total: fileArray.length });
           continue;
         }
@@ -166,7 +166,7 @@ export function DocumentChecklist({
       }
       if (skipped.length > 0) {
         setError(
-          `${skipped.length} file${skipped.length > 1 ? "s" : ""} skipped (exceeds 10MB): ${skipped.join(", ")}`
+          `${skipped.length} file${skipped.length > 1 ? "s" : ""} skipped (exceeds ${formatFileSize(MAX_FILE_SIZE_BYTES)}): ${skipped.join(", ")}`
         );
       }
     } catch (err) {

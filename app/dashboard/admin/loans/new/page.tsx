@@ -4,13 +4,22 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, type FormEvent } from "react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
-import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
+import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
+import { formatCurrency } from "@/lib/format";
+
+type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
+type RehabItem = {
+  id: string;
+  category: RehabCategory;
+  itemName: string;
+  allocatedAmount: string;
+};
 
 export default function NewLoanPage() {
   const createLoan = useMutation(api.admin.createLoan);
@@ -27,7 +36,6 @@ export default function NewLoanPage() {
     purchasePrice: "",
     loanAmount: "",
     afterRepairValue: "",
-    rehabBudgetTotal: "",
     closeDate: "",
     maturityDate: "",
     terms: "",
@@ -36,6 +44,7 @@ export default function NewLoanPage() {
     paymentDueDay: String(DEFAULT_PAYMENT_DUE_DAY),
     pointsEarned: "",
     monthlyInterestEarned: "",
+    strategy: "" as "" | "flip_and_resell" | "brrrr",
     paymentType: "monthly" as "balloon" | "monthly",
     status: "submitted" as const,
     titleCompany: "",
@@ -44,6 +53,8 @@ export default function NewLoanPage() {
     drawFundsUsed: "",
     notes: "",
   });
+
+  const [rehabItems, setRehabItems] = useState<RehabItem[]>([]);
 
   // Auto-calculate monthly payment and points when loan amount or interest rate changes
   useEffect(() => {
@@ -112,6 +123,20 @@ export default function NewLoanPage() {
 
     setSubmitting(true);
     try {
+      // Build rehab budget items array from local state
+      const validRehabItems = rehabItems
+        .filter((i) => i.itemName.trim() && Number(i.allocatedAmount) > 0)
+        .map((i) => ({
+          category: i.category,
+          itemName: i.itemName.trim(),
+          allocatedAmount: Number(i.allocatedAmount),
+        }));
+
+      // Auto-calculate rehab budget total from line items
+      const rehabTotal = validRehabItems.length > 0
+        ? validRehabItems.reduce((s, i) => s + i.allocatedAmount, 0)
+        : undefined;
+
       const id = await createLoan({
         borrowerId: form.borrowerId as Id<"userProfiles">,
         borrowerName: form.borrowerName,
@@ -122,9 +147,7 @@ export default function NewLoanPage() {
         afterRepairValue: form.afterRepairValue
           ? Number(form.afterRepairValue)
           : undefined,
-        rehabBudgetTotal: form.rehabBudgetTotal
-          ? Number(form.rehabBudgetTotal)
-          : undefined,
+        rehabBudgetTotal: rehabTotal,
         closeDate: form.closeDate || undefined,
         maturityDate: form.maturityDate || undefined,
         terms: form.terms || "N/A",
@@ -137,6 +160,7 @@ export default function NewLoanPage() {
         monthlyInterestEarned: form.monthlyInterestEarned
           ? Number(form.monthlyInterestEarned)
           : undefined,
+        strategy: form.strategy || undefined,
         paymentType: form.paymentType,
         status: form.status,
         titleCompany: form.titleCompany || undefined,
@@ -148,6 +172,7 @@ export default function NewLoanPage() {
           ? Number(form.drawFundsUsed)
           : undefined,
         notes: form.notes || undefined,
+        rehabBudgetItems: validRehabItems.length > 0 ? validRehabItems : undefined,
       });
       router.push(`/dashboard/admin/loans/${id}`);
     } catch (err) {
@@ -216,6 +241,27 @@ export default function NewLoanPage() {
                 onChange={(e) => update("entityName", e.target.value)}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Strategy */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-base font-semibold">Loan Strategy</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(STRATEGY_LABELS).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => update("strategy", form.strategy === value ? "" : value)}
+                className={`rounded-xl border-2 px-5 py-4 text-left text-sm font-medium transition-all ${
+                  form.strategy === value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-foreground hover:border-muted-foreground/40"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -346,16 +392,6 @@ export default function NewLoanPage() {
               </select>
             </div>
             <div>
-              <label className={labelClass}>Rehab Budget Total</label>
-              <input
-                className={inputClass}
-                type="number"
-                value={form.rehabBudgetTotal}
-                onChange={(e) => update("rehabBudgetTotal", e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-            <div>
               <label className={labelClass}>Status</label>
               <select
                 className={inputClass}
@@ -372,6 +408,145 @@ export default function NewLoanPage() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Rehab Budget */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold">Rehab Budget</h3>
+            <button
+              type="button"
+              onClick={() =>
+                setRehabItems((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    category: "interior",
+                    itemName: "",
+                    allocatedAmount: "",
+                  },
+                ])
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+            >
+              <Plus className="size-3" />
+              Add Item
+            </button>
+          </div>
+
+          {rehabItems.length > 0 && (
+            <>
+              <div className="mb-4 grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Allocated</p>
+                  <p className="text-sm font-bold">
+                    {formatCurrency(
+                      rehabItems.reduce(
+                        (s, i) => s + (Number(i.allocatedAmount) || 0),
+                        0
+                      )
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Items</p>
+                  <p className="text-sm font-bold">{rehabItems.length}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {rehabItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-[1fr_2fr_1fr_auto]"
+                  >
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">
+                        Category
+                      </label>
+                      <select
+                        className={inputClass}
+                        value={item.category}
+                        onChange={(e) =>
+                          setRehabItems((prev) =>
+                            prev.map((i) =>
+                              i.id === item.id
+                                ? { ...i, category: e.target.value as RehabCategory }
+                                : i
+                            )
+                          )
+                        }
+                      >
+                        {REHAB_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">
+                        Item Name
+                      </label>
+                      <input
+                        className={inputClass}
+                        placeholder="e.g. Kitchen cabinets"
+                        value={item.itemName}
+                        onChange={(e) =>
+                          setRehabItems((prev) =>
+                            prev.map((i) =>
+                              i.id === item.id
+                                ? { ...i, itemName: e.target.value }
+                                : i
+                            )
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">
+                        Allocated
+                      </label>
+                      <input
+                        className={inputClass}
+                        type="number"
+                        placeholder="5000"
+                        value={item.allocatedAmount}
+                        onChange={(e) =>
+                          setRehabItems((prev) =>
+                            prev.map((i) =>
+                              i.id === item.id
+                                ? { ...i, allocatedAmount: e.target.value }
+                                : i
+                            )
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRehabItems((prev) =>
+                            prev.filter((i) => i.id !== item.id)
+                          )
+                        }
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-red-600"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {rehabItems.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No budget items yet. Add items to track rehab costs.
+            </p>
+          )}
         </div>
 
         {/* Dates & Title */}

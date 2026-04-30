@@ -7,8 +7,8 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info } from "lucide-react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
-import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
-import { formatCurrency } from "@/lib/format";
+import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { formatCurrency, formatFileSize } from "@/lib/format";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -70,16 +70,15 @@ export default function LoanApplicationPage() {
   const handlePhotoUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const maxPhotos = 20;
+    const maxPhotos = 50;
     if (uploadedPhotos.length + files.length > maxPhotos) {
       setError(`Maximum ${maxPhotos} photos allowed.`);
       return;
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
     const validFiles = Array.from(files).filter((f) => {
-      if (f.size > maxSize) {
-        setError(`File "${f.name}" exceeds 10MB limit.`);
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        setError(`File "${f.name}" is too large (${formatFileSize(f.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
         return false;
       }
       return true;
@@ -458,7 +457,7 @@ export default function LoanApplicationPage() {
               <p className="text-sm font-medium">
                 {uploading ? "Uploading..." : "Click to upload property photos"}
               </p>
-              <p className="text-xs">PNG, JPG, JPEG, or WebP (max 10MB each)</p>
+              <p className="text-xs">PNG, JPG, JPEG, or WebP (max {formatFileSize(MAX_FILE_SIZE_BYTES)} each)</p>
               <input
                 ref={fileInputRef}
                 type="file"

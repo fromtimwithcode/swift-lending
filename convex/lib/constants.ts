@@ -1,6 +1,9 @@
 /** Maximum number of items allowed in a single bulk operation */
 export const MAX_BULK_OPERATION_SIZE = 50;
 
+/** Maximum file upload size in bytes (25 MB, decimal) */
+export const MAX_FILE_SIZE_BYTES = 25 * 1000 * 1000;
+
 /** Loan status labels for display */
 export const LOAN_STATUS_LABELS: Record<string, string> = {
   submitted: "Submitted",
@@ -51,6 +54,12 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 export const DEFAULT_INTEREST_RATE = 13;
 export const DEFAULT_POINTS_PERCENTAGE = 3;
 export const DEFAULT_PAYMENT_DUE_DAY = 1;
+
+/** Strategy labels for display */
+export const STRATEGY_LABELS: Record<string, string> = {
+  flip_and_resell: "Fix & Flip",
+  brrrr: "BRRRR Strategy",
+};
 
 /** Payment type labels for display */
 export const PAYMENT_TYPE_LABELS: Record<string, string> = {

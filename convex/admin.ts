@@ -4,6 +4,18 @@ import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 
+const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
+
+// Keep in sync with REHAB_CATEGORIES in convex/lib/constants.ts
+const rehabCategoryValidator = v.union(
+  v.literal("demo"),
+  v.literal("exterior"),
+  v.literal("interior"),
+  v.literal("dumpster"),
+  v.literal("miscellaneous"),
+  v.literal("overage")
+);
+
 const loanStatusValidator = v.union(
   v.literal("submitted"),
   v.literal("under_review"),
@@ -151,10 +163,16 @@ export const createLoan = mutation({
     status: loanStatusValidator,
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
+    strategy: v.optional(strategyValidator),
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
+    rehabBudgetItems: v.optional(v.array(v.object({
+      category: rehabCategoryValidator,
+      itemName: v.string(),
+      allocatedAmount: v.number(),
+    }))),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
@@ -211,8 +229,10 @@ export const createLoan = mutation({
       throw new Error("After repair value should not be less than purchase price");
     }
 
+    const { rehabBudgetItems, ...loanFields } = args;
+
     const id = await ctx.db.insert("loans", {
-      ...args,
+      ...loanFields,
       borrowerName,
       entityName,
       propertyAddress,
@@ -225,6 +245,21 @@ export const createLoan = mutation({
       paymentType: args.paymentType ?? "monthly",
       createdBy: admin._id,
     });
+
+    // Create rehab budget items if provided
+    if (rehabBudgetItems && rehabBudgetItems.length > 0) {
+      for (const item of rehabBudgetItems) {
+        const itemName = item.itemName.trim();
+        if (!itemName) throw new Error("Rehab budget item name cannot be empty");
+        if (item.allocatedAmount <= 0) throw new Error("Rehab budget allocated amount must be greater than 0");
+        await ctx.db.insert("rehabBudgetItems", {
+          loanId: id,
+          category: item.category,
+          itemName,
+          allocatedAmount: item.allocatedAmount,
+        });
+      }
+    }
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
@@ -257,6 +292,7 @@ export const updateLoan = mutation({
     paymentDueDay: v.optional(v.number()),
     pointsEarned: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
+    strategy: v.optional(strategyValidator),
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
@@ -624,16 +660,6 @@ export const getRehabBudgetItems = query({
       .collect();
   },
 });
-
-// Keep in sync with REHAB_CATEGORIES in convex/lib/constants.ts
-const rehabCategoryValidator = v.union(
-  v.literal("demo"),
-  v.literal("exterior"),
-  v.literal("interior"),
-  v.literal("dumpster"),
-  v.literal("miscellaneous"),
-  v.literal("overage")
-);
 
 export const addRehabBudgetItem = mutation({
   args: {
