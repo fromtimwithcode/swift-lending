@@ -11,6 +11,8 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 function DetailRow({
   label,
@@ -38,8 +40,6 @@ export default function AdminDrawDetailPage() {
   const reviewDraw = useMutation(api.draws.reviewDrawRequest);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
@@ -48,17 +48,15 @@ export default function AdminDrawDetailPage() {
 
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {
     setSaving(true);
-    setError("");
-    setSuccess("");
     try {
       await reviewDraw({
         id,
         status,
         adminNotes: notes || undefined,
       });
-      setSuccess(`Draw request ${status === "approved" ? "approved" : status === "denied" ? "denied" : "updated"} successfully.`);
+      toast.success(`Draw request ${status === "approved" ? "approved" : status === "denied" ? "denied" : "updated"}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update draw request");
+      toast.error(getErrorMessage(err, "Failed to update draw request"));
     } finally {
       setSaving(false);
     }
@@ -102,8 +100,6 @@ export default function AdminDrawDetailPage() {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
             />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          {success && <p className="text-sm text-green-600">{success}</p>}
           {isTerminal && (
             <p className="text-sm text-muted-foreground">
               This draw request has been {draw.status} and cannot be changed.

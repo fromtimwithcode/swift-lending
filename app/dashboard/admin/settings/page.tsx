@@ -10,6 +10,7 @@ import { Loader2, Settings } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminSettingsPage() {
@@ -20,7 +21,6 @@ export default function AdminSettingsPage() {
     "borrowers"
   );
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
 
@@ -60,12 +60,11 @@ export default function AdminSettingsPage() {
       return;
     }
     setTogglingId(id);
-    setError("");
     try {
       await toggleActive({ id: id as Id<"userProfiles"> });
       toast.success(`${name} activated`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle user status");
+      toast.error(getErrorMessage(err, "Failed to toggle user status"));
     } finally {
       setTogglingId(null);
     }
@@ -74,12 +73,11 @@ export default function AdminSettingsPage() {
   const executeDeactivate = async () => {
     if (!confirmDeactivate) return;
     setTogglingId(confirmDeactivate.id);
-    setError("");
     try {
       await toggleActive({ id: confirmDeactivate.id as Id<"userProfiles"> });
       toast.success(`${confirmDeactivate.name} deactivated`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle user status");
+      toast.error(getErrorMessage(err, "Failed to toggle user status"));
     } finally {
       setTogglingId(null);
       setConfirmDeactivate(null);
@@ -185,10 +183,6 @@ export default function AdminSettingsPage() {
         title="Settings"
         description="Manage users and system configuration"
       />
-
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
 
       {/* Tabs */}
       <div className="relative border-b border-border">

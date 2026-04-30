@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { formatCurrencyPlain, DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
@@ -20,8 +20,8 @@ export const getMyLoan = query({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
     const loan = await ctx.db.get(args.id);
-    if (!loan) throw new Error("Loan not found");
-    if (loan.borrowerId !== profile._id) throw new Error("Not your loan");
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
     return loan;
   },
 });
@@ -59,20 +59,20 @@ export const submitApplication = mutation({
     const titlePreference = args.titlePreference?.trim() || undefined;
     const desiredCloseDate = args.desiredCloseDate?.trim() || undefined;
 
-    if (!entityName) throw new Error("Entity name cannot be empty");
-    if (!propertyAddress) throw new Error("Property address cannot be empty");
-    if (!terms) throw new Error("Terms cannot be empty");
+    if (!entityName) throw new ConvexError("Entity name cannot be empty");
+    if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
+    if (!terms) throw new ConvexError("Terms cannot be empty");
 
-    if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
-    if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
+    if (args.loanAmount <= 0) throw new ConvexError("Loan amount must be greater than 0");
+    if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
     if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
-      throw new Error("After repair value should not be less than purchase price");
+      throw new ConvexError("After repair value should not be less than purchase price");
     }
     if (args.photoFileIds.length === 0) {
-      throw new Error("At least one property photo is required");
+      throw new ConvexError("At least one property photo is required");
     }
     if (args.photoFileIds.length > 50) {
-      throw new Error("Maximum 50 photos allowed per application");
+      throw new ConvexError("Maximum 50 photos allowed per application");
     }
 
     // Calculate default financial fields
@@ -176,8 +176,8 @@ export const getDrawRequestsForLoan = query({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
-    if (loan.borrowerId !== profile._id) throw new Error("Not your loan");
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
 
     return await ctx.db
       .query("drawRequests")
@@ -195,13 +195,13 @@ export const submitDrawRequest = mutation({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
-    if (loan.borrowerId !== profile._id) throw new Error("Not your loan");
-    if (loan.status !== "funded") throw new Error("Loan must be funded to request draws");
-    if (args.amountRequested <= 0) throw new Error("Draw amount must be greater than 0");
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
+    if (loan.status !== "funded") throw new ConvexError("Loan must be funded to request draws");
+    if (args.amountRequested <= 0) throw new ConvexError("Draw amount must be greater than 0");
 
     const trimmedDescription = args.workDescription.trim();
-    if (!trimmedDescription) throw new Error("Work description cannot be empty");
+    if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
 
     // Validate amount against available funds (total - used - pending)
     if (loan.drawFundsTotal !== undefined) {
@@ -214,7 +214,7 @@ export const submitDrawRequest = mutation({
         .reduce((sum, d) => sum + d.amountRequested, 0);
       const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal;
       if (args.amountRequested > available) {
-        throw new Error(
+        throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(available)}`
         );
       }
@@ -259,7 +259,7 @@ export const isRepeatEntity = query({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
     const loan = await ctx.db.get(args.loanId);
-    if (!loan || loan.borrowerId !== profile._id) throw new Error("Not found");
+    if (!loan || loan.borrowerId !== profile._id) throw new ConvexError("Not found");
     if (!loan.entityName?.trim()) return false;
     const allLoans = await ctx.db
       .query("loans")
@@ -278,8 +278,8 @@ export const getMyLoanPayments = query({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
-    if (loan.borrowerId !== profile._id) throw new Error("Not your loan");
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
 
     return await ctx.db
       .query("loanPayments")

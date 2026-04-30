@@ -22,6 +22,8 @@ import {
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
@@ -71,7 +73,6 @@ export default function SettingsPage() {
     company: "",
   });
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [formInitialized, setFormInitialized] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -106,12 +107,10 @@ export default function SettingsPage() {
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setFeedback(null);
   };
 
   async function handleSave() {
     setSaving(true);
-    setFeedback(null);
     try {
       await updateMyProfile({
         displayName: form.displayName,
@@ -119,9 +118,9 @@ export default function SettingsPage() {
         company: form.company,
       });
       setFormInitialized(false);
-      setFeedback({ type: "success", message: "Profile updated successfully." });
+      toast.success("Profile updated");
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to update profile." });
+      toast.error(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setSaving(false);
     }
@@ -204,13 +203,6 @@ export default function SettingsPage() {
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
-            {feedback && (
-              <p
-                className={`text-sm ${feedback.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-              >
-                {feedback.message}
-              </p>
-            )}
           </div>
         </div>
 

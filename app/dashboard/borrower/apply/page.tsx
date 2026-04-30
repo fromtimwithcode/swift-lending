@@ -12,6 +12,8 @@ import { formatCurrency, formatFileSize } from "@/lib/format";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 interface UploadedPhoto {
   storageId: Id<"_storage">;
@@ -24,7 +26,6 @@ export default function LoanApplicationPage() {
   const submitApplication = useMutation(api.borrower.submitApplication);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     entityName: "",
@@ -72,13 +73,13 @@ export default function LoanApplicationPage() {
 
     const maxPhotos = 50;
     if (uploadedPhotos.length + files.length > maxPhotos) {
-      setError(`Maximum ${maxPhotos} photos allowed.`);
+      toast.error(`Maximum ${maxPhotos} photos allowed`);
       return;
     }
 
     const validFiles = Array.from(files).filter((f) => {
       if (f.size > MAX_FILE_SIZE_BYTES) {
-        setError(`File "${f.name}" is too large (${formatFileSize(f.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
+        toast.error(`File "${f.name}" is too large (${formatFileSize(f.size)}). Max ${formatFileSize(MAX_FILE_SIZE_BYTES)}`);
         return false;
       }
       return true;
@@ -87,7 +88,6 @@ export default function LoanApplicationPage() {
     if (validFiles.length === 0) return;
 
     setUploading(true);
-    setError("");
 
     try {
       for (const file of validFiles) {
@@ -110,7 +110,7 @@ export default function LoanApplicationPage() {
         ]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Photo upload failed");
+      toast.error(getErrorMessage(err, "Photo upload failed"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -128,24 +128,23 @@ export default function LoanApplicationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.entityName || !form.propertyAddress || !form.purchasePrice || !form.loanAmount) {
-      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields");
       return;
     }
     if (Number(form.loanAmount) <= 0) {
-      setError("Loan amount must be greater than 0.");
+      toast.error("Loan amount must be greater than 0");
       return;
     }
     if (Number(form.purchasePrice) < 0) {
-      setError("Purchase price cannot be negative.");
+      toast.error("Purchase price cannot be negative");
       return;
     }
     if (uploadedPhotos.length === 0) {
-      setError("At least one property photo is required.");
+      toast.error("At least one property photo is required");
       return;
     }
 
     setSaving(true);
-    setError("");
     try {
       const loanId = await submitApplication({
         entityName: form.entityName,
@@ -172,7 +171,7 @@ export default function LoanApplicationPage() {
       });
       router.push(`/dashboard/borrower/loans/${loanId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit");
+      toast.error(getErrorMessage(err, "Failed to submit application"));
     } finally {
       setSaving(false);
     }
@@ -517,10 +516,6 @@ export default function LoanApplicationPage() {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
         </div>
-
-        {error && (
-          <p className="text-sm text-red-500">{error}</p>
-        )}
 
         <div className="flex justify-end gap-3">
           <Link

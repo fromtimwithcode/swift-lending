@@ -1,5 +1,5 @@
 import { query } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
 
 
@@ -19,9 +19,9 @@ export const getMyInvestment = query({
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "investor");
     const investment = await ctx.db.get(args.id);
-    if (!investment) throw new Error("Investment not found");
+    if (!investment) throw new ConvexError("Investment not found");
     if (investment.investorId !== profile._id)
-      throw new Error("Not your investment");
+      throw new ConvexError("Not your investment");
     return investment;
   },
 });

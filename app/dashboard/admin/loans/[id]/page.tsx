@@ -31,6 +31,7 @@ import { calculateMonthlyPayment, calculatePayoffEstimate } from "@/lib/loan-cal
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 const STATUSES = [
@@ -179,7 +180,7 @@ export default function LoanDetailPage() {
       setEditing(false);
       toast.success("Loan saved");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save loan");
+      toast.error(getErrorMessage(err, "Failed to save loan"));
     } finally {
       setSaving(false);
     }
@@ -214,7 +215,7 @@ export default function LoanDetailPage() {
       await attachClosingStatement({ loanId: id, fileId: storageId });
       toast.success("Closing statement uploaded");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to upload closing statement");
+      toast.error(getErrorMessage(err, "Failed to upload closing statement"));
     } finally {
       setClosingUploading(false);
     }
@@ -244,7 +245,7 @@ export default function LoanDetailPage() {
       });
       toast.success("Payment recorded");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to record payment");
+      toast.error(getErrorMessage(err, "Failed to record payment"));
     } finally {
       setPaymentSaving(false);
     }

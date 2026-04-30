@@ -7,12 +7,13 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function NewInvestorPage() {
   const createInvestor = useMutation(api.users.createInvestor);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     email: "",
@@ -26,14 +27,13 @@ export default function NewInvestorPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (!form.email) {
-      setError("Email is required");
+      toast.error("Email is required");
       return;
     }
     if (!form.displayName) {
-      setError("Name is required");
+      toast.error("Name is required");
       return;
     }
 
@@ -47,9 +47,7 @@ export default function NewInvestorPage() {
       });
       router.push("/dashboard/admin/investors");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create investor"
-      );
+      toast.error(getErrorMessage(err, "Failed to create investor"));
     } finally {
       setSubmitting(false);
     }
@@ -75,12 +73,6 @@ export default function NewInvestorPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-lg space-y-6">
-        {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">
           <div>
             <label className={labelClass}>Email Address</label>

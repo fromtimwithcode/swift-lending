@@ -12,6 +12,8 @@ import { useState, useEffect, type FormEvent } from "react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
 type RehabItem = {
@@ -26,7 +28,6 @@ export default function NewLoanPage() {
   const borrowers = useQuery(api.users.getAllBorrowers);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     borrowerId: "",
@@ -86,38 +87,45 @@ export default function NewLoanPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (!form.borrowerId) {
-      setError("Please select a borrower");
+      toast.error("Please select a borrower");
+      return;
+    }
+    if (!form.borrowerName.trim()) {
+      toast.error("Borrower name is required");
+      return;
+    }
+    if (!form.entityName.trim()) {
+      toast.error("Entity / LLC is required");
       return;
     }
     if (!form.propertyAddress) {
-      setError("Property address is required");
+      toast.error("Property address is required");
       return;
     }
     if (!form.loanAmount || Number(form.loanAmount) <= 0) {
-      setError("Valid loan amount is required");
+      toast.error("Valid loan amount is required");
       return;
     }
     if (Number(form.purchasePrice) < 0) {
-      setError("Purchase price cannot be negative");
+      toast.error("Purchase price cannot be negative");
       return;
     }
     if (Number(form.interestRate) < 0) {
-      setError("Interest rate cannot be negative");
+      toast.error("Interest rate cannot be negative");
       return;
     }
     if (Number(form.monthlyPayment) < 0) {
-      setError("Monthly payment cannot be negative");
+      toast.error("Monthly payment cannot be negative");
       return;
     }
     if (Number(form.pointsEarned) < 0) {
-      setError("Points earned cannot be negative");
+      toast.error("Points earned cannot be negative");
       return;
     }
     if (form.paymentDueDay && (Number(form.paymentDueDay) < 1 || Number(form.paymentDueDay) > 31)) {
-      setError("Payment due day must be between 1 and 31");
+      toast.error("Payment due day must be between 1 and 31");
       return;
     }
 
@@ -176,7 +184,7 @@ export default function NewLoanPage() {
       });
       router.push(`/dashboard/admin/loans/${id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create loan");
+      toast.error(getErrorMessage(err, "Failed to create loan"));
     } finally {
       setSubmitting(false);
     }
@@ -199,12 +207,6 @@ export default function NewLoanPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
         {/* Borrower Info */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="mb-4 text-base font-semibold">Borrower Information</h3>

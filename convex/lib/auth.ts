@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 
 type Role = "admin" | "developer" | "borrower" | "investor";
@@ -11,7 +12,7 @@ export function isAdminLike(role: string): boolean {
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
-    throw new Error("Not authenticated");
+    throw new ConvexError("Not authenticated");
   }
 
   // Fast path: profile already linked by authUserId
@@ -43,10 +44,10 @@ export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
 export async function requireUser(ctx: QueryCtx | MutationCtx) {
   const profile = await getCurrentUser(ctx);
   if (!profile) {
-    throw new Error("User profile not found");
+    throw new ConvexError("User profile not found");
   }
   if (!profile.isActive) {
-    throw new Error("Account is deactivated");
+    throw new ConvexError("Account is deactivated");
   }
   return profile;
 }
@@ -59,10 +60,10 @@ export async function requireRole(
   if (role === "admin") {
     // Accept both admin and developer
     if (!isAdminLike(profile.role)) {
-      throw new Error(`Requires ${role} role`);
+      throw new ConvexError(`Requires ${role} role`);
     }
   } else if (profile.role !== role) {
-    throw new Error(`Requires ${role} role`);
+    throw new ConvexError(`Requires ${role} role`);
   }
   return profile;
 }
@@ -78,7 +79,7 @@ export async function requireAnyRole(
     effectiveRoles.add("developer");
   }
   if (!effectiveRoles.has(profile.role)) {
-    throw new Error(`Requires one of: ${roles.join(", ")}`);
+    throw new ConvexError(`Requires one of: ${roles.join(", ")}`);
   }
   return profile;
 }

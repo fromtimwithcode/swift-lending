@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
@@ -79,11 +79,11 @@ export const getDrawRequest = query({
   handler: async (ctx, args) => {
     const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
     const draw = await ctx.db.get(args.id);
-    if (!draw) throw new Error("Draw request not found");
+    if (!draw) throw new ConvexError("Draw request not found");
 
     // Verify ownership or admin/developer
     if (!isAdminLike(profile.role) && draw.borrowerId !== profile._id) {
-      throw new Error("Not authorized");
+      throw new ConvexError("Not authorized");
     }
 
     const borrower = await ctx.db.get(draw.borrowerId);
@@ -127,7 +127,7 @@ export const bulkReviewDrawRequests = mutation({
     const admin = await requireRole(ctx, "admin");
 
     if (args.drawIds.length > MAX_BULK_OPERATION_SIZE) {
-      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
 
     const results: { drawId: string; success: boolean; error?: string }[] = [];
@@ -203,10 +203,10 @@ export const reviewDrawRequest = mutation({
   handler: async (ctx, args) => {
     const admin = await requireRole(ctx, "admin");
     const draw = await ctx.db.get(args.id);
-    if (!draw) throw new Error("Draw request not found");
+    if (!draw) throw new ConvexError("Draw request not found");
 
     if (draw.status === "approved" || draw.status === "denied") {
-      throw new Error(`Draw request has already been ${draw.status}`);
+      throw new ConvexError(`Draw request has already been ${draw.status}`);
     }
 
     // If approved, check and update loan drawFundsUsed BEFORE patching draw status
@@ -215,7 +215,7 @@ export const reviewDrawRequest = mutation({
       if (loan) {
         const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
         if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
-          throw new Error("Draw would exceed fund limit");
+          throw new ConvexError("Draw would exceed fund limit");
         }
         await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
       }

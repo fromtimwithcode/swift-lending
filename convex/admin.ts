@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
@@ -137,7 +137,7 @@ export const getLoan = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const loan = await ctx.db.get(args.id);
-    if (!loan) throw new Error("Loan not found");
+    if (!loan) throw new ConvexError("Loan not found");
     return loan;
   },
 });
@@ -179,8 +179,8 @@ export const createLoan = mutation({
 
     // Validate borrower exists and has borrower role
     const borrower = await ctx.db.get(args.borrowerId);
-    if (!borrower) throw new Error("Borrower not found");
-    if (borrower.role !== "borrower") throw new Error("User is not a borrower");
+    if (!borrower) throw new ConvexError("Borrower not found");
+    if (borrower.role !== "borrower") throw new ConvexError("User is not a borrower");
 
     // Trim string inputs
     const borrowerName = args.borrowerName.trim();
@@ -193,40 +193,40 @@ export const createLoan = mutation({
     const closeDate = args.closeDate?.trim() || undefined;
     const maturityDate = args.maturityDate?.trim() || undefined;
 
-    if (!borrowerName) throw new Error("Borrower name cannot be empty");
-    if (!entityName) throw new Error("Entity name cannot be empty");
-    if (!propertyAddress) throw new Error("Property address cannot be empty");
-    if (!terms) throw new Error("Terms cannot be empty");
+    if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
+    if (!entityName) throw new ConvexError("Entity name cannot be empty");
+    if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
+    if (!terms) throw new ConvexError("Terms cannot be empty");
 
     // Validate financial fields
-    if (args.loanAmount <= 0) throw new Error("Loan amount must be greater than 0");
-    if (args.purchasePrice < 0) throw new Error("Purchase price cannot be negative");
-    if (args.interestRate < 0) throw new Error("Interest rate cannot be negative");
-    if (args.monthlyPayment < 0) throw new Error("Monthly payment cannot be negative");
-    if (args.pointsEarned < 0) throw new Error("Points earned cannot be negative");
+    if (args.loanAmount <= 0) throw new ConvexError("Loan amount must be greater than 0");
+    if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
+    if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
+    if (args.monthlyPayment < 0) throw new ConvexError("Monthly payment cannot be negative");
+    if (args.pointsEarned < 0) throw new ConvexError("Points earned cannot be negative");
     if (args.paymentDueDay !== undefined && (args.paymentDueDay < 1 || args.paymentDueDay > 31)) {
-      throw new Error("Payment due day must be between 1 and 31");
+      throw new ConvexError("Payment due day must be between 1 and 31");
     }
     if (args.afterRepairValue !== undefined && args.afterRepairValue < 0)
-      throw new Error("After repair value cannot be negative");
+      throw new ConvexError("After repair value cannot be negative");
     if (args.rehabBudgetTotal !== undefined && args.rehabBudgetTotal < 0)
-      throw new Error("Rehab budget total cannot be negative");
+      throw new ConvexError("Rehab budget total cannot be negative");
     if (args.drawFundsTotal !== undefined && args.drawFundsTotal < 0)
-      throw new Error("Draw funds total cannot be negative");
+      throw new ConvexError("Draw funds total cannot be negative");
     if (args.drawFundsUsed !== undefined && args.drawFundsUsed < 0)
-      throw new Error("Draw funds used cannot be negative");
+      throw new ConvexError("Draw funds used cannot be negative");
     if (args.monthlyInterestEarned !== undefined && args.monthlyInterestEarned < 0)
-      throw new Error("Monthly interest earned cannot be negative");
+      throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation
     if (args.loanAmount > args.purchasePrice) {
-      throw new Error("Loan amount cannot exceed purchase price");
+      throw new ConvexError("Loan amount cannot exceed purchase price");
     }
     if (args.drawFundsUsed !== undefined && args.drawFundsTotal !== undefined && args.drawFundsUsed > args.drawFundsTotal) {
-      throw new Error("Draw funds used cannot exceed draw funds total");
+      throw new ConvexError("Draw funds used cannot exceed draw funds total");
     }
     if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
-      throw new Error("After repair value should not be less than purchase price");
+      throw new ConvexError("After repair value should not be less than purchase price");
     }
 
     const { rehabBudgetItems, ...loanFields } = args;
@@ -250,8 +250,8 @@ export const createLoan = mutation({
     if (rehabBudgetItems && rehabBudgetItems.length > 0) {
       for (const item of rehabBudgetItems) {
         const itemName = item.itemName.trim();
-        if (!itemName) throw new Error("Rehab budget item name cannot be empty");
-        if (item.allocatedAmount <= 0) throw new Error("Rehab budget allocated amount must be greater than 0");
+        if (!itemName) throw new ConvexError("Rehab budget item name cannot be empty");
+        if (item.allocatedAmount <= 0) throw new ConvexError("Rehab budget allocated amount must be greater than 0");
         await ctx.db.insert("rehabBudgetItems", {
           loanId: id,
           category: item.category,
@@ -305,31 +305,31 @@ export const updateLoan = mutation({
 
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Loan not found");
+    if (!existing) throw new ConvexError("Loan not found");
 
     // Validate financial fields if provided
     if (fields.loanAmount !== undefined && fields.loanAmount <= 0)
-      throw new Error("Loan amount must be greater than 0");
+      throw new ConvexError("Loan amount must be greater than 0");
     if (fields.purchasePrice !== undefined && fields.purchasePrice < 0)
-      throw new Error("Purchase price cannot be negative");
+      throw new ConvexError("Purchase price cannot be negative");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
-      throw new Error("Interest rate cannot be negative");
+      throw new ConvexError("Interest rate cannot be negative");
     if (fields.monthlyPayment !== undefined && fields.monthlyPayment < 0)
-      throw new Error("Monthly payment cannot be negative");
+      throw new ConvexError("Monthly payment cannot be negative");
     if (fields.pointsEarned !== undefined && fields.pointsEarned < 0)
-      throw new Error("Points earned cannot be negative");
+      throw new ConvexError("Points earned cannot be negative");
     if (fields.paymentDueDay !== undefined && (fields.paymentDueDay < 1 || fields.paymentDueDay > 31))
-      throw new Error("Payment due day must be between 1 and 31");
+      throw new ConvexError("Payment due day must be between 1 and 31");
     if (fields.afterRepairValue !== undefined && fields.afterRepairValue < 0)
-      throw new Error("After repair value cannot be negative");
+      throw new ConvexError("After repair value cannot be negative");
     if (fields.rehabBudgetTotal !== undefined && fields.rehabBudgetTotal < 0)
-      throw new Error("Rehab budget total cannot be negative");
+      throw new ConvexError("Rehab budget total cannot be negative");
     if (fields.drawFundsTotal !== undefined && fields.drawFundsTotal < 0)
-      throw new Error("Draw funds total cannot be negative");
+      throw new ConvexError("Draw funds total cannot be negative");
     if (fields.drawFundsUsed !== undefined && fields.drawFundsUsed < 0)
-      throw new Error("Draw funds used cannot be negative");
+      throw new ConvexError("Draw funds used cannot be negative");
     if (fields.monthlyInterestEarned !== undefined && fields.monthlyInterestEarned < 0)
-      throw new Error("Monthly interest earned cannot be negative");
+      throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation (use provided values or fall back to existing)
     const effectiveLoanAmount = fields.loanAmount ?? existing.loanAmount;
@@ -339,13 +339,13 @@ export const updateLoan = mutation({
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
 
     if (effectiveLoanAmount > effectivePurchasePrice) {
-      throw new Error("Loan amount cannot exceed purchase price");
+      throw new ConvexError("Loan amount cannot exceed purchase price");
     }
     if (effectiveDrawFundsUsed !== undefined && effectiveDrawFundsTotal !== undefined && effectiveDrawFundsUsed > effectiveDrawFundsTotal) {
-      throw new Error("Draw funds used cannot exceed draw funds total");
+      throw new ConvexError("Draw funds used cannot exceed draw funds total");
     }
     if (effectiveARV !== undefined && effectiveARV < effectivePurchasePrice) {
-      throw new Error("After repair value should not be less than purchase price");
+      throw new ConvexError("After repair value should not be less than purchase price");
     }
 
     // Trim string fields and validate required ones
@@ -361,7 +361,7 @@ export const updateLoan = mutation({
         if (typeof value === "string") {
           const trimmed = value.trim();
           if (requiredStringFields.has(key)) {
-            if (!trimmed) throw new Error(`${key} cannot be empty`);
+            if (!trimmed) throw new ConvexError(`${key} cannot be empty`);
             updates[key] = trimmed;
           } else if (optionalStringFields.has(key)) {
             if (!trimmed) continue; // skip empty optional strings
@@ -422,7 +422,7 @@ export const getBorrowerDetail = query({
     await requireAdmin(ctx);
 
     const profile = await ctx.db.get(args.id);
-    if (!profile) throw new Error("Borrower not found");
+    if (!profile) throw new ConvexError("Borrower not found");
 
     const loans = await ctx.db
       .query("loans")
@@ -486,11 +486,11 @@ export const updateLoanStatus = mutation({
     const admin = await requireAdmin(ctx);
 
     const existing = await ctx.db.get(args.id);
-    if (!existing) throw new Error("Loan not found");
+    if (!existing) throw new ConvexError("Loan not found");
 
     const validNext = VALID_TRANSITIONS[existing.status];
     if (!validNext || !validNext.includes(args.status)) {
-      throw new Error(
+      throw new ConvexError(
         `Invalid status transition: cannot move from "${existing.status}" to "${args.status}"`
       );
     }
@@ -529,7 +529,7 @@ export const attachClosingStatement = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
+    if (!loan) throw new ConvexError("Loan not found");
     // Delete old file from storage to prevent orphans
     if (loan.closingStatementFileId) {
       await ctx.storage.delete(loan.closingStatementFileId);
@@ -554,7 +554,7 @@ export const removeClosingStatement = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
+    if (!loan) throw new ConvexError("Loan not found");
     if (loan.closingStatementFileId) {
       await ctx.storage.delete(loan.closingStatementFileId);
       await ctx.db.patch(args.loanId, { closingStatementFileId: undefined });
@@ -672,11 +672,11 @@ export const addRehabBudgetItem = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
+    if (!loan) throw new ConvexError("Loan not found");
     const trimmedName = args.itemName.trim();
-    if (!trimmedName) throw new Error("Item name is required");
-    if (args.allocatedAmount <= 0) throw new Error("Allocated amount must be greater than 0");
-    if (args.actualAmount !== undefined && args.actualAmount < 0) throw new Error("Actual amount cannot be negative");
+    if (!trimmedName) throw new ConvexError("Item name is required");
+    if (args.allocatedAmount <= 0) throw new ConvexError("Allocated amount must be greater than 0");
+    if (args.actualAmount !== undefined && args.actualAmount < 0) throw new ConvexError("Actual amount cannot be negative");
     const id = await ctx.db.insert("rehabBudgetItems", { ...args, itemName: trimmedName });
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -704,17 +704,17 @@ export const updateRehabBudgetItem = mutation({
     const admin = await requireAdmin(ctx);
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Budget item not found");
+    if (!existing) throw new ConvexError("Budget item not found");
 
     if (fields.itemName !== undefined) {
       const trimmed = fields.itemName.trim();
-      if (!trimmed) throw new Error("Item name is required");
+      if (!trimmed) throw new ConvexError("Item name is required");
       fields.itemName = trimmed;
     }
     if (fields.allocatedAmount !== undefined && fields.allocatedAmount <= 0)
-      throw new Error("Allocated amount must be greater than 0");
+      throw new ConvexError("Allocated amount must be greater than 0");
     if (fields.actualAmount !== undefined && fields.actualAmount < 0)
-      throw new Error("Actual amount cannot be negative");
+      throw new ConvexError("Actual amount cannot be negative");
 
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -744,7 +744,7 @@ export const deleteRehabBudgetItem = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const existing = await ctx.db.get(args.id);
-    if (!existing) throw new Error("Budget item not found");
+    if (!existing) throw new ConvexError("Budget item not found");
     await ctx.db.delete(args.id);
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -773,20 +773,20 @@ export const createInvestment = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const investor = await ctx.db.get(args.investorId);
-    if (!investor) throw new Error("Investor not found");
+    if (!investor) throw new ConvexError("Investor not found");
     if (investor.role !== "investor")
-      throw new Error("User is not an investor");
+      throw new ConvexError("User is not an investor");
     if (!investor.isActive)
-      throw new Error("Cannot create investments for deactivated investors");
+      throw new ConvexError("Cannot create investments for deactivated investors");
 
     // Validate financial fields
-    if (args.investmentAmount <= 0) throw new Error("Investment amount must be greater than 0");
-    if (args.interestRate < 0) throw new Error("Interest rate cannot be negative");
-    if (args.totalPaymentsReceived < 0) throw new Error("Total payments received cannot be negative");
-    if (isNaN(args.inceptionDate)) throw new Error("Invalid inception date");
-    if (isNaN(args.nextPaymentDate)) throw new Error("Invalid next payment date");
+    if (args.investmentAmount <= 0) throw new ConvexError("Investment amount must be greater than 0");
+    if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
+    if (args.totalPaymentsReceived < 0) throw new ConvexError("Total payments received cannot be negative");
+    if (isNaN(args.inceptionDate)) throw new ConvexError("Invalid inception date");
+    if (isNaN(args.nextPaymentDate)) throw new ConvexError("Invalid next payment date");
     if (args.nextPaymentDate <= args.inceptionDate) {
-      throw new Error("Next payment date must be after inception date");
+      throw new ConvexError("Next payment date must be after inception date");
     }
 
     const id = await ctx.db.insert("investments", args);
@@ -817,23 +817,23 @@ export const updateInvestment = mutation({
     const admin = await requireAdmin(ctx);
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Investment not found");
+    if (!existing) throw new ConvexError("Investment not found");
 
     // Validate financial fields if provided
     if (fields.investmentAmount !== undefined && fields.investmentAmount <= 0)
-      throw new Error("Investment amount must be greater than 0");
+      throw new ConvexError("Investment amount must be greater than 0");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
-      throw new Error("Interest rate cannot be negative");
+      throw new ConvexError("Interest rate cannot be negative");
     if (fields.totalPaymentsReceived !== undefined && fields.totalPaymentsReceived < 0)
-      throw new Error("Total payments received cannot be negative");
+      throw new ConvexError("Total payments received cannot be negative");
     if (fields.nextPaymentDate !== undefined && isNaN(fields.nextPaymentDate))
-      throw new Error("Invalid next payment date");
+      throw new ConvexError("Invalid next payment date");
 
     // Cross-field date validation
     if (fields.nextPaymentDate !== undefined) {
       const effectiveInceptionDate = existing.inceptionDate;
       if (fields.nextPaymentDate <= effectiveInceptionDate) {
-        throw new Error("Next payment date must be after inception date");
+        throw new ConvexError("Next payment date must be after inception date");
       }
     }
 
@@ -865,7 +865,7 @@ export const deleteInvestment = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const existing = await ctx.db.get(args.id);
-    if (!existing) throw new Error("Investment not found");
+    if (!existing) throw new ConvexError("Investment not found");
     await ctx.db.delete(args.id);
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -888,7 +888,7 @@ export const bulkUpdateLoanStatus = mutation({
     const admin = await requireAdmin(ctx);
 
     if (args.loanIds.length > MAX_BULK_OPERATION_SIZE) {
-      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
 
     const results: { loanId: string; success: boolean; error?: string }[] = [];
@@ -937,8 +937,8 @@ export const getInvestorDetail = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.id);
-    if (!profile) throw new Error("Investor not found");
-    if (profile.role !== "investor") throw new Error("User is not an investor");
+    if (!profile) throw new ConvexError("Investor not found");
+    if (profile.role !== "investor") throw new ConvexError("User is not an investor");
 
     const investments = await ctx.db
       .query("investments")
