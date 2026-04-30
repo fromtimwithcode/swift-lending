@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
+import { MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import { X, Upload, Loader2 } from "lucide-react";
 
 const DOC_TYPES = [
@@ -45,12 +47,24 @@ export function FileUploadDialog({
 
   if (!open) return null;
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFile(e.target.files?.[0] ?? null);
+    setError("");
+  };
+
+  const handleClose = () => {
+    if (uploading) return;
+    setFile(null);
+    setDocType("other");
+    setError("");
+    onClose();
+  };
+
   const handleUpload = async () => {
     if (!file) return;
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      setError("File size must be under 10MB.");
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setError(`File is too large (${formatFileSize(file.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
       return;
     }
 
@@ -76,10 +90,8 @@ export function FileUploadDialog({
         drawRequestId,
       });
 
-      setFile(null);
-      setDocType("other");
       onUploaded?.();
-      onClose();
+      handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -89,12 +101,12 @@ export function FileUploadDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Upload Document</h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
           >
             <X className="size-5" />
@@ -125,13 +137,13 @@ export function FileUploadDialog({
               <input
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={handleFileChange}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
             </div>
             {file && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                {file.name} ({formatFileSize(file.size)})
               </p>
             )}
           </div>
@@ -142,7 +154,7 @@ export function FileUploadDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               Cancel

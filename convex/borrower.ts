@@ -71,8 +71,8 @@ export const submitApplication = mutation({
     if (args.photoFileIds.length === 0) {
       throw new Error("At least one property photo is required");
     }
-    if (args.photoFileIds.length > 20) {
-      throw new Error("Maximum 20 photos allowed per application");
+    if (args.photoFileIds.length > 50) {
+      throw new Error("Maximum 50 photos allowed per application");
     }
 
     // Calculate default financial fields
