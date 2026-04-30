@@ -1,5 +1,5 @@
 import { query, mutation, internalMutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 
@@ -33,7 +33,7 @@ export const saveComps = internalMutation({
   },
   handler: async (ctx, args) => {
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found — cannot save comps for non-existent loan");
+    if (!loan) throw new ConvexError("Loan not found — cannot save comps for non-existent loan");
 
     for (const comp of args.comps) {
       await ctx.db.insert("propertyComps", {
@@ -60,7 +60,7 @@ export const fetchComps = mutation({
     const admin = await requireAdmin(ctx);
 
     const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new Error("Loan not found");
+    if (!loan) throw new ConvexError("Loan not found");
 
     // Delete existing comps for this loan
     const existing = await ctx.db

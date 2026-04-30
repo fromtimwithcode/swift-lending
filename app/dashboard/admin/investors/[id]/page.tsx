@@ -21,6 +21,7 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminInvestorDetailPage() {
@@ -33,7 +34,6 @@ export default function AdminInvestorDetailPage() {
   const updateInvestment = useMutation(api.admin.updateInvestment);
   const deleteInvestmentMut = useMutation(api.admin.deleteInvestment);
 
-  const [error, setError] = useState("");
   const [deletingInvestment, setDeletingInvestment] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [confirmDeleteInvestment, setConfirmDeleteInvestment] = useState<string | null>(null);
@@ -84,12 +84,11 @@ export default function AdminInvestorDetailPage() {
       return;
     }
     setToggling(true);
-    setError("");
     try {
       await toggleActive({ id });
       toast.success(`${profile.displayName} activated`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle status");
+      toast.error(getErrorMessage(err, "Failed to toggle status"));
     } finally {
       setToggling(false);
     }
@@ -97,12 +96,11 @@ export default function AdminInvestorDetailPage() {
 
   const executeDeactivate = async () => {
     setToggling(true);
-    setError("");
     try {
       await toggleActive({ id });
       toast.success(`${profile.displayName} deactivated`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle status");
+      toast.error(getErrorMessage(err, "Failed to toggle status"));
     } finally {
       setToggling(false);
       setConfirmDeactivate(false);
@@ -121,15 +119,14 @@ export default function AdminInvestorDetailPage() {
 
   const handleSaveProfile = async () => {
     if (!editData.displayName.trim()) {
-      setError("Display name is required");
+      toast.error("Display name is required");
       return;
     }
     if (!editData.email.trim()) {
-      setError("Email is required");
+      toast.error("Email is required");
       return;
     }
     setSaving(true);
-    setError("");
     try {
       await updateProfile({
         id,
@@ -139,8 +136,9 @@ export default function AdminInvestorDetailPage() {
         company: editData.company || undefined,
       });
       setEditing(false);
+      toast.success("Profile updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile");
+      toast.error(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setSaving(false);
     }
@@ -148,11 +146,10 @@ export default function AdminInvestorDetailPage() {
 
   const handleAddInvestment = async () => {
     if (!investForm.investmentAmount.trim() || !investForm.inceptionDate.trim() || !investForm.interestRate.trim() || !investForm.nextPaymentDate.trim()) {
-      setError("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
     setAddingInvestment(true);
-    setError("");
     try {
       await createInvestment({
         investorId: id,
@@ -172,8 +169,9 @@ export default function AdminInvestorDetailPage() {
         nextPaymentDate: "",
         notes: "",
       });
+      toast.success("Investment created");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create investment");
+      toast.error(getErrorMessage(err, "Failed to create investment"));
     } finally {
       setAddingInvestment(false);
     }
@@ -195,16 +193,15 @@ export default function AdminInvestorDetailPage() {
   const handleSaveInvestment = async () => {
     if (!editingInvestmentId) return;
     if (!editInvestForm.investmentAmount.trim() || !editInvestForm.interestRate.trim() || !editInvestForm.nextPaymentDate.trim()) {
-      setError("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
     const parsedDate = new Date(editInvestForm.nextPaymentDate).getTime();
     if (isNaN(parsedDate)) {
-      setError("Invalid next payment date");
+      toast.error("Invalid next payment date");
       return;
     }
     setSavingInvestment(true);
-    setError("");
     try {
       await updateInvestment({
         id: editingInvestmentId as Id<"investments">,
@@ -215,8 +212,9 @@ export default function AdminInvestorDetailPage() {
         notes: editInvestForm.notes || undefined,
       });
       setEditingInvestmentId(null);
+      toast.success("Investment updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update investment");
+      toast.error(getErrorMessage(err, "Failed to update investment"));
     } finally {
       setSavingInvestment(false);
     }
@@ -224,12 +222,11 @@ export default function AdminInvestorDetailPage() {
 
   const handleDeleteInvestment = async (investmentId: string) => {
     setDeletingInvestment(investmentId);
-    setError("");
     try {
       await deleteInvestmentMut({ id: investmentId as Id<"investments"> });
       toast.success("Investment deleted");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete investment");
+      toast.error(getErrorMessage(err, "Failed to delete investment"));
     } finally {
       setDeletingInvestment(null);
       setConfirmDeleteInvestment(null);
@@ -552,10 +549,6 @@ export default function AdminInvestorDetailPage() {
           )}
         </div>
       </div>
-
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
 
       {/* Investments */}
       <div className="rounded-xl border border-border bg-card p-6">

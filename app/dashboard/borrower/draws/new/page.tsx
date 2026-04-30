@@ -10,6 +10,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function NewDrawRequestPage() {
   const router = useRouter();
@@ -20,7 +22,6 @@ export default function NewDrawRequestPage() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   const loans = useQuery(api.borrower.getMyLoans);
   const draws = useQuery(
@@ -46,16 +47,15 @@ export default function NewDrawRequestPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loanId || !amount || !description.trim()) {
-      setError("Please fill in all fields.");
+      toast.error("Please fill in all fields");
       return;
     }
     if (available !== undefined && Number(amount) > available) {
-      setError(`Amount exceeds available funds (${formatCurrency(available)}).`);
+      toast.error(`Amount exceeds available funds (${formatCurrency(available)})`);
       return;
     }
 
     setSaving(true);
-    setError("");
     try {
       await submitDraw({
         loanId: loanId as Id<"loans">,
@@ -64,7 +64,7 @@ export default function NewDrawRequestPage() {
       });
       router.push("/dashboard/borrower/draws");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit");
+      toast.error(getErrorMessage(err, "Failed to submit draw request"));
     } finally {
       setSaving(false);
     }
@@ -176,8 +176,6 @@ export default function NewDrawRequestPage() {
               </div>
             </div>
           </div>
-
-          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex justify-end gap-3">
             <Link

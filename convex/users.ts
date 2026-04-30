@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireAdmin, requireUser, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
@@ -9,7 +9,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateEmail(email: string) {
   if (!EMAIL_REGEX.test(email)) {
-    throw new Error("Invalid email format");
+    throw new ConvexError("Invalid email format");
   }
 }
 
@@ -55,7 +55,7 @@ export const claimProfile = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     // Check if user already has a profile linked
     const existing = await ctx.db
@@ -83,7 +83,7 @@ export const claimProfile = mutation({
       // Reject stale pending profiles (older than 30 days)
       const profileAge = Date.now() - pendingProfile._creationTime;
       if (profileAge > PENDING_PROFILE_MAX_AGE_MS) {
-        throw new Error("This invitation has expired. Please contact an administrator for a new invitation.");
+        throw new ConvexError("This invitation has expired. Please contact an administrator for a new invitation.");
       }
 
       await ctx.db.patch(pendingProfile._id, {
@@ -171,8 +171,8 @@ export const createBorrower = mutation({
     const email = args.email.trim().toLowerCase();
     const phone = args.phone?.trim() || undefined;
     const company = args.company?.trim() || undefined;
-    if (!displayName) throw new Error("Display name cannot be empty");
-    if (!email) throw new Error("Email cannot be empty");
+    if (!displayName) throw new ConvexError("Display name cannot be empty");
+    if (!email) throw new ConvexError("Email cannot be empty");
     validateEmail(email);
 
     // Check if email already exists
@@ -181,7 +181,7 @@ export const createBorrower = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
 
-    if (existing) throw new Error("A user with this email already exists");
+    if (existing) throw new ConvexError("A user with this email already exists");
 
     const id = await ctx.db.insert("userProfiles", {
       role: "borrower",
@@ -219,8 +219,8 @@ export const createInvestor = mutation({
     const email = args.email.trim().toLowerCase();
     const phone = args.phone?.trim() || undefined;
     const company = args.company?.trim() || undefined;
-    if (!displayName) throw new Error("Display name cannot be empty");
-    if (!email) throw new Error("Email cannot be empty");
+    if (!displayName) throw new ConvexError("Display name cannot be empty");
+    if (!email) throw new ConvexError("Email cannot be empty");
     validateEmail(email);
 
     const existing = await ctx.db
@@ -228,7 +228,7 @@ export const createInvestor = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
 
-    if (existing) throw new Error("A user with this email already exists");
+    if (existing) throw new ConvexError("A user with this email already exists");
 
     const id = await ctx.db.insert("userProfiles", {
       role: "investor",
@@ -298,7 +298,7 @@ export const bulkToggleActive = mutation({
     const admin = await requireAdmin(ctx);
 
     if (args.userIds.length > MAX_BULK_OPERATION_SIZE) {
-      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
 
     const results: { id: string; success: boolean; error?: string }[] = [];
@@ -335,11 +335,11 @@ export const toggleUserActive = mutation({
     const admin = await requireAdmin(ctx);
 
     if (admin._id === args.id) {
-      throw new Error("Cannot deactivate your own account");
+      throw new ConvexError("Cannot deactivate your own account");
     }
 
     const user = await ctx.db.get(args.id);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new ConvexError("User not found");
 
     await ctx.db.patch(args.id, { isActive: !user.isActive });
 
@@ -369,16 +369,16 @@ export const updateUserProfile = mutation({
 
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("User not found");
+    if (!existing) throw new ConvexError("User not found");
 
     // Required field validation + trim
     if (fields.displayName !== undefined) {
       fields.displayName = fields.displayName.trim();
-      if (!fields.displayName) throw new Error("Display name cannot be empty");
+      if (!fields.displayName) throw new ConvexError("Display name cannot be empty");
     }
     if (fields.email !== undefined) {
       fields.email = fields.email.trim().toLowerCase();
-      if (!fields.email) throw new Error("Email cannot be empty");
+      if (!fields.email) throw new ConvexError("Email cannot be empty");
     }
     // Track which optional fields should be cleared
     const clearPhone = fields.phone !== undefined && !fields.phone.trim();
@@ -397,7 +397,7 @@ export const updateUserProfile = mutation({
         .query("userProfiles")
         .withIndex("by_email", (q) => q.eq("email", fields.email!))
         .unique();
-      if (emailTaken) throw new Error("A user with this email already exists");
+      if (emailTaken) throw new ConvexError("A user with this email already exists");
     }
 
     const updates: Record<string, unknown> = {};
@@ -439,7 +439,7 @@ export const updateMyProfile = mutation({
 
     if (args.displayName !== undefined) {
       const displayName = args.displayName.trim();
-      if (!displayName) throw new Error("Display name cannot be empty");
+      if (!displayName) throw new ConvexError("Display name cannot be empty");
       updates.displayName = displayName;
     }
 
@@ -533,8 +533,8 @@ export const createUser = mutation({
     const email = args.email.trim().toLowerCase();
     const phone = args.phone?.trim() || undefined;
     const company = args.company?.trim() || undefined;
-    if (!displayName) throw new Error("Display name cannot be empty");
-    if (!email) throw new Error("Email cannot be empty");
+    if (!displayName) throw new ConvexError("Display name cannot be empty");
+    if (!email) throw new ConvexError("Email cannot be empty");
     validateEmail(email);
 
     const existing = await ctx.db
@@ -542,7 +542,7 @@ export const createUser = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
 
-    if (existing) throw new Error("A user with this email already exists");
+    if (existing) throw new ConvexError("A user with this email already exists");
 
     const id = await ctx.db.insert("userProfiles", {
       role: args.role,
@@ -575,11 +575,11 @@ export const updateUserRole = mutation({
     const admin = await requireAdmin(ctx);
 
     if (args.id === admin._id) {
-      throw new Error("Cannot change your own role");
+      throw new ConvexError("Cannot change your own role");
     }
 
     const user = await ctx.db.get(args.id);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new ConvexError("User not found");
 
     if (user.role === args.role) return args.id;
 
@@ -597,7 +597,7 @@ export const updateUserRole = mutation({
         (u) => u.isActive && u._id !== user._id
       );
       if (activeAdminLike.length === 0) {
-        throw new Error("Cannot change role: at least one active admin must remain");
+        throw new ConvexError("Cannot change role: at least one active admin must remain");
       }
     }
 

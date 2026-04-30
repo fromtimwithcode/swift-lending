@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
 
@@ -39,7 +39,7 @@ export const saveDocument = mutation({
     if (profile.role === "borrower" && args.loanId) {
       const loan = await ctx.db.get(args.loanId);
       if (!loan || loan.borrowerId !== profile._id) {
-        throw new Error("Not your loan");
+        throw new ConvexError("Not your loan");
       }
     }
 
@@ -47,7 +47,7 @@ export const saveDocument = mutation({
     if (profile.role === "borrower" && args.drawRequestId) {
       const draw = await ctx.db.get(args.drawRequestId);
       if (!draw || draw.borrowerId !== profile._id) {
-        throw new Error("Not your draw request");
+        throw new ConvexError("Not your draw request");
       }
     }
 
@@ -89,7 +89,7 @@ export const getDocumentsForLoan = query({
     if (profile.role === "borrower") {
       const loan = await ctx.db.get(args.loanId);
       if (!loan || loan.borrowerId !== profile._id) {
-        throw new Error("Not your loan");
+        throw new ConvexError("Not your loan");
       }
     }
 
@@ -189,11 +189,11 @@ export const deleteDocument = mutation({
   handler: async (ctx, args) => {
     const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
     const doc = await ctx.db.get(args.id);
-    if (!doc) throw new Error("Document not found");
+    if (!doc) throw new ConvexError("Document not found");
 
     // Verify ownership or admin/developer
     if (!isAdminLike(profile.role) && doc.ownerId !== profile._id) {
-      throw new Error("Not authorized");
+      throw new ConvexError("Not authorized");
     }
 
     await ctx.storage.delete(doc.fileId);

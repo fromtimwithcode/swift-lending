@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { OAuthButton } from "./oauth-button";
 import { EmailStep } from "./email-step";
@@ -24,6 +25,7 @@ const transition = {
 
 export function LoginCard() {
   const { signIn, signOut } = useAuthActions();
+  const router = useRouter();
   const [view, setView] = useState<View>("idle");
   const [email, setEmail] = useState("");
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -60,22 +62,41 @@ export function LoginCard() {
     [signIn],
   );
 
-  const handleEmailSubmit = useCallback((submittedEmail: string) => {
-    setEmail(submittedEmail);
-    setView("sending");
-    // TODO: Wire to Convex email OTP provider when added
-    setTimeout(() => setView("otp"), 1500);
-  }, []);
+  const handleEmailSubmit = useCallback(
+    async (submittedEmail: string) => {
+      setEmail(submittedEmail);
+      setView("sending");
+      try {
+        await signIn("email", { email: submittedEmail });
+        setView("otp");
+      } catch {
+        setView("idle");
+      }
+    },
+    [signIn],
+  );
 
-  const handleVerify = useCallback(() => {
-    setView("verifying");
-    // TODO: Wire to Convex email OTP verification when added
-    setTimeout(() => setView("success"), 1800);
-  }, []);
+  const handleVerify = useCallback(
+    async (code: string) => {
+      setView("verifying");
+      try {
+        await signIn("email", { email, code });
+        setView("success");
+        setTimeout(() => router.replace("/dashboard"), 800);
+      } catch {
+        setView("otp");
+      }
+    },
+    [signIn, email, router],
+  );
 
-  const handleResend = useCallback(() => {
-    // TODO: Wire to Convex email OTP resend when added
-  }, []);
+  const handleResend = useCallback(async () => {
+    try {
+      await signIn("email", { email });
+    } catch {
+      // Silently fail — user can retry
+    }
+  }, [signIn, email]);
 
   const handleBack = useCallback(() => {
     setView("idle");

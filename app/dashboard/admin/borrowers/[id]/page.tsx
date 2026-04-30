@@ -13,6 +13,7 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
 export default function AdminBorrowerDetailPage() {
@@ -23,7 +24,6 @@ export default function AdminBorrowerDetailPage() {
   const toggleActive = useMutation(api.users.toggleUserActive);
   const updateProfile = useMutation(api.users.updateUserProfile);
 
-  const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -78,15 +78,14 @@ export default function AdminBorrowerDetailPage() {
 
   const handleSaveProfile = async () => {
     if (!editData.displayName.trim()) {
-      setError("Display name is required");
+      toast.error("Display name is required");
       return;
     }
     if (!editData.email.trim()) {
-      setError("Email is required");
+      toast.error("Email is required");
       return;
     }
     setSaving(true);
-    setError("");
     try {
       await updateProfile({
         id,
@@ -96,8 +95,9 @@ export default function AdminBorrowerDetailPage() {
         company: editData.company || undefined,
       });
       setEditing(false);
+      toast.success("Profile updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile");
+      toast.error(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setSaving(false);
     }
@@ -318,10 +318,6 @@ export default function AdminBorrowerDetailPage() {
           )}
         </div>
       </div>
-
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
 
       {/* Loans */}
       <div className="rounded-xl border border-border bg-card p-6">

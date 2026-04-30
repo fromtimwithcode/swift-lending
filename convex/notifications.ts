@@ -1,5 +1,5 @@
 import { query, mutation, internalMutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireUser } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
@@ -35,9 +35,9 @@ export const markAsRead = mutation({
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
     const notification = await ctx.db.get(args.id);
-    if (!notification) throw new Error("Notification not found");
+    if (!notification) throw new ConvexError("Notification not found");
     if (notification.recipientId !== profile._id)
-      throw new Error("Not your notification");
+      throw new ConvexError("Not your notification");
     await ctx.db.patch(args.id, { isRead: true });
   },
 });
@@ -71,7 +71,7 @@ export const bulkMarkAsRead = mutation({
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
     if (args.notificationIds.length > MAX_BULK_OPERATION_SIZE) {
-      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
     for (const notifId of args.notificationIds) {
       const notification = await ctx.db.get(notifId);

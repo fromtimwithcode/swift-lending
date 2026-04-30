@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireUser, isAdminLike } from "./lib/auth";
@@ -15,8 +15,8 @@ async function validateMessageRelationship(
 ) {
   // Validate partner exists and is active
   const partner = await ctx.db.get(partnerId);
-  if (!partner) throw new Error("Recipient not found");
-  if (!partner.isActive) throw new Error("Cannot message a deactivated user");
+  if (!partner) throw new ConvexError("Recipient not found");
+  if (!partner.isActive) throw new ConvexError("Cannot message a deactivated user");
 
   // Admins/developers can message anyone
   if (isAdminLike(profile.role)) return;
@@ -41,7 +41,7 @@ async function validateMessageRelationship(
   // Check for any overlapping loan IDs
   const hasSharedLoan = [...myLoanIds].some((id) => theirLoanIds.has(id));
   if (!hasSharedLoan) {
-    throw new Error("You can only message users you share a loan relationship with");
+    throw new ConvexError("You can only message users you share a loan relationship with");
   }
 }
 
@@ -146,7 +146,7 @@ export const sendMessage = mutation({
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
 
-    if (!args.content.trim()) throw new Error("Message cannot be empty");
+    if (!args.content.trim()) throw new ConvexError("Message cannot be empty");
 
     // Validate relationship before allowing message
     await validateMessageRelationship(ctx, profile, args.recipientId);
@@ -178,7 +178,7 @@ export const markMessagesRead = mutation({
     const profile = await requireUser(ctx);
 
     if (args.messageIds.length > MAX_BULK_OPERATION_SIZE) {
-      throw new Error(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
     for (const msgId of args.messageIds) {
       const msg = await ctx.db.get(msgId);
