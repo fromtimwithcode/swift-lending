@@ -8,7 +8,7 @@ Internal portal for Swift Capital, a hard-money lender that currently tracks loa
 
 - **Frontend**: Next.js 16 (App Router, Turbopack)
 - **Backend**: Convex (real-time database, serverless functions)
-- **Auth**: Convex Auth with Google OAuth
+- **Auth**: Convex Auth with Google OAuth + Email OTP (magic code via Resend)
 - **Styling**: Tailwind CSS v4, CSS variables, OKLch color space
 - **Charts**: Recharts
 - **Animation**: Framer Motion
@@ -320,6 +320,17 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ---
 
+## Error Handling Migration — ConvexError + Toast (Completed)
+
+- [x] All backend validation `throw new Error(...)` converted to `throw new ConvexError(...)` across 11 convex files (154 throws) — ensures error messages reach the client in production (Convex strips plain `Error` messages)
+- [x] `lib/errors.ts` — `getErrorMessage()` utility extracts messages from `ConvexError` or plain `Error`
+- [x] All frontend inline `setError` state + red error divs replaced with `toast.error()` via sonner (12 pages)
+- [x] Client-side validation errors also display via toast instead of inline state
+- [x] Success toasts added for actions that previously had no feedback (profile updates, investment CRUD, draw reviews)
+- [x] `convex/auth.ts` (OAuth/email infra) intentionally left with plain `Error` — infrastructure errors, not user-facing
+
+---
+
 ## File Structure
 
 ```
@@ -346,6 +357,7 @@ convex/
 lib/
   utils.ts                Utility functions (cn)
   format.ts               Shared currency formatters (formatCurrency, formatCurrencyShort)
+  errors.ts               Error extraction utility (getErrorMessage — handles ConvexError + plain Error)
   export.ts               Client-side export: exportToCsv, exportToExcel, exportToPdf
 
 app/
@@ -420,7 +432,7 @@ components/
 ## Known Issues & Notes
 
 - First admin/developer must be manually seeded in Convex dashboard; subsequent users of any role can be created from the admin Users page
-- Email/OTP login UI exists but backend not wired (Google OAuth only for now)
+- Auth supports Google OAuth and Email OTP (magic code via Resend)
 - Loan dates stored as strings (MM/DD/YYYY); investment dates use timestamps (`v.number()`)
 - Payment dates stored as strings (MM/DD/YYYY) with full calendar validation (impossible dates like 02/31 rejected)
 - `getOverviewStats` uses `.collect()` on all loans — fine for now, may need optimization at scale
@@ -440,7 +452,7 @@ components/
 - Email notifications skip deactivated users
 - markAllRead loops in batches (handles 200+ unread)
 - Payment stats computed client-side from payments data (eliminates duplicate getPaymentStats query)
-- Admin error handling still uses `alert()` in several pages (future: replace with toast component)
+- All mutation errors use `ConvexError` (from `convex/values`) to ensure human-readable messages reach the client in production; frontend displays them via `toast.error()` (sonner)
 - Activity log `getRecentActivity` returns latest 100 entries (limit capped at 500); `getActivityForEntity` scans 500 — may need pagination at scale
 - Developer role has identical permissions to admin; differentiation is organizational only
 
