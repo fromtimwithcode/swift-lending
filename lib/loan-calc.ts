@@ -3,6 +3,8 @@
  * Interest-only monthly payment, origination points, and payoff estimate.
  */
 
+import { parseUsDate } from "./dates";
+
 /** Calculate interest-only monthly payment */
 export function calculateMonthlyPayment(
   loanAmount: number,
@@ -42,13 +44,12 @@ export function calculatePayoffEstimate(
 ): PayoffEstimate | null {
   if (!closeDate || loanAmount <= 0 || annualRate <= 0) return null;
 
-  // Parse close date (MM/DD/YYYY format)
-  const parts = closeDate.split("/");
-  if (parts.length !== 3) return null;
-  const closeMonth = parseInt(parts[0], 10);
-  const closeDay = parseInt(parts[1], 10);
-  const closeYear = parseInt(parts[2], 10);
-  if (isNaN(closeMonth) || isNaN(closeDay) || isNaN(closeYear)) return null;
+  const parsedCloseDate = parseUsDate(closeDate);
+  if (!parsedCloseDate || parsedCloseDate > asOfDate) return null;
+
+  const closeMonth = parsedCloseDate.getMonth() + 1;
+  const closeDay = parsedCloseDate.getDate();
+  const closeYear = parsedCloseDate.getFullYear();
 
   const asOfMonth = asOfDate.getMonth() + 1;
   const asOfDay = asOfDate.getDate();

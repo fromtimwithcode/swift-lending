@@ -1,4 +1,4 @@
-function parseUsDate(value: string) {
+export function parseUsDate(value: string) {
   const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
 
@@ -14,8 +14,12 @@ function parseUsDate(value: string) {
   return date;
 }
 
-function formatUsDate(date: Date) {
+export function formatUsDate(date: Date) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+export function isValidUsDate(value: string) {
+  return parseUsDate(value) !== null;
 }
 
 export function getSixMonthMaturityDate(closeDate: string) {
