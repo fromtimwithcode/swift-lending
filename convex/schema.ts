@@ -86,6 +86,16 @@ const schema = defineSchema({
     actualAmount: v.optional(v.number()),
   }).index("by_loanId", ["loanId"]),
 
+  borrowerTitleContacts: defineTable({
+    borrowerId: v.id("userProfiles"),
+    titleCompany: v.string(),
+    titleCompanyContact: v.optional(v.string()),
+    normalizedKey: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_borrowerId", ["borrowerId"])
+    .index("by_borrowerId_and_normalizedKey", ["borrowerId", "normalizedKey"]),
+
   drawRequests: defineTable({
     loanId: v.id("loans"),
     borrowerId: v.id("userProfiles"),

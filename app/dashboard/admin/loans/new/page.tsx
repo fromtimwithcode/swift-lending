@@ -12,6 +12,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import { getSixMonthMaturityDate } from "@/lib/dates";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -21,6 +22,11 @@ type RehabItem = {
   category: RehabCategory;
   itemName: string;
   allocatedAmount: string;
+};
+
+type TitleContactOption = {
+  titleCompany: string;
+  titleCompanyContact?: string;
 };
 
 export default function NewLoanPage() {
@@ -36,6 +42,7 @@ export default function NewLoanPage() {
     propertyAddress: "",
     purchasePrice: "",
     loanAmount: "",
+    rehabBudgetTotal: "",
     afterRepairValue: "",
     closeDate: "",
     maturityDate: "",
@@ -56,19 +63,29 @@ export default function NewLoanPage() {
   });
 
   const [rehabItems, setRehabItems] = useState<RehabItem[]>([]);
+  const selectedBorrower = borrowers?.find((b) => b._id === form.borrowerId);
+  const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
 
-  // Auto-calculate monthly payment and points when loan amount or interest rate changes
+  const rehabItemsTotal = rehabItems.reduce(
+    (sum, item) => sum + (Number(item.allocatedAmount) || 0),
+    0
+  );
+
+  // Auto-calculate total loan amount, monthly payment, and points from purchase + rehab.
   useEffect(() => {
-    const loanAmount = Number(form.loanAmount) || 0;
+    const purchasePrice = Number(form.purchasePrice) || 0;
+    const rehabBudget = rehabItemsTotal || Number(form.rehabBudgetTotal) || 0;
+    const loanAmount = purchasePrice + rehabBudget;
     const rate = Number(form.interestRate) || 0;
     const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmount, rate);
     const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
     setForm((prev) => ({
       ...prev,
+      loanAmount: loanAmount ? String(loanAmount) : "",
       monthlyPayment: monthly ? String(monthly) : "",
       pointsEarned: points ? String(points) : "",
     }));
-  }, [form.loanAmount, form.interestRate, form.paymentType]);
+  }, [form.purchasePrice, form.rehabBudgetTotal, form.interestRate, form.paymentType, rehabItemsTotal]);
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -83,6 +100,40 @@ export default function NewLoanPage() {
         entityName: borrower.company ?? "",
       }));
     }
+  };
+
+  const handleCloseDateChange = (closeDate: string) => {
+    setForm((prev) => {
+      const previousAutoMaturity = getSixMonthMaturityDate(prev.closeDate);
+      const nextAutoMaturity = getSixMonthMaturityDate(closeDate);
+      const shouldUpdateMaturity = !prev.maturityDate || prev.maturityDate === previousAutoMaturity;
+
+      return {
+        ...prev,
+        closeDate,
+        maturityDate: shouldUpdateMaturity ? nextAutoMaturity : prev.maturityDate,
+      };
+    });
+  };
+
+  const handleTitleContactSelect = (value: string) => {
+    if (value === "") {
+      setForm((prev) => ({
+        ...prev,
+        titleCompany: "",
+        titleCompanyContact: "",
+      }));
+      return;
+    }
+
+    const contact = titleContacts[Number(value)];
+    if (!contact) return;
+
+    setForm((prev) => ({
+      ...prev,
+      titleCompany: contact.titleCompany,
+      titleCompanyContact: contact.titleCompanyContact ?? "",
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -104,12 +155,16 @@ export default function NewLoanPage() {
       toast.error("Property address is required");
       return;
     }
-    if (!form.loanAmount || Number(form.loanAmount) <= 0) {
-      toast.error("Valid loan amount is required");
+    if (!form.purchasePrice || Number(form.purchasePrice) <= 0) {
+      toast.error("Valid purchase price is required");
       return;
     }
-    if (Number(form.purchasePrice) < 0) {
-      toast.error("Purchase price cannot be negative");
+    if (Number(form.rehabBudgetTotal) < 0) {
+      toast.error("Rehab budget cannot be negative");
+      return;
+    }
+    if (!form.loanAmount || Number(form.loanAmount) <= 0) {
+      toast.error("Valid total loan amount is required");
       return;
     }
     if (Number(form.interestRate) < 0) {
@@ -143,7 +198,7 @@ export default function NewLoanPage() {
       // Auto-calculate rehab budget total from line items
       const rehabTotal = validRehabItems.length > 0
         ? validRehabItems.reduce((s, i) => s + i.allocatedAmount, 0)
-        : undefined;
+        : Number(form.rehabBudgetTotal) || undefined;
 
       const id = await createLoan({
         borrowerId: form.borrowerId as Id<"userProfiles">,
@@ -281,16 +336,6 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Purchase Price</label>
-              <input
-                className={inputClass}
-                type="number"
-                value={form.purchasePrice}
-                onChange={(e) => update("purchasePrice", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div>
               <label className={labelClass}>After Repair Value (ARV)</label>
               <input
                 className={inputClass}
@@ -308,13 +353,39 @@ export default function NewLoanPage() {
           <h3 className="mb-4 text-base font-semibold">Loan Terms</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className={labelClass}>Loan Amount</label>
+              <label className={labelClass}>Purchase Price</label>
               <input
                 className={inputClass}
                 type="number"
-                value={form.loanAmount}
-                onChange={(e) => update("loanAmount", e.target.value)}
+                value={form.purchasePrice}
+                onChange={(e) => update("purchasePrice", e.target.value)}
                 placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Rehab Budget</label>
+              <input
+                className={inputClass}
+                type="number"
+                value={rehabItemsTotal ? String(rehabItemsTotal) : form.rehabBudgetTotal}
+                onChange={(e) => update("rehabBudgetTotal", e.target.value)}
+                placeholder="0"
+                readOnly={rehabItemsTotal > 0}
+              />
+              {rehabItemsTotal > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Auto-filled from rehab budget line items.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className={labelClass}>Total Loan Amount</label>
+              <input
+                className={`${inputClass} bg-muted/40 font-medium`}
+                type="number"
+                value={form.loanAmount}
+                placeholder="0"
+                readOnly
               />
             </div>
             <div>
@@ -362,11 +433,11 @@ export default function NewLoanPage() {
             <div>
               <label className={labelClass}>Points Earned</label>
               <input
-                className={inputClass}
+                className={`${inputClass} bg-muted/40 font-medium`}
                 type="number"
                 value={form.pointsEarned}
-                onChange={(e) => update("pointsEarned", e.target.value)}
                 placeholder="0"
+                readOnly
               />
             </div>
             <div>
@@ -562,7 +633,7 @@ export default function NewLoanPage() {
               <input
                 className={inputClass}
                 value={form.closeDate}
-                onChange={(e) => update("closeDate", e.target.value)}
+                onChange={(e) => handleCloseDateChange(e.target.value)}
                 placeholder="MM/DD/YYYY"
               />
             </div>
@@ -574,7 +645,30 @@ export default function NewLoanPage() {
                 onChange={(e) => update("maturityDate", e.target.value)}
                 placeholder="MM/DD/YYYY"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Auto-fills six months after close date. You can still edit it.
+              </p>
             </div>
+            {titleContacts.length > 0 && (
+              <div className="sm:col-span-2 rounded-xl border border-border bg-muted/25 p-3">
+                <label className={labelClass}>Saved Title Contacts</label>
+                <select
+                  className={inputClass}
+                  defaultValue=""
+                  onChange={(e) => handleTitleContactSelect(e.target.value)}
+                >
+                  <option value="">Select a saved title contact…</option>
+                  {titleContacts.map((contact, index) => (
+                    <option key={`${contact.titleCompany}-${contact.titleCompanyContact ?? ""}-${index}`} value={index}>
+                      {contact.titleCompany}{contact.titleCompanyContact ? ` — ${contact.titleCompanyContact}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  New company/contact pairs are saved to this borrower after you create the loan.
+                </p>
+              </div>
+            )}
             <div>
               <label className={labelClass}>Title Company</label>
               <input
@@ -598,10 +692,13 @@ export default function NewLoanPage() {
 
         {/* Draw Funds */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Draw Funds</h3>
+          <h3 className="mb-1 text-base font-semibold">Construction Holdback</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Enter the construction holdback amount. Approved draws subtract from this amount to calculate draw remaining.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Draw Funds Total</label>
+              <label className={labelClass}>Construction Holdback Amount</label>
               <input
                 className={inputClass}
                 type="number"
@@ -611,7 +708,7 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Draw Funds Used</label>
+              <label className={labelClass}>Approved Draws Used</label>
               <input
                 className={inputClass}
                 type="number"

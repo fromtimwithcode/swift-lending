@@ -4,15 +4,15 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { StatusBadge } from "@/components/dashboard/status-badge";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ExportButton } from "@/components/dashboard/export-button";
-import { FileText, Upload, Download, Trash2, Loader2 } from "lucide-react";
+import { FileText, Upload, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 
 export default function BorrowerDocumentsPage() {
   const documents = useQuery(api.documents.getMyDocuments);
@@ -104,33 +104,9 @@ export default function BorrowerDocumentsPage() {
           {filtered.map((doc) => (
             <div
               key={doc._id}
-              className="flex items-center justify-between px-4 py-3"
+              className="px-4 py-2"
             >
-              <div className="flex items-center gap-3 overflow-hidden">
-                <FileText className="size-5 shrink-0 text-muted-foreground" />
-                <div className="overflow-hidden">
-                  <p className="truncate text-sm font-medium">{doc.fileName}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <StatusBadge status={doc.type} />
-                    {doc.propertyAddress && (
-                      <span className="text-xs text-muted-foreground">
-                        {doc.propertyAddress}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0 ml-2">
-                {doc.url && (
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Download className="size-4" />
-                  </a>
-                )}
+              <DocumentPreviewRow document={doc}>
                 <button
                   onClick={() => setConfirmDeleteId(doc._id)}
                   disabled={deleting === doc._id}
@@ -142,7 +118,7 @@ export default function BorrowerDocumentsPage() {
                     <Trash2 className="size-4" />
                   )}
                 </button>
-              </div>
+              </DocumentPreviewRow>
             </div>
           ))}
         </div>

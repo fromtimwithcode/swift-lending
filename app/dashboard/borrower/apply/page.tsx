@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Local object URLs are used for pre-submit upload previews. */
+
 import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -31,7 +33,6 @@ export default function LoanApplicationPage() {
     entityName: "",
     propertyAddress: "",
     purchasePrice: "",
-    loanAmount: "",
     afterRepairValue: "",
     rehabBudgetTotal: "",
     terms: "12 months",
@@ -47,6 +48,9 @@ export default function LoanApplicationPage() {
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const purchasePrice = Number(form.purchasePrice) || 0;
+  const rehabBudgetTotal = Number(form.rehabBudgetTotal) || 0;
+  const totalLoanAmount = purchasePrice + rehabBudgetTotal;
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -127,16 +131,20 @@ export default function LoanApplicationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.entityName || !form.propertyAddress || !form.purchasePrice || !form.loanAmount) {
+    if (!form.entityName || !form.propertyAddress || !form.purchasePrice) {
       toast.error("Please fill in all required fields");
       return;
     }
-    if (Number(form.loanAmount) <= 0) {
-      toast.error("Loan amount must be greater than 0");
+    if (totalLoanAmount <= 0) {
+      toast.error("Total loan amount must be greater than 0");
       return;
     }
-    if (Number(form.purchasePrice) < 0) {
+    if (purchasePrice < 0) {
       toast.error("Purchase price cannot be negative");
+      return;
+    }
+    if (rehabBudgetTotal < 0) {
+      toast.error("Rehab budget cannot be negative");
       return;
     }
     if (uploadedPhotos.length === 0) {
@@ -149,10 +157,10 @@ export default function LoanApplicationPage() {
       const loanId = await submitApplication({
         entityName: form.entityName,
         propertyAddress: form.propertyAddress,
-        purchasePrice: Number(form.purchasePrice),
-        loanAmount: Number(form.loanAmount),
+        purchasePrice,
+        loanAmount: totalLoanAmount,
         afterRepairValue: form.afterRepairValue ? Number(form.afterRepairValue) : undefined,
-        rehabBudgetTotal: form.rehabBudgetTotal ? Number(form.rehabBudgetTotal) : undefined,
+        rehabBudgetTotal: rehabBudgetTotal || undefined,
         terms: form.terms,
         notes: form.notes || undefined,
         isTitleOpen: form.isTitleOpen === "yes" ? true : form.isTitleOpen === "no" ? false : undefined,
@@ -251,18 +259,22 @@ export default function LoanApplicationPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Loan Amount Requested <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...field("loanAmount", { type: "number", placeholder: "0" })}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
                 Rehab Budget
               </label>
               <input
                 {...field("rehabBudgetTotal", { type: "number", placeholder: "0" })}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Total Loan Amount
+              </label>
+              <input
+                value={totalLoanAmount ? String(totalLoanAmount) : ""}
+                type="number"
+                placeholder="0"
+                readOnly
+                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
             </div>
             <div>
@@ -281,7 +293,7 @@ export default function LoanApplicationPage() {
         </div>
 
         {/* Estimated Loan Terms */}
-        {Number(form.loanAmount) > 0 && (
+        {totalLoanAmount > 0 && (
           <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-6 dark:border-blue-900 dark:bg-blue-950/30">
             <div className="mb-3 flex items-center gap-2">
               <Info className="size-4 text-blue-600 dark:text-blue-400" />
@@ -300,7 +312,7 @@ export default function LoanApplicationPage() {
                 <p className="text-xs text-blue-600 dark:text-blue-400">Est. Monthly Payment</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                   {formatCurrency(
-                    calculateMonthlyPayment(Number(form.loanAmount), DEFAULT_INTEREST_RATE)
+                    calculateMonthlyPayment(totalLoanAmount, DEFAULT_INTEREST_RATE)
                   )}
                 </p>
               </div>
@@ -308,7 +320,7 @@ export default function LoanApplicationPage() {
                 <p className="text-xs text-blue-600 dark:text-blue-400">Est. Origination Points ({DEFAULT_POINTS_PERCENTAGE}%)</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                   {formatCurrency(
-                    calculatePoints(Number(form.loanAmount), DEFAULT_POINTS_PERCENTAGE)
+                    calculatePoints(totalLoanAmount, DEFAULT_POINTS_PERCENTAGE)
                   )}
                 </p>
               </div>

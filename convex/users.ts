@@ -110,6 +110,7 @@ export const getAllBorrowers = query({
 
     // Batch-load all loans once instead of N+1 queries
     const allLoans = await ctx.db.query("loans").collect();
+    const savedTitleContacts = await ctx.db.query("borrowerTitleContacts").collect();
     const loansByBorrower = new Map<string, typeof allLoans>();
     for (const loan of allLoans) {
       const existing = loansByBorrower.get(loan.borrowerId) ?? [];
@@ -117,16 +118,42 @@ export const getAllBorrowers = query({
       loansByBorrower.set(loan.borrowerId, existing);
     }
 
+    const savedContactsByBorrower = new Map<string, typeof savedTitleContacts>();
+    for (const contact of savedTitleContacts) {
+      const existing = savedContactsByBorrower.get(contact.borrowerId) ?? [];
+      existing.push(contact);
+      savedContactsByBorrower.set(contact.borrowerId, existing);
+    }
+
     const borrowersWithStats = borrowers.map((borrower) => {
       const loans = loansByBorrower.get(borrower._id) ?? [];
       const activeLoans = loans.filter((l) => l.status !== "closed" && l.status !== "denied");
       const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+      const titleContacts = new Map<string, { titleCompany: string; titleCompanyContact?: string }>();
+
+      for (const contact of savedContactsByBorrower.get(borrower._id) ?? []) {
+        titleContacts.set(contact.normalizedKey, {
+          titleCompany: contact.titleCompany,
+          titleCompanyContact: contact.titleCompanyContact,
+        });
+      }
+
+      for (const loan of loans) {
+        const company = loan.titleCompany?.trim();
+        if (!company) continue;
+        const contact = loan.titleCompanyContact?.trim() || undefined;
+        const key = `${company.toLowerCase()}::${(contact ?? "").toLowerCase()}`;
+        if (!titleContacts.has(key)) {
+          titleContacts.set(key, { titleCompany: company, titleCompanyContact: contact });
+        }
+      }
 
       return {
         ...borrower,
         loanCount: loans.length,
         activeLoanCount: activeLoans.length,
         totalCapital,
+        titleContacts: Array.from(titleContacts.values()),
       };
     });
 

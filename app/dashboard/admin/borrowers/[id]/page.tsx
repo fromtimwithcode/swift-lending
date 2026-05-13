@@ -6,7 +6,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
-import { Loader2, ArrowLeft, Download, MessageSquare, Pencil, Save, X } from "lucide-react";
+import { Loader2, ArrowLeft, MessageSquare, Pencil, Save, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 
 export default function AdminBorrowerDetailPage() {
   const params = useParams();
@@ -112,6 +113,13 @@ export default function AdminBorrowerDetailPage() {
       header: "Property",
       sortable: true,
       className: "max-w-[200px] truncate",
+    },
+    {
+      key: "entityName",
+      header: "LLC",
+      sortable: true,
+      render: (row) => row.entityName || "—",
+      className: "max-w-[180px] truncate",
     },
     {
       key: "loanAmount",
@@ -322,7 +330,7 @@ export default function AdminBorrowerDetailPage() {
       {/* Loans */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Loans ({loans.length})
+          Properties ({loans.length})
         </h3>
         {loans.length > 0 ? (
           <DataTable
@@ -335,7 +343,7 @@ export default function AdminBorrowerDetailPage() {
             }
           />
         ) : (
-          <p className="text-sm text-muted-foreground">No loans</p>
+          <p className="text-sm text-muted-foreground">No properties</p>
         )}
       </div>
 
@@ -367,25 +375,7 @@ export default function AdminBorrowerDetailPage() {
         {documents.length > 0 ? (
           <div className="divide-y divide-border">
             {documents.map((doc) => (
-              <div
-                key={doc._id}
-                className="flex items-center justify-between py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium">{doc.fileName}</p>
-                  <StatusBadge status={doc.type} />
-                </div>
-                {doc.url && (
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Download className="size-4" />
-                  </a>
-                )}
-              </div>
+              <DocumentPreviewRow key={doc._id} document={doc} />
             ))}
           </div>
         ) : (

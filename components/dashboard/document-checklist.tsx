@@ -10,13 +10,11 @@ import {
   CheckCircle2,
   Circle,
   Upload,
-  Download,
   ChevronDown,
   ChevronRight,
   Loader2,
-  ImageIcon,
-  FileText,
 } from "lucide-react";
+import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 
 type DocType =
   | "articles"
@@ -293,34 +291,13 @@ export function DocumentChecklist({
           <div className="border-t border-border bg-muted/30 px-4 py-2">
             <div className="space-y-1">
               {docs.map((doc) => (
-                <div
-                  key={doc._id}
-                  className="flex items-center justify-between py-1.5"
-                >
-                  <div className="flex items-center gap-2">
-                    {doc.type === "property_photo" ? (
-                      <ImageIcon className="size-3.5 text-muted-foreground" />
-                    ) : (
-                      <FileText className="size-3.5 text-muted-foreground" />
-                    )}
-                    <span className="text-xs">{doc.fileName}</span>
-                    {isArticlesRow && (
-                      <span className="text-[10px] text-muted-foreground">
-                        ({DOC_TYPE_LABELS[doc.type] || doc.type})
-                      </span>
-                    )}
-                  </div>
-                  {doc.url && (
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      <Download className="size-3.5" />
-                    </a>
+                <DocumentPreviewRow key={doc._id} document={doc} compact>
+                  {isArticlesRow && (
+                    <span className="hidden text-[10px] text-muted-foreground sm:inline">
+                      {DOC_TYPE_LABELS[doc.type] || doc.type}
+                    </span>
                   )}
-                </div>
+                </DocumentPreviewRow>
               ))}
             </div>
           </div>

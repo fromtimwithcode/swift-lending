@@ -1,8 +1,10 @@
 import { query, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
+import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -26,6 +28,63 @@ const loanStatusValidator = v.union(
   v.literal("sent_to_title"),
   v.literal("closed")
 );
+
+const IN_PROGRESS_LOAN_STATUSES = new Set([
+  "submitted",
+  "under_review",
+  "additional_info_needed",
+  "approved",
+  "funded",
+  "sent_to_title",
+]);
+
+function titleContactKey(titleCompany: string, titleCompanyContact: string | undefined) {
+  return `${titleCompany.trim().toLowerCase()}::${(titleCompanyContact ?? "").trim().toLowerCase()}`;
+}
+
+function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
+  return purchasePrice + (rehabBudgetTotal ?? 0);
+}
+
+function getPointsEarned(totalLoanAmount: number) {
+  return Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * totalLoanAmount * 100) / 100;
+}
+
+async function saveBorrowerTitleContact(
+  ctx: MutationCtx,
+  borrowerId: Id<"userProfiles">,
+  titleCompany: string | undefined,
+  titleCompanyContact: string | undefined
+) {
+  const company = titleCompany?.trim();
+  if (!company) return;
+
+  const contact = titleCompanyContact?.trim() || undefined;
+  const normalizedKey = titleContactKey(company, contact);
+  const existing = await ctx.db
+    .query("borrowerTitleContacts")
+    .withIndex("by_borrowerId_and_normalizedKey", (q) =>
+      q.eq("borrowerId", borrowerId).eq("normalizedKey", normalizedKey)
+    )
+    .take(1);
+
+  if (existing[0]) {
+    await ctx.db.patch(existing[0]._id, {
+      titleCompany: company,
+      titleCompanyContact: contact,
+      updatedAt: Date.now(),
+    });
+    return;
+  }
+
+  await ctx.db.insert("borrowerTitleContacts", {
+    borrowerId,
+    titleCompany: company,
+    titleCompanyContact: contact,
+    normalizedKey,
+    updatedAt: Date.now(),
+  });
+}
 
 export const getOverviewStats = query({
   args: {},
@@ -198,8 +257,11 @@ export const createLoan = mutation({
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
 
+    const canonicalLoanAmount = getTotalLoanAmount(args.purchasePrice, args.rehabBudgetTotal);
+    const canonicalPointsEarned = getPointsEarned(canonicalLoanAmount);
+
     // Validate financial fields
-    if (args.loanAmount <= 0) throw new ConvexError("Loan amount must be greater than 0");
+    if (canonicalLoanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
     if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
     if (args.monthlyPayment < 0) throw new ConvexError("Monthly payment cannot be negative");
@@ -219,9 +281,6 @@ export const createLoan = mutation({
       throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation
-    if (args.loanAmount > args.purchasePrice) {
-      throw new ConvexError("Loan amount cannot exceed purchase price");
-    }
     if (args.drawFundsUsed !== undefined && args.drawFundsTotal !== undefined && args.drawFundsUsed > args.drawFundsTotal) {
       throw new ConvexError("Draw funds used cannot exceed draw funds total");
     }
@@ -233,6 +292,8 @@ export const createLoan = mutation({
 
     const id = await ctx.db.insert("loans", {
       ...loanFields,
+      loanAmount: canonicalLoanAmount,
+      pointsEarned: canonicalPointsEarned,
       borrowerName,
       entityName,
       propertyAddress,
@@ -261,13 +322,15 @@ export const createLoan = mutation({
       }
     }
 
+    await saveBorrowerTitleContact(ctx, args.borrowerId, titleCompany, titleCompanyContact);
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
       action: "loan.create",
       entityType: "loan",
       entityId: id,
-      details: `Created loan for ${propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
+      details: `Created loan for ${propertyAddress} (${formatCurrencyPlain(canonicalLoanAmount)})`,
     });
 
     return id;
@@ -308,8 +371,6 @@ export const updateLoan = mutation({
     if (!existing) throw new ConvexError("Loan not found");
 
     // Validate financial fields if provided
-    if (fields.loanAmount !== undefined && fields.loanAmount <= 0)
-      throw new ConvexError("Loan amount must be greater than 0");
     if (fields.purchasePrice !== undefined && fields.purchasePrice < 0)
       throw new ConvexError("Purchase price cannot be negative");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
@@ -332,15 +393,17 @@ export const updateLoan = mutation({
       throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation (use provided values or fall back to existing)
-    const effectiveLoanAmount = fields.loanAmount ?? existing.loanAmount;
     const effectivePurchasePrice = fields.purchasePrice ?? existing.purchasePrice;
+    const effectiveRehabBudgetTotal = fields.rehabBudgetTotal ?? existing.rehabBudgetTotal;
+    const effectiveLoanAmount = getTotalLoanAmount(effectivePurchasePrice, effectiveRehabBudgetTotal);
     const effectiveDrawFundsUsed = fields.drawFundsUsed ?? existing.drawFundsUsed;
     const effectiveDrawFundsTotal = fields.drawFundsTotal ?? existing.drawFundsTotal;
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
 
-    if (effectiveLoanAmount > effectivePurchasePrice) {
-      throw new ConvexError("Loan amount cannot exceed purchase price");
+    if (effectiveLoanAmount <= 0) {
+      throw new ConvexError("Total loan amount must be greater than 0");
     }
+
     if (effectiveDrawFundsUsed !== undefined && effectiveDrawFundsTotal !== undefined && effectiveDrawFundsUsed > effectiveDrawFundsTotal) {
       throw new ConvexError("Draw funds used cannot exceed draw funds total");
     }
@@ -375,8 +438,27 @@ export const updateLoan = mutation({
       }
     }
 
+    if (
+      fields.purchasePrice !== undefined ||
+      fields.rehabBudgetTotal !== undefined ||
+      fields.loanAmount !== undefined ||
+      fields.pointsEarned !== undefined
+    ) {
+      updates.loanAmount = effectiveLoanAmount;
+      updates.pointsEarned = getPointsEarned(effectiveLoanAmount);
+    }
+
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(id, updates);
+    }
+
+    if (fields.titleCompany !== undefined || fields.titleCompanyContact !== undefined) {
+      await saveBorrowerTitleContact(
+        ctx,
+        existing.borrowerId,
+        (updates.titleCompany as string | undefined) ?? existing.titleCompany,
+        (updates.titleCompanyContact as string | undefined) ?? existing.titleCompanyContact
+      );
     }
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -434,15 +516,34 @@ export const getBorrowerDetail = query({
       .withIndex("by_borrowerId", (q) => q.eq("borrowerId", args.id))
       .collect();
 
-    const documents = await ctx.db
+    const borrowerDocuments = await ctx.db
       .query("documents")
       .withIndex("by_ownerId", (q) => q.eq("ownerId", args.id))
       .collect();
+
+    const loanDocuments = (
+      await Promise.all(
+        loans.map((loan) =>
+          ctx.db
+            .query("documents")
+            .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+            .collect()
+        )
+      )
+    ).flat();
+
+    const documents = Array.from(
+      new Map([...borrowerDocuments, ...loanDocuments].map((doc) => [doc._id, doc])).values()
+    );
+
+    const loanMap = new Map(loans.map((loan) => [loan._id, loan]));
 
     const docsWithUrls = await Promise.all(
       documents.map(async (doc) => ({
         ...doc,
         url: await ctx.storage.getUrl(doc.fileId),
+        propertyAddress: doc.loanId ? loanMap.get(doc.loanId)?.propertyAddress : undefined,
+        entityName: doc.loanId ? loanMap.get(doc.loanId)?.entityName : undefined,
       }))
     );
 
@@ -467,10 +568,10 @@ export const getBorrowerDetail = query({
 });
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  submitted: ["under_review", "additional_info_needed", "denied"],
-  under_review: ["approved", "additional_info_needed", "denied"],
-  additional_info_needed: ["under_review", "denied"],
-  approved: ["funded", "denied"],
+  submitted: ["under_review", "additional_info_needed", "denied", "closed"],
+  under_review: ["approved", "additional_info_needed", "denied", "closed"],
+  additional_info_needed: ["under_review", "denied", "closed"],
+  approved: ["funded", "denied", "closed"],
   funded: ["sent_to_title", "closed"],
   sent_to_title: ["closed"],
   denied: [],
@@ -488,6 +589,10 @@ export const updateLoanStatus = mutation({
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new ConvexError("Loan not found");
 
+    if (existing.status === args.status) {
+      return args.id;
+    }
+
     const validNext = VALID_TRANSITIONS[existing.status];
     if (!validNext || !validNext.includes(args.status)) {
       throw new ConvexError(
@@ -504,6 +609,7 @@ export const updateLoanStatus = mutation({
       title: "Loan Status Updated",
       body: `Your loan for ${existing.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
       loanId: args.id,
+      sendSms: true,
     });
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -619,12 +725,14 @@ export const getBorrowerPerformance = query({
 
     const results = borrowers.map((borrower) => {
       const loans = loansByBorrower.get(borrower._id) ?? [];
-      const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+      const closedLoans = loans.filter((loan) => loan.status === "closed");
+      const inProgressLoans = loans.filter((loan) => IN_PROGRESS_LOAN_STATUSES.has(loan.status));
+      const totalCapital = closedLoans.reduce((sum, l) => sum + l.loanAmount, 0);
 
       let totalPayments = 0;
       let onTimePayments = 0;
       let latePayments = 0;
-      for (const loan of loans) {
+      for (const loan of closedLoans) {
         const payments = paymentsByLoan.get(loan._id) ?? [];
         totalPayments += payments.length;
         onTimePayments += payments.filter((p) => p.status === "on_time").length;
@@ -634,7 +742,8 @@ export const getBorrowerPerformance = query({
       return {
         _id: borrower._id,
         displayName: borrower.displayName,
-        totalLoans: loans.length,
+        totalLoans: closedLoans.length,
+        inProgressLoans: inProgressLoans.length,
         totalCapital,
         totalPayments,
         latePayments,
@@ -644,7 +753,7 @@ export const getBorrowerPerformance = query({
       };
     });
 
-    return results.filter((r) => r.totalLoans > 0);
+    return results.filter((r) => r.totalLoans > 0 || r.inProgressLoans > 0);
   },
 });
 
@@ -897,6 +1006,11 @@ export const bulkUpdateLoanStatus = mutation({
       const loan = await ctx.db.get(loanId);
       if (!loan) {
         results.push({ loanId, success: false, error: "Loan not found" });
+        continue;
+      }
+
+      if (loan.status === args.status) {
+        results.push({ loanId, success: true });
         continue;
       }
 
