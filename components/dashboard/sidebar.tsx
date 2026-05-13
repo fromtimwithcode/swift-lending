@@ -200,7 +200,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar shadow-[1px_0_0_0_var(--sidebar-border)] transition-all duration-300",
+            "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar shadow-[1px_0_0_0_var(--sidebar-border)] transition-[transform,width] duration-300",
           collapsed ? "w-16" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
@@ -246,7 +246,7 @@ export function Sidebar({
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                    "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-150",
                     isActive(item.href)
                       ? "bg-primary/8 text-primary shadow-[inset_0_1px_2px_oklch(0_0_0_/_3%)]"
                       : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground",
@@ -306,7 +306,7 @@ export function Sidebar({
             {!collapsed && (
               <button
                 onClick={() => signOut()}
-                className="rounded-xl p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 title="Sign out"
               >
                 <LogOut className="size-4" />

@@ -64,7 +64,7 @@ export function Hero() {
 
           <motion.p
             variants={fadeUp}
-            className="mx-auto mt-5 max-w-2xl text-base text-white/70 sm:text-lg lg:text-xl"
+            className="mx-auto mt-5 max-w-2xl text-base text-white/70 text-pretty sm:text-lg lg:text-xl"
           >
             We fund deals other lenders won&apos;t touch. Hard money loans for
             fix &amp; flip and BRRRR investors, closing in days, not months.
@@ -76,8 +76,8 @@ export function Hero() {
           >
             <motion.button
               whileHover="hover"
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
               className="relative flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full bg-gradient-to-r from-teal to-teal-light px-10 lg:px-12 text-base lg:text-lg font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <div className="shimmer-bar" />
@@ -92,8 +92,8 @@ export function Hero() {
             </motion.button>
             <motion.button
               whileHover="hover"
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
               className="flex h-14 w-full sm:w-auto lg:h-16 items-center justify-center gap-2.5 rounded-full border border-white/20 bg-white/[0.08] px-10 lg:px-12 text-base lg:text-lg text-white backdrop-blur-sm outline-none transition-colors duration-300 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <span>Speak With An Expert</span>
@@ -120,7 +120,7 @@ export function Hero() {
                     key={n}
                     src={`/avatars/${n}.jpg`}
                     alt=""
-                    className="size-8 rounded-full border-2 border-white/20 object-cover"
+                    className="image-outline size-8 rounded-full object-cover"
                   />
                 ))}
               </div>

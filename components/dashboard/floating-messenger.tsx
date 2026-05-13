@@ -89,7 +89,7 @@ export function FloatingMessenger() {
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 right-6 z-[60] flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
         whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.96 }}
         aria-label={open ? "Close messages" : "Open messages"}
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -125,13 +125,13 @@ export function FloatingMessenger() {
       </motion.button>
 
       {/* Panel */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {open && (
           <motion.div
             ref={panelRef}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="fixed bottom-24 right-6 z-[60] flex origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/20 w-[380px] h-[520px] max-sm:w-[calc(100vw-32px)] max-sm:h-[70vh]"
           >

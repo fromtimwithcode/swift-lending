@@ -68,12 +68,12 @@ export function ExportButton({
         <Download className="size-4" />
         Export
       </button>
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {open && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            exit={{ opacity: 0, scale: 0.98, y: -4 }}
             transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="absolute right-0 top-full z-50 mt-1 w-40 rounded-xl border border-border/60 bg-card py-1 shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
           >

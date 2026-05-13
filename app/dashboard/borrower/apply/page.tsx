@@ -489,7 +489,7 @@ export default function LoanApplicationPage() {
                     <img
                       src={photo.previewUrl}
                       alt={photo.fileName}
-                      className="aspect-square w-full object-cover"
+                      className="image-outline aspect-square w-full object-cover"
                     />
                     <button
                       type="button"

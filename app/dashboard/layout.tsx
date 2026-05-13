@@ -104,7 +104,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       />
       <div
         className={cn(
-          "transition-all duration-300",
+          "transition-[padding-left] duration-300",
           sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
         )}
       >

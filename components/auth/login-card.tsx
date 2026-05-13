@@ -108,7 +108,7 @@ export function LoginCard() {
   return (
     <div className="relative rounded-2xl border border-white/[0.12] bg-white/[0.07] p-6 sm:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
       {/* Success overlay */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {view === "success" && (
           <motion.div
             initial={{ opacity: 0 }}

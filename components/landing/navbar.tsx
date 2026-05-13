@@ -131,7 +131,7 @@ export function Navbar() {
         }`}
       >
         <div
-          className={`mx-auto flex max-w-7xl items-center justify-between px-6 transition-all duration-500 ${
+          className={`mx-auto flex max-w-7xl items-center justify-between px-6 transition-[padding] duration-500 ${
             scrolled ? "py-5 lg:py-3" : "py-5"
           }`}
         >
@@ -184,8 +184,8 @@ export function Navbar() {
 
             <motion.button
               whileHover="hover"
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
               className="relative flex h-12 items-center gap-2 overflow-hidden rounded-full border border-teal bg-teal px-8 text-base font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-teal/50"
             >
               {pastHero && <div className="shimmer-bar" />}
@@ -210,17 +210,17 @@ export function Navbar() {
             aria-controls="mobile-menu"
           >
             <span
-              className={`block h-0.5 w-6 transition-all duration-300 ${
+              className={`block h-0.5 w-6 transition-[background-color,opacity,transform] duration-300 ${
                 mobileOpen ? "bg-white translate-y-2 rotate-45" : scrolled ? "bg-gray-900" : "bg-white"
               }`}
             />
             <span
-              className={`block h-0.5 w-6 transition-all duration-300 ${
+              className={`block h-0.5 w-6 transition-[background-color,opacity,transform] duration-300 ${
                 mobileOpen ? "bg-white opacity-0" : scrolled ? "bg-gray-900" : "bg-white"
               }`}
             />
             <span
-              className={`block h-0.5 w-6 transition-all duration-300 ${
+              className={`block h-0.5 w-6 transition-[background-color,opacity,transform] duration-300 ${
                 mobileOpen ? "bg-white -translate-y-2 -rotate-45" : scrolled ? "bg-gray-900" : "bg-white"
               }`}
             />
@@ -250,7 +250,7 @@ export function Navbar() {
         {/* Scrollable content area */}
         <div className="relative flex flex-1 flex-col px-8 pt-24 overflow-y-auto">
           {/* Nav links — animated with framer-motion */}
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {mobileOpen && (
               <motion.div
                 variants={staggerContainer}
@@ -270,7 +270,7 @@ export function Navbar() {
                     className="group flex items-center justify-between py-3.5 text-2xl font-bold text-white transition-colors hover:text-lime"
                   >
                     <span>{link.label}</span>
-                    <ArrowRight className="size-6 text-white/30 transition-all group-hover:text-lime group-hover:translate-x-1" />
+                    <ArrowRight className="size-6 text-white/30 transition-[color,transform] group-hover:text-lime group-hover:translate-x-1" />
                   </motion.a>
                 ))}
 

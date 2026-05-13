@@ -39,7 +39,7 @@ export function Features() {
                 src="/team.jpg"
                 alt="Swift Capital Lending team"
                 fill
-                className="object-cover"
+                className="image-outline object-cover"
               />
             </div>
 

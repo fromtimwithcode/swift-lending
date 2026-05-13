@@ -74,18 +74,18 @@ export function NotificationBell() {
       >
         <Bell key={unreadCount ?? 0} className={`size-5 ${unreadCount && unreadCount > 0 ? "animate-wiggle" : ""}`} />
         {unreadCount !== undefined && unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex size-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background">
+          <span className="absolute -right-0.5 -top-0.5 flex size-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background tabular-nums">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {open && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            exit={{ opacity: 0, scale: 0.98, y: -4 }}
             transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="absolute right-0 top-11 z-50 w-80 rounded-2xl border border-border/60 bg-card shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
           >
@@ -121,7 +121,7 @@ export function NotificationBell() {
                       <p className="truncate text-xs text-muted-foreground">
                         {n.body}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
                         {timeAgo(n._creationTime)}
                       </p>
                     </div>

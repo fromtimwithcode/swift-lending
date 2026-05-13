@@ -56,7 +56,7 @@ const faqs = [
 ];
 
 const inputClasses =
-  "w-full rounded-xl border border-white/10 bg-teal-dark/40 px-4 py-3.5 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)] placeholder:text-white/40 outline-none transition-all duration-200 focus:border-white/25 focus:bg-teal-dark/50";
+  "w-full rounded-xl border border-white/10 bg-teal-dark/40 px-4 py-3.5 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)] placeholder:text-white/40 outline-none transition-[background-color,border-color,box-shadow] duration-200 focus:border-white/25 focus:bg-teal-dark/50";
 
 function FAQItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
   return (
@@ -74,7 +74,7 @@ function FAQItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
           </svg>
         </span>
       </div>
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -83,7 +83,7 @@ function FAQItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
             transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="overflow-hidden"
           >
-            <p className="pt-3 text-sm leading-relaxed text-gray-500">
+            <p className="pt-3 text-sm leading-relaxed text-gray-500 text-pretty">
               {a}
             </p>
           </motion.div>
@@ -202,7 +202,7 @@ export function CTASection() {
 
                 <button
                   type="submit"
-                  className="w-full rounded-full bg-white py-4 text-base font-semibold text-teal transition-all duration-200 hover:scale-[1.01] hover:shadow-[0_8px_30px_rgba(255,255,255,0.12)] active:scale-[0.99]"
+                  className="w-full rounded-full bg-white py-4 text-base font-semibold text-teal transition-[box-shadow,scale,transform] duration-200 hover:scale-[1.01] hover:shadow-[0_8px_30px_rgba(255,255,255,0.12)] active:scale-[0.96]"
                 >
                   Get Started
                 </button>
@@ -220,12 +220,12 @@ export function CTASection() {
               {/* Photo with ambient glow */}
               <div className="relative">
                 <div className="absolute -inset-3 rounded-3xl bg-white/[0.06] blur-2xl" />
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl ring-1 ring-white/10 lg:aspect-[4/5]">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl lg:aspect-[4/5]">
                   <Image
                     src="/team.jpg"
                     alt="Swift Capital Lending team"
                     fill
-                    className="object-cover"
+                    className="image-outline object-cover"
                     sizes="(max-width: 1024px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -284,7 +284,7 @@ export function CTASection() {
               </h3>
               <a
                 href="#contact"
-                className="mt-8 inline-flex items-center rounded-full bg-lime px-6 py-3 text-sm font-semibold text-teal-dark transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98]"
+                className="mt-8 inline-flex items-center rounded-full bg-lime px-6 py-3 text-sm font-semibold text-teal-dark transition-[box-shadow,scale,transform] duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.96]"
               >
                 Get in Touch
               </a>
