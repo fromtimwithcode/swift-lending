@@ -60,7 +60,7 @@ export function Founders() {
               key={founder.name}
               variants={cardVariants}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-lg hover:shadow-lime/10 hover:border-lime/30"
+              className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-[border-color,box-shadow] hover:shadow-lg hover:shadow-lime/10 hover:border-lime/30"
             >
               {/* Photo placeholder */}
               <div className="relative mx-auto flex size-32 items-center justify-center overflow-hidden rounded-full bg-gray-100">
@@ -68,7 +68,7 @@ export function Founders() {
                   <img
                     src={founder.image}
                     alt={founder.name}
-                    className="size-full object-cover"
+                    className="image-outline size-full object-cover"
                   />
                 ) : (
                   <svg
@@ -89,7 +89,7 @@ export function Founders() {
                 <p className="mt-0.5 text-sm font-medium text-teal">
                   {founder.role}
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-gray-500">
+                <p className="mt-3 text-sm leading-relaxed text-gray-500 text-pretty">
                   {founder.bio}
                 </p>
               </div>

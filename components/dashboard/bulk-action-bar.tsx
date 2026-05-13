@@ -25,17 +25,17 @@ export function BulkActionBar({
   disabled = false,
 }: BulkActionBarProps) {
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {selectedCount > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          exit={{ opacity: 0, y: 12, scale: 0.98 }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0 }}
           className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2"
         >
           <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/95 px-4 py-3 shadow-[0_4px_24px_oklch(0_0_0_/_10%),0_1px_4px_oklch(0_0_0_/_5%)] backdrop-blur-xl">
-            <span className="text-sm font-medium whitespace-nowrap">
+            <span className="text-sm font-medium whitespace-nowrap tabular-nums">
               {selectedCount} selected
             </span>
             <div className="h-5 w-px bg-border" />

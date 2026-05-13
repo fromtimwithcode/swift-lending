@@ -310,7 +310,7 @@ export default function NewLoanPage() {
                 key={value}
                 type="button"
                 onClick={() => update("strategy", form.strategy === value ? "" : value)}
-                className={`rounded-xl border-2 px-5 py-4 text-left text-sm font-medium transition-all ${
+                className={`rounded-xl border-2 px-5 py-4 text-left text-sm font-medium transition-[background-color,border-color,color] ${
                   form.strategy === value
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-foreground hover:border-muted-foreground/40"

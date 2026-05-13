@@ -55,7 +55,7 @@ function AnimatedNumber({ display }: { display: string }) {
     return unsubscribe;
   }, [rounded]);
 
-  return <span ref={nodeRef}>{display}</span>;
+  return <span ref={nodeRef} className="tabular-nums">{display}</span>;
 }
 
 interface KpiCardProps {
@@ -86,7 +86,7 @@ export function KpiCard({
       )}
     >
       {/* Hover gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-all duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
 
       <div className="relative flex items-center justify-between">
         <p className="truncate text-[13px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
@@ -106,7 +106,7 @@ export function KpiCard({
         {trend && (
           <span
             className={cn(
-              "mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
+              "mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
               trend.value >= 0
                 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                 : "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400"

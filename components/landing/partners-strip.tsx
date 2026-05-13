@@ -12,7 +12,7 @@ export function About() {
               src="/team.jpg"
               alt="Swift Capital Lending founders"
               fill
-              className="object-cover"
+              className="image-outline object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
             />
             {/* Frosted glass label */}
@@ -34,7 +34,7 @@ export function About() {
               Milwaukee&apos;s Real Estate <span className="text-gradient-gold">Financing Experts</span>
             </h2>
 
-            <p className="mt-5 leading-relaxed text-gray-500">
+            <p className="mt-5 leading-relaxed text-gray-500 text-pretty">
               Swift Capital Lending delivers timely, flexible financing solutions
               for real estate investors across the Milwaukee metro area. Our
               experienced team combines deep local market knowledge with
@@ -65,7 +65,7 @@ export function About() {
                 alt="Property before and after renovation"
                 width={800}
                 height={400}
-                className="w-full object-cover"
+                className="image-outline w-full object-cover"
                 sizes="(max-width: 1024px) 100vw, 45vw"
               />
               {/* Labels */}

@@ -32,7 +32,7 @@ export function EmailStep({ onSubmit, isSending }: EmailStepProps) {
           onChange={(e) => setEmail(e.target.value)}
           aria-describedby="email-hint"
           disabled={isSending}
-          className="w-full rounded-xl border border-white/10 bg-teal-dark/40 px-4 py-3.5 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)] placeholder:text-white/40 outline-none transition-all duration-200 focus:border-white/25 focus:bg-teal-dark/50 disabled:opacity-50"
+          className="w-full rounded-xl border border-white/10 bg-teal-dark/40 px-4 py-3.5 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)] placeholder:text-white/40 outline-none transition-[background-color,border-color,box-shadow,opacity] duration-200 focus:border-white/25 focus:bg-teal-dark/50 disabled:opacity-50"
         />
         <p id="email-hint" className="sr-only">
           We&apos;ll send a one-time code to this address.
@@ -43,8 +43,8 @@ export function EmailStep({ onSubmit, isSending }: EmailStepProps) {
         type="submit"
         disabled={isSending || !email.trim()}
         whileHover={!isSending ? { scale: 1.01 } : undefined}
-        whileTap={!isSending ? { scale: 0.98 } : undefined}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        whileTap={!isSending ? { scale: 0.96 } : undefined}
+        transition={{ type: "spring", duration: 0.3, bounce: 0 }}
         className="relative overflow-hidden rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-teal transition-opacity disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime/40 cursor-pointer"
       >
         {!isSending && <span className="shimmer-bar" />}

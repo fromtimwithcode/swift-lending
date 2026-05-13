@@ -109,7 +109,7 @@ export function Testimonials() {
 
         {/* Mobile: carousel */}
         <div className="relative mt-12 md:hidden">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={active}
               initial={{ opacity: 0, x: 20 }}
@@ -122,7 +122,7 @@ export function Testimonials() {
                 &ldquo;
               </div>
               <Stars count={testimonials[active].rating} />
-              <p className="mt-4 leading-relaxed text-gray-500">
+              <p className="mt-4 leading-relaxed text-gray-500 text-pretty">
                 &ldquo;{testimonials[active].quote}&rdquo;
               </p>
               <div className="mt-6 flex items-center gap-3 border-t border-gray-100 pt-4">

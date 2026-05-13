@@ -60,7 +60,7 @@ export function Services() {
               variants={cardVariants}
               transition={{ duration: 0.5, ease: "easeOut" }}
               whileHover={{ y: -4 }}
-              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-lg hover:shadow-lime/10 hover:border-lime/30"
+              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-[border-color,box-shadow] hover:shadow-lg hover:shadow-lime/10 hover:border-lime/30"
             >
               {/* Image */}
               <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-100">
@@ -68,7 +68,7 @@ export function Services() {
                   src={service.image}
                   alt={service.title}
                   fill
-                  className="object-cover"
+                  className="image-outline object-cover"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 />
               </div>
@@ -87,7 +87,7 @@ export function Services() {
               <h3 className="mt-4 text-center text-lg font-semibold text-gray-900">
                 {service.title}
               </h3>
-              <p className="mt-1 text-center text-sm text-gray-500">
+              <p className="mt-1 text-center text-sm text-gray-500 text-pretty">
                 {service.description}
               </p>
             </motion.div>

@@ -137,12 +137,18 @@
   }
   h1 {
     letter-spacing: -0.035em;
+    text-wrap: balance;
   }
   h2 {
     letter-spacing: -0.025em;
+    text-wrap: balance;
   }
   h3 {
     letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
   }
   #nprogress .bar {
     background: var(--primary) !important;
@@ -155,32 +161,42 @@
 /* ── Premium card surface ── */
 .card-premium {
   background: var(--card);
-  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow:
+    inset 0 0 0 1px var(--border),
     0 1px 3px oklch(0 0 0 / 4%),
     0 4px 12px oklch(0 0 0 / 2%);
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: box-shadow 0.25s ease;
 }
 
 .card-premium:hover {
   box-shadow:
+    inset 0 0 0 1px oklch(0 0 0 / 10%),
     0 2px 8px oklch(0 0 0 / 6%),
     0 8px 24px oklch(0 0 0 / 4%);
-  border-color: oklch(0 0 0 / 10%);
 }
 
 :is(.dark) .card-premium {
   box-shadow:
+    inset 0 0 0 1px var(--border),
     0 1px 3px oklch(0 0 0 / 20%),
     0 4px 12px oklch(0 0 0 / 10%);
 }
 
 :is(.dark) .card-premium:hover {
   box-shadow:
+    inset 0 0 0 1px oklch(1 0 0 / 12%),
     0 2px 8px oklch(0 0 0 / 30%),
     0 8px 24px oklch(0 0 0 / 15%);
-  border-color: oklch(1 0 0 / 12%);
+}
+
+.image-outline {
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+
+:is(.dark) .image-outline {
+  outline-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Skeleton shimmer ── */

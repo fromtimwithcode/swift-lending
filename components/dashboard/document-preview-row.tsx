@@ -65,11 +65,11 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
               <img
                 src={document.url ?? undefined}
                 alt=""
-                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                className="image-outline h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/25">
-                <span className="scale-90 rounded-full bg-white/90 p-2 text-gray-900 opacity-0 shadow-sm transition group-hover:scale-100 group-hover:opacity-100">
+              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
+                <span className="scale-90 rounded-full bg-white/90 p-2 text-gray-900 opacity-0 shadow-sm transition-[opacity,scale,transform] group-hover:scale-100 group-hover:opacity-100">
                   <Eye className="size-4" />
                 </span>
               </span>
@@ -180,7 +180,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
               <img
                 src={document.url}
                 alt={document.fileName}
-                className="max-h-[78dvh] max-w-full rounded-lg object-contain shadow-2xl"
+                className="image-outline max-h-[78dvh] max-w-full rounded-lg object-contain shadow-2xl"
               />
             </div>
           </div>
