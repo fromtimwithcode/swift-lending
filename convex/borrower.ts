@@ -4,6 +4,18 @@ import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { formatCurrencyPlain, DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
 
+function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
+  return purchasePrice + (rehabBudgetTotal ?? 0);
+}
+
+function getMonthlyPayment(loanAmount: number, interestRate: number) {
+  return Math.round((interestRate / 100 / 12) * loanAmount * 100) / 100;
+}
+
+function getPointsEarned(loanAmount: number) {
+  return Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * loanAmount * 100) / 100;
+}
+
 export const getMyLoans = query({
   args: {},
   handler: async (ctx) => {
@@ -63,8 +75,13 @@ export const submitApplication = mutation({
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
 
-    if (args.loanAmount <= 0) throw new ConvexError("Loan amount must be greater than 0");
+    const totalLoanAmount = getTotalLoanAmount(args.purchasePrice, args.rehabBudgetTotal);
+
+    if (totalLoanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
+    if (args.rehabBudgetTotal !== undefined && args.rehabBudgetTotal < 0) {
+      throw new ConvexError("Rehab budget cannot be negative");
+    }
     if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
       throw new ConvexError("After repair value should not be less than purchase price");
     }
@@ -77,8 +94,8 @@ export const submitApplication = mutation({
 
     // Calculate default financial fields
     const interestRate = DEFAULT_INTEREST_RATE;
-    const monthlyPayment = Math.round((interestRate / 100 / 12) * args.loanAmount * 100) / 100;
-    const pointsEarned = Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * args.loanAmount * 100) / 100;
+    const monthlyPayment = getMonthlyPayment(totalLoanAmount, interestRate);
+    const pointsEarned = getPointsEarned(totalLoanAmount);
 
     const id = await ctx.db.insert("loans", {
       borrowerId: profile._id,
@@ -86,7 +103,7 @@ export const submitApplication = mutation({
       entityName,
       propertyAddress,
       purchasePrice: args.purchasePrice,
-      loanAmount: args.loanAmount,
+      loanAmount: totalLoanAmount,
       afterRepairValue: args.afterRepairValue,
       rehabBudgetTotal: args.rehabBudgetTotal,
       terms,
@@ -133,6 +150,7 @@ export const submitApplication = mutation({
     await ctx.scheduler.runAfter(0, internal.email.sendLoanApplicationAlert, {
       borrowerName: profile.displayName,
       propertyAddress,
+      loanAmount: totalLoanAmount,
       loanId: id,
     });
 
@@ -142,7 +160,7 @@ export const submitApplication = mutation({
       action: "application.submit",
       entityType: "loan",
       entityId: id,
-      details: `Submitted loan application for ${propertyAddress} (${formatCurrencyPlain(args.loanAmount)})`,
+      details: `Submitted loan application for ${propertyAddress} (${formatCurrencyPlain(totalLoanAmount)})`,
     });
 
     return id;

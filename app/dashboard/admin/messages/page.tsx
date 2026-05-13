@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { MessageThread } from "@/components/dashboard/message-thread";
 import { ConversationList } from "@/components/dashboard/conversation-list";
 import { MessageSquare } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 
@@ -16,16 +16,8 @@ export default function AdminMessagesPage() {
   const conversations = useQuery(api.messages.getConversations);
   const searchParams = useSearchParams();
   const preselectedPartner = searchParams.get("partnerId");
-
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(
-    preselectedPartner
-  );
-
-  useEffect(() => {
-    if (preselectedPartner) {
-      setSelectedPartnerId(preselectedPartner);
-    }
-  }, [preselectedPartner]);
+  const [selectedPartnerOverride, setSelectedPartnerOverride] = useState<string | null | undefined>();
+  const selectedPartnerId = selectedPartnerOverride !== undefined ? selectedPartnerOverride : preselectedPartner;
 
   const messages = useQuery(
     api.messages.getDirectMessages,
@@ -58,7 +50,7 @@ export default function AdminMessagesPage() {
           <ConversationList
             conversations={conversations ?? []}
             selectedId={selectedPartnerId ?? undefined}
-            onSelect={setSelectedPartnerId}
+            onSelect={setSelectedPartnerOverride}
           />
         </div>
 
@@ -72,13 +64,13 @@ export default function AdminMessagesPage() {
               <ConversationList
                 conversations={conversations ?? []}
                 selectedId={undefined}
-                onSelect={setSelectedPartnerId}
+                onSelect={setSelectedPartnerOverride}
               />
             </div>
           ) : (
             <div className="flex h-full flex-col">
               <button
-                onClick={() => setSelectedPartnerId(null)}
+                onClick={() => setSelectedPartnerOverride(null)}
                 className="border-b border-border px-4 py-2 text-left text-sm text-primary hover:bg-muted"
               >
                 &larr; Back to conversations

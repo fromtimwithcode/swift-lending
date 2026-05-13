@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { HandCoins, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 
@@ -22,10 +22,9 @@ export default function BorrowerDrawsPage() {
     return <PageSkeleton />;
   }
 
-  const filtered = useMemo(() => {
-    if (activeTab === "all") return draws;
-    return draws.filter((d) => d.status === activeTab);
-  }, [draws, activeTab]);
+  const filtered = activeTab === "all"
+    ? draws
+    : draws.filter((d) => d.status === activeTab);
 
   const tabs: { label: string; value: TabFilter; count: number }[] = [
     { label: "All", value: "all", count: draws.length },

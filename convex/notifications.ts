@@ -99,10 +99,12 @@ export const createNotification = internalMutation({
     body: v.string(),
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
+    sendSms: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const { sendSms, ...notificationFields } = args;
     const id = await ctx.db.insert("notifications", {
-      ...args,
+      ...notificationFields,
       isRead: false,
       emailSent: false,
     });
@@ -110,18 +112,50 @@ export const createNotification = internalMutation({
     // Look up recipient email for email notification (skip deactivated users)
     const recipient = await ctx.db.get(args.recipientId);
     if (recipient && recipient.isActive) {
+      const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId);
       await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
         notificationId: id,
         recipientEmail: recipient.email,
         recipientName: recipient.displayName,
         title: args.title,
         body: args.body,
+        actionPath,
+        actionLabel: actionPath ? "View Details" : undefined,
       });
+
+      if (sendSms && recipient.phone) {
+        await ctx.scheduler.runAfter(0, internal.email.sendNotificationSms, {
+          recipientPhone: recipient.phone,
+          title: args.title,
+          body: args.body,
+        });
+      }
     }
 
     return id;
   },
 });
+
+function getNotificationActionPath(
+  type: string,
+  loanId: string | undefined,
+  drawRequestId: string | undefined
+) {
+  if (drawRequestId && type === "draw_submitted") {
+    return `/dashboard/admin/draws/${drawRequestId}`;
+  }
+  if (type === "draw_reviewed") {
+    return "/dashboard/borrower/draws";
+  }
+  if (!loanId) return undefined;
+  if (type === "application_submitted" || type === "document_uploaded") {
+    return `/dashboard/admin/loans/${loanId}`;
+  }
+  if (type === "loan_status_changed") {
+    return `/dashboard/borrower/loans/${loanId}`;
+  }
+  return undefined;
+}
 
 export const markEmailSent = internalMutation({
   args: { id: v.id("notifications") },

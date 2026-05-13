@@ -16,7 +16,6 @@ import {
   Save,
   X,
   Upload,
-  Download,
   FileText,
   Trash2,
   ChevronUp,
@@ -27,12 +26,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
-import { calculateMonthlyPayment, calculatePayoffEstimate } from "@/lib/loan-calc";
-import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { getSixMonthMaturityDate } from "@/lib/dates";
+import { calculateMonthlyPayment, calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 
 const STATUSES = [
   "submitted",
@@ -44,6 +45,15 @@ const STATUSES = [
   "sent_to_title",
   "closed",
 ] as const;
+
+type TitleContactOption = {
+  titleCompany: string;
+  titleCompanyContact?: string;
+};
+
+function getLoanAmountFromPurchaseAndRehab(purchasePrice: string, rehabBudgetTotal: string) {
+  return (Number(purchasePrice) || 0) + (Number(rehabBudgetTotal) || 0);
+}
 
 function DetailRow({
   label,
@@ -71,6 +81,7 @@ export default function LoanDetailPage() {
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
   const closingStatementUrl = useQuery(api.admin.getClosingStatementUrl, { loanId: id });
   const payments = useQuery(api.loanPayments.getPaymentsForLoan, { loanId: id });
+  const borrowers = useQuery(api.users.getAllBorrowers);
   const updateStatus = useMutation(api.admin.updateLoanStatus);
   const updateLoan = useMutation(api.admin.updateLoan);
   const attachClosingStatement = useMutation(api.admin.attachClosingStatement);
@@ -115,6 +126,9 @@ export default function LoanDetailPage() {
     return <DetailPageSkeleton />;
   }
 
+  const selectedBorrower = borrowers?.find((b) => b._id === loan.borrowerId);
+  const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
+
   const handleStatusChange = async (newStatus: string) => {
     try {
       await updateStatus({
@@ -122,8 +136,8 @@ export default function LoanDetailPage() {
         status: newStatus as (typeof STATUSES)[number],
       });
       toast.success("Status updated");
-    } catch {
-      toast.error("Failed to update status");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update status"));
     }
   };
 
@@ -143,6 +157,8 @@ export default function LoanDetailPage() {
       pointsEarned: String(loan.pointsEarned),
       monthlyInterestEarned: loan.monthlyInterestEarned ? String(loan.monthlyInterestEarned) : "",
       paymentType: loan.paymentType ?? "monthly",
+      drawFundsTotal: loan.drawFundsTotal ? String(loan.drawFundsTotal) : "",
+      drawFundsUsed: loan.drawFundsUsed ? String(loan.drawFundsUsed) : "",
       closeDate: loan.closeDate ?? "",
       maturityDate: loan.maturityDate ?? "",
       titleCompany: loan.titleCompany ?? "",
@@ -155,21 +171,29 @@ export default function LoanDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const totalLoanAmount = getLoanAmountFromPurchaseAndRehab(
+        editData.purchasePrice,
+        editData.rehabBudgetTotal
+      );
+      const pointsEarned = calculatePoints(totalLoanAmount, DEFAULT_POINTS_PERCENTAGE);
+
       await updateLoan({
         id,
         borrowerName: editData.borrowerName,
         entityName: editData.entityName,
         propertyAddress: editData.propertyAddress,
         purchasePrice: Number(editData.purchasePrice),
-        loanAmount: Number(editData.loanAmount),
+        loanAmount: totalLoanAmount,
         afterRepairValue: editData.afterRepairValue ? Number(editData.afterRepairValue) : undefined,
         rehabBudgetTotal: editData.rehabBudgetTotal ? Number(editData.rehabBudgetTotal) : undefined,
         terms: editData.terms,
         interestRate: Number(editData.interestRate),
         monthlyPayment: Number(editData.monthlyPayment),
-        pointsEarned: Number(editData.pointsEarned),
+        pointsEarned,
         monthlyInterestEarned: editData.monthlyInterestEarned ? Number(editData.monthlyInterestEarned) : undefined,
         paymentType: editData.paymentType as "balloon" | "monthly",
+        drawFundsTotal: editData.drawFundsTotal ? Number(editData.drawFundsTotal) : undefined,
+        drawFundsUsed: editData.drawFundsUsed ? Number(editData.drawFundsUsed) : undefined,
         closeDate: editData.closeDate || undefined,
         maturityDate: editData.maturityDate || undefined,
         titleCompany: editData.titleCompany || undefined,
@@ -184,6 +208,60 @@ export default function LoanDetailPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCloseDateChange = (closeDate: string) => {
+    setEditData((prev) => {
+      const previousAutoMaturity = getSixMonthMaturityDate(prev.closeDate ?? "");
+      const nextAutoMaturity = getSixMonthMaturityDate(closeDate);
+      const shouldUpdateMaturity = !prev.maturityDate || prev.maturityDate === previousAutoMaturity;
+
+      return {
+        ...prev,
+        closeDate,
+        maturityDate: shouldUpdateMaturity ? nextAutoMaturity : prev.maturityDate,
+      };
+    });
+  };
+
+  const handleTitleContactSelect = (value: string) => {
+    if (value === "") {
+      setEditData((prev) => ({
+        ...prev,
+        titleCompany: "",
+        titleCompanyContact: "",
+      }));
+      return;
+    }
+
+    const contact = titleContacts[Number(value)];
+    if (!contact) return;
+
+    setEditData((prev) => ({
+      ...prev,
+      titleCompany: contact.titleCompany,
+      titleCompanyContact: contact.titleCompanyContact ?? "",
+    }));
+  };
+
+  const updateLoanAmountParts = (updates: Partial<Record<string, string>>) => {
+    setEditData((prev) => {
+      const next = { ...prev, ...updates };
+      const loanAmount = getLoanAmountFromPurchaseAndRehab(
+        next.purchasePrice ?? "",
+        next.rehabBudgetTotal ?? ""
+      );
+      const rate = Number(next.interestRate) || 0;
+      const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmount, rate);
+      const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+
+      return {
+        ...next,
+        loanAmount: loanAmount ? String(loanAmount) : "",
+        monthlyPayment: monthly ? String(monthly) : "",
+        pointsEarned: points ? String(points) : "",
+      };
+    });
   };
 
   const handleClosingStatementUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -424,10 +502,6 @@ export default function LoanDetailPage() {
                   <AddressInput {...field("propertyAddress")} />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Purchase Price</label>
-                  <input {...field("purchasePrice")} type="number" />
-                </div>
-                <div>
                   <label className="text-sm text-muted-foreground">After Repair Value</label>
                   <input {...field("afterRepairValue")} type="number" />
                 </div>
@@ -439,7 +513,6 @@ export default function LoanDetailPage() {
                   value={loan.strategy ? STRATEGY_LABELS[loan.strategy] : undefined}
                 />
                 <DetailRow label="Address" value={loan.propertyAddress} />
-                <DetailRow label="Purchase Price" value={formatCurrency(loan.purchasePrice)} />
                 <DetailRow
                   label="After Repair Value"
                   value={loan.afterRepairValue ? formatCurrency(loan.afterRepairValue) : undefined}
@@ -457,18 +530,28 @@ export default function LoanDetailPage() {
             {editing ? (
               <>
                 <div>
-                  <label className="text-sm text-muted-foreground">Loan Amount</label>
+                  <label className="text-sm text-muted-foreground">Purchase Price</label>
+                  <input
+                    {...field("purchasePrice")}
+                    type="number"
+                    onChange={(e) => updateLoanAmountParts({ purchasePrice: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Rehab Budget</label>
+                  <input
+                    {...field("rehabBudgetTotal")}
+                    type="number"
+                    onChange={(e) => updateLoanAmountParts({ rehabBudgetTotal: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Total Loan Amount</label>
                   <input
                     {...field("loanAmount")}
                     type="number"
-                    onChange={(e) =>
-                      setEditData((prev) => {
-                        const loanAmt = Number(e.target.value) || 0;
-                        const rate = Number(prev.interestRate) || 0;
-                        const monthly = prev.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
-                        return { ...prev, loanAmount: e.target.value, monthlyPayment: String(monthly) };
-                      })
-                    }
+                    readOnly
+                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
                 <div>
@@ -482,12 +565,7 @@ export default function LoanDetailPage() {
                     type="number"
                     step="0.01"
                     onChange={(e) =>
-                      setEditData((prev) => {
-                        const loanAmt = Number(prev.loanAmount) || 0;
-                        const rate = Number(e.target.value) || 0;
-                        const monthly = prev.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
-                        return { ...prev, interestRate: e.target.value, monthlyPayment: String(monthly) };
-                      })
+                      updateLoanAmountParts({ interestRate: e.target.value })
                     }
                   />
                 </div>
@@ -497,7 +575,12 @@ export default function LoanDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Points Earned</label>
-                  <input {...field("pointsEarned")} type="number" />
+                  <input
+                    {...field("pointsEarned")}
+                    type="number"
+                    readOnly
+                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Monthly Interest Earned</label>
@@ -508,13 +591,7 @@ export default function LoanDetailPage() {
                   <select
                     value={editData.paymentType ?? "monthly"}
                     onChange={(e) =>
-                      setEditData((prev) => {
-                        const paymentType = e.target.value;
-                        const loanAmt = Number(prev.loanAmount) || 0;
-                        const rate = Number(prev.interestRate) || 0;
-                        const monthly = paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmt, rate);
-                        return { ...prev, paymentType, monthlyPayment: String(monthly) };
-                      })
+                      updateLoanAmountParts({ paymentType: e.target.value })
                     }
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
@@ -523,14 +600,15 @@ export default function LoanDetailPage() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-sm text-muted-foreground">Rehab Budget Total</label>
-                  <input {...field("rehabBudgetTotal")} type="number" />
-                </div>
               </>
             ) : (
               <>
-                <DetailRow label="Loan Amount" value={formatCurrency(loan.loanAmount)} />
+                <DetailRow label="Purchase Price" value={formatCurrency(loan.purchasePrice)} />
+                <DetailRow
+                  label="Rehab Budget"
+                  value={loan.rehabBudgetTotal ? formatCurrency(loan.rehabBudgetTotal) : undefined}
+                />
+                <DetailRow label="Total Loan Amount" value={formatCurrency(loan.loanAmount)} />
                 <DetailRow label="Terms" value={loan.terms} />
                 <DetailRow label="Interest Rate" value={`${loan.interestRate}%`} />
                 <DetailRow label="Monthly Payment" value={formatCurrency(loan.monthlyPayment)} />
@@ -542,10 +620,6 @@ export default function LoanDetailPage() {
                 <DetailRow
                   label="Payment Type"
                   value={PAYMENT_TYPE_LABELS[loan.paymentType ?? "monthly"]}
-                />
-                <DetailRow
-                  label="Rehab Budget"
-                  value={loan.rehabBudgetTotal ? formatCurrency(loan.rehabBudgetTotal) : undefined}
                 />
               </>
             )}
@@ -561,12 +635,39 @@ export default function LoanDetailPage() {
               <>
                 <div>
                   <label className="text-sm text-muted-foreground">Close Date</label>
-                  <input {...field("closeDate")} placeholder="MM/DD/YYYY" />
+                  <input
+                    {...field("closeDate")}
+                    onChange={(e) => handleCloseDateChange(e.target.value)}
+                    placeholder="MM/DD/YYYY"
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Maturity Date</label>
                   <input {...field("maturityDate")} placeholder="MM/DD/YYYY" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Auto-fills six months after close date. You can still edit it.
+                  </p>
                 </div>
+                {titleContacts.length > 0 && (
+                  <div className="rounded-xl border border-border bg-muted/25 p-3">
+                    <label className="text-sm text-muted-foreground">Saved Title Contacts</label>
+                    <select
+                      className={field("titleCompany").className}
+                      defaultValue=""
+                      onChange={(e) => handleTitleContactSelect(e.target.value)}
+                    >
+                      <option value="">Select a saved title contact…</option>
+                      {titleContacts.map((contact, index) => (
+                        <option key={`${contact.titleCompany}-${contact.titleCompanyContact ?? ""}-${index}`} value={index}>
+                          {contact.titleCompany}{contact.titleCompanyContact ? ` — ${contact.titleCompanyContact}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      New company/contact pairs are saved to this borrower after you save.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm text-muted-foreground">Title Company</label>
                   <input {...field("titleCompany")} />
@@ -582,6 +683,52 @@ export default function LoanDetailPage() {
                 <DetailRow label="Maturity Date" value={loan.maturityDate} />
                 <DetailRow label="Title Company" value={loan.titleCompany} />
                 <DetailRow label="Title Contact" value={loan.titleCompanyContact} />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">
+            Construction Holdback
+          </h3>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Approved draws subtract from the holdback amount to calculate draw remaining.
+          </p>
+          <div className="space-y-3">
+            {editing ? (
+              <>
+                <div>
+                  <label className="text-sm text-muted-foreground">Construction Holdback Amount</label>
+                  <input {...field("drawFundsTotal")} type="number" />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Approved Draws Used</label>
+                  <input {...field("drawFundsUsed")} type="number" />
+                </div>
+                <DetailRow
+                  label="Draw Amount Remaining"
+                  value={editData.drawFundsTotal
+                    ? formatCurrency(Math.max(0, Number(editData.drawFundsTotal) - (Number(editData.drawFundsUsed) || 0)))
+                    : undefined}
+                />
+              </>
+            ) : (
+              <>
+                <DetailRow
+                  label="Construction Holdback Amount"
+                  value={loan.drawFundsTotal ? formatCurrency(loan.drawFundsTotal) : undefined}
+                />
+                <DetailRow
+                  label="Approved Draws Used"
+                  value={loan.drawFundsUsed ? formatCurrency(loan.drawFundsUsed) : formatCurrency(0)}
+                />
+                <DetailRow
+                  label="Draw Amount Remaining"
+                  value={loan.drawFundsTotal !== undefined
+                    ? formatCurrency(Math.max(0, loan.drawFundsTotal - (loan.drawFundsUsed ?? 0)))
+                    : undefined}
+                />
               </>
             )}
           </div>
@@ -861,25 +1008,7 @@ export default function LoanDetailPage() {
           {documents && documents.length > 0 ? (
             <div className="divide-y divide-border">
               {documents.map((doc) => (
-                <div
-                  key={doc._id}
-                  className="flex items-center justify-between py-2"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{doc.fileName}</p>
-                    <StatusBadge status={doc.type} />
-                  </div>
-                  {doc.url && (
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      <Download className="size-4" />
-                    </a>
-                  )}
-                </div>
+                <DocumentPreviewRow key={doc._id} document={doc} />
               ))}
             </div>
           ) : (

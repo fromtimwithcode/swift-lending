@@ -13,7 +13,8 @@ export const AddressInput = React.forwardRef<HTMLInputElement, AddressInputProps
     const [activeIndex, setActiveIndex] = useState(-1);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const listboxId = useRef(`address-listbox-${Math.random().toString(36).slice(2, 8)}`).current;
+    const generatedId = React.useId();
+    const listboxId = `address-listbox-${generatedId.replace(/:/g, "")}`;
 
     // Merge forwarded ref with internal ref
     const setRef = useCallback(

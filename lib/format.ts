@@ -7,7 +7,13 @@ export function formatCurrencyShort(value: number): string {
 
 /** Full currency: $1,200,000 */
 export function formatCurrency(value: number): string {
-  return "$" + value.toLocaleString();
+  const hasCents = !Number.isInteger(value);
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 /** Human-readable file size: 1.2 MB, 450 KB, etc. */

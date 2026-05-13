@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { Loader2, ArrowLeft, Download } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 
 function DetailRow({
   label,
@@ -194,25 +195,7 @@ export default function AdminDrawDetailPage() {
         {draw.documents && draw.documents.length > 0 ? (
           <div className="divide-y divide-border">
             {draw.documents.map((doc) => (
-              <div
-                key={doc._id}
-                className="flex items-center justify-between py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium">{doc.fileName}</p>
-                  <StatusBadge status={doc.type} />
-                </div>
-                {doc.url && (
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Download className="size-4" />
-                  </a>
-                )}
-              </div>
+              <DocumentPreviewRow key={doc._id} document={doc} />
             ))}
           </div>
         ) : (
