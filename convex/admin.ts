@@ -5,6 +5,7 @@ import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
+import { validateUsDate } from "./lib/dates";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -252,6 +253,9 @@ export const createLoan = mutation({
     const closeDate = args.closeDate?.trim() || undefined;
     const maturityDate = args.maturityDate?.trim() || undefined;
 
+    if (closeDate) validateUsDate(closeDate, "Close date");
+    if (maturityDate) validateUsDate(maturityDate, "Maturity date", { allowFuture: true });
+
     if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
@@ -428,6 +432,8 @@ export const updateLoan = mutation({
             updates[key] = trimmed;
           } else if (optionalStringFields.has(key)) {
             if (!trimmed) continue; // skip empty optional strings
+            if (key === "closeDate") validateUsDate(trimmed, "Close date");
+            if (key === "maturityDate") validateUsDate(trimmed, "Maturity date", { allowFuture: true });
             updates[key] = trimmed;
           } else {
             updates[key] = value;
