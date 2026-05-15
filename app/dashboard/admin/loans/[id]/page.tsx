@@ -27,7 +27,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { getSixMonthMaturityDate } from "@/lib/dates";
-import { calculateMonthlyPayment, calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
+import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
+import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
@@ -81,6 +82,7 @@ export default function LoanDetailPage() {
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
   const closingStatementUrl = useQuery(api.admin.getClosingStatementUrl, { loanId: id });
   const payments = useQuery(api.loanPayments.getPaymentsForLoan, { loanId: id });
+  const charges = useQuery(api.loanCharges.getChargesForLoan, { loanId: id });
   const borrowers = useQuery(api.users.getAllBorrowers);
   const updateStatus = useMutation(api.admin.updateLoanStatus);
   const updateLoan = useMutation(api.admin.updateLoan);
@@ -128,6 +130,8 @@ export default function LoanDetailPage() {
 
   const selectedBorrower = borrowers?.find((b) => b._id === loan.borrowerId);
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
+  const currentPrincipalOut = getCurrentPrincipalOut(loan);
+  const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -252,7 +256,12 @@ export default function LoanDetailPage() {
         next.rehabBudgetTotal ?? ""
       );
       const rate = Number(next.interestRate) || 0;
-      const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmount, rate);
+      const principalOut = getCurrentPrincipalOut({
+        loanAmount,
+        drawFundsTotal: Number(next.drawFundsTotal) || undefined,
+        drawFundsUsed: Number(next.drawFundsUsed) || undefined,
+      });
+      const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
       const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
 
       return {
@@ -375,6 +384,31 @@ export default function LoanDetailPage() {
           <Trash2 className="size-3.5" />
         </button>
       ),
+    },
+  ];
+
+  const chargeColumns: Column<Record<string, unknown>>[] = [
+    {
+      key: "type",
+      header: "Type",
+      render: (row) => <StatusBadge status={row.type as string} />,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => formatCurrency(row.amount as number),
+    },
+    {
+      key: "periodStart",
+      header: "Period",
+      render: (row) => `${row.periodStart as string} - ${row.periodEnd as string}`,
+      className: "hidden md:table-cell",
+    },
+    { key: "dueDate", header: "Due" },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => <StatusBadge status={row.status as string} />,
     },
   ];
 
@@ -571,7 +605,12 @@ export default function LoanDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Monthly Payment</label>
-                  <input {...field("monthlyPayment")} type="number" />
+                  <input
+                    {...field("monthlyPayment")}
+                    type="number"
+                    readOnly
+                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Points Earned</label>
@@ -609,9 +648,10 @@ export default function LoanDetailPage() {
                   value={loan.rehabBudgetTotal ? formatCurrency(loan.rehabBudgetTotal) : undefined}
                 />
                 <DetailRow label="Total Loan Amount" value={formatCurrency(loan.loanAmount)} />
+                <DetailRow label="Current Principal Out" value={formatCurrency(currentPrincipalOut)} />
                 <DetailRow label="Terms" value={loan.terms} />
                 <DetailRow label="Interest Rate" value={`${loan.interestRate}%`} />
-                <DetailRow label="Monthly Payment" value={formatCurrency(loan.monthlyPayment)} />
+                <DetailRow label="Current Monthly Payment" value={formatCurrency(currentMonthlyPayment)} />
                 <DetailRow label="Points Earned" value={formatCurrency(loan.pointsEarned)} />
                 <DetailRow
                   label="Monthly Interest"
@@ -700,11 +740,19 @@ export default function LoanDetailPage() {
               <>
                 <div>
                   <label className="text-sm text-muted-foreground">Construction Holdback Amount</label>
-                  <input {...field("drawFundsTotal")} type="number" />
+                  <input
+                    {...field("drawFundsTotal")}
+                    type="number"
+                    onChange={(e) => updateLoanAmountParts({ drawFundsTotal: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Approved Draws Used</label>
-                  <input {...field("drawFundsUsed")} type="number" />
+                  <input
+                    {...field("drawFundsUsed")}
+                    type="number"
+                    onChange={(e) => updateLoanAmountParts({ drawFundsUsed: e.target.value })}
+                  />
                 </div>
                 <DetailRow
                   label="Draw Amount Remaining"
@@ -728,6 +776,10 @@ export default function LoanDetailPage() {
                   value={loan.drawFundsTotal !== undefined
                     ? formatCurrency(Math.max(0, loan.drawFundsTotal - (loan.drawFundsUsed ?? 0)))
                     : undefined}
+                />
+                <DetailRow
+                  label="Current Principal Out"
+                  value={formatCurrency(currentPrincipalOut)}
                 />
               </>
             )}
@@ -837,6 +889,34 @@ export default function LoanDetailPage() {
 
       {/* Rehab Budget */}
       <RehabBudgetEditor loanId={id} />
+
+      {/* Charges */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Charges / Interest Schedule
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Charges owed are tracked separately from payments received.
+            </p>
+          </div>
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-right">
+            <p className="text-xs text-muted-foreground">Current Monthly</p>
+            <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
+          </div>
+        </div>
+        {charges && charges.length > 0 ? (
+          <DataTable
+            data={charges as unknown as Record<string, unknown>[]}
+            columns={chargeColumns}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No interest charges scheduled yet. Set a close date to create prepaid and first monthly interest charges.
+          </p>
+        )}
+      </div>
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">

@@ -58,6 +58,12 @@ export const submitApplication = mutation({
       storageId: v.id("_storage"),
       fileName: v.string(),
     })),
+    entityDocumentFileIds: v.optional(v.array(v.object({
+      storageId: v.id("_storage"),
+      fileName: v.string(),
+      fileSize: v.optional(v.number()),
+      type: v.union(v.literal("articles"), v.literal("operating_agreement")),
+    }))),
   },
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
@@ -90,6 +96,15 @@ export const submitApplication = mutation({
     }
     if (args.photoFileIds.length > 50) {
       throw new ConvexError("Maximum 50 photos allowed per application");
+    }
+    if ((args.entityDocumentFileIds?.length ?? 0) > 20) {
+      throw new ConvexError("Maximum 20 LLC documents allowed per application");
+    }
+    for (const doc of args.entityDocumentFileIds ?? []) {
+      if (!doc.fileName.trim()) throw new ConvexError("Document file name cannot be empty");
+      if (doc.fileSize !== undefined && doc.fileSize < 0) {
+        throw new ConvexError("Document file size cannot be negative");
+      }
     }
 
     // Calculate default financial fields
@@ -131,6 +146,17 @@ export const submitApplication = mutation({
         type: "property_photo",
         fileId: photo.storageId,
         fileName: photo.fileName,
+      });
+    }
+
+    for (const doc of args.entityDocumentFileIds ?? []) {
+      await ctx.db.insert("documents", {
+        ownerId: profile._id,
+        loanId: id,
+        type: doc.type,
+        fileId: doc.storageId,
+        fileName: doc.fileName.trim(),
+        fileSize: doc.fileSize,
       });
     }
 

@@ -40,6 +40,7 @@ export default function AdminDrawDetailPage() {
   const draw = useQuery(api.draws.getDrawRequest, { id });
   const reviewDraw = useMutation(api.draws.reviewDrawRequest);
   const [notes, setNotes] = useState("");
+  const [wireDate, setWireDate] = useState("");
   const [saving, setSaving] = useState(false);
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
@@ -48,12 +49,17 @@ export default function AdminDrawDetailPage() {
   }
 
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {
+    if (status === "approved" && !wireDate.trim()) {
+      toast.error("Wire date is required to approve a draw");
+      return;
+    }
     setSaving(true);
     try {
       await reviewDraw({
         id,
         status,
         adminNotes: notes || undefined,
+        wireDate: status === "approved" ? wireDate || undefined : undefined,
       });
       toast.success(`Draw request ${status === "approved" ? "approved" : status === "denied" ? "denied" : "updated"}`);
     } catch (err) {
@@ -106,6 +112,22 @@ export default function AdminDrawDetailPage() {
               This draw request has been {draw.status} and cannot be changed.
             </p>
           )}
+          {!isTerminal && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Wire Date
+              </label>
+              <input
+                value={wireDate}
+                onChange={(e) => setWireDate(e.target.value)}
+                placeholder="MM/DD/YYYY"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Required to create prorated interest when approving a draw.
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {REVIEW_STATUSES.map((status) => (
               <button
@@ -147,6 +169,7 @@ export default function AdminDrawDetailPage() {
               value={formatCurrency(draw.amountRequested)}
             />
             <DetailRow label="Description" value={draw.workDescription} />
+            <DetailRow label="Wire Date" value={draw.wireDate} />
             <DetailRow
               label="Submitted"
               value={new Date(draw._creationTime).toLocaleDateString()}

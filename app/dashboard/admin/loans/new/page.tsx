@@ -9,7 +9,8 @@ import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, type FormEvent } from "react";
-import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
+import { calculatePoints } from "@/lib/loan-calc";
+import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import { getSixMonthMaturityDate } from "@/lib/dates";
@@ -77,7 +78,12 @@ export default function NewLoanPage() {
     const rehabBudget = rehabItemsTotal || Number(form.rehabBudgetTotal) || 0;
     const loanAmount = purchasePrice + rehabBudget;
     const rate = Number(form.interestRate) || 0;
-    const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyPayment(loanAmount, rate);
+    const principalOut = getCurrentPrincipalOut({
+      loanAmount,
+      drawFundsTotal: Number(form.drawFundsTotal) || undefined,
+      drawFundsUsed: Number(form.drawFundsUsed) || undefined,
+    });
+    const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
     const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
     setForm((prev) => ({
       ...prev,
@@ -85,7 +91,7 @@ export default function NewLoanPage() {
       monthlyPayment: monthly ? String(monthly) : "",
       pointsEarned: points ? String(points) : "",
     }));
-  }, [form.purchasePrice, form.rehabBudgetTotal, form.interestRate, form.paymentType, rehabItemsTotal]);
+  }, [form.purchasePrice, form.rehabBudgetTotal, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, rehabItemsTotal]);
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -411,11 +417,11 @@ export default function NewLoanPage() {
             <div>
               <label className={labelClass}>Monthly Payment</label>
               <input
-                className={inputClass}
+                className={`${inputClass} bg-muted/40 font-medium`}
                 type="number"
                 value={form.monthlyPayment}
-                onChange={(e) => update("monthlyPayment", e.target.value)}
                 placeholder="0"
+                readOnly
               />
             </div>
             <div>

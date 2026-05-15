@@ -3,6 +3,8 @@ import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
+import { validateUsDate } from "./lib/dates";
+import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
 export const getAllDrawRequests = query({
   args: {
@@ -122,6 +124,7 @@ export const bulkReviewDrawRequests = mutation({
       v.literal("denied")
     ),
     adminNotes: v.optional(v.string()),
+    wireDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const admin = await requireRole(ctx, "admin");
@@ -144,6 +147,8 @@ export const bulkReviewDrawRequests = mutation({
       }
 
       // Check fund limit before approving
+      const wireDate = args.wireDate?.trim() || undefined;
+      if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
       if (args.status === "approved") {
         const loan = await ctx.db.get(draw.loanId);
         if (!loan) {
@@ -155,12 +160,27 @@ export const bulkReviewDrawRequests = mutation({
           results.push({ drawId, success: false, error: "Would exceed fund limit" });
           continue;
         }
-        await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
+        await ctx.db.patch(draw.loanId, {
+          drawFundsUsed: newUsed,
+          monthlyPayment: calculateMonthlyInterest(
+            getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
+            loan.interestRate
+          ),
+        });
+        if (wireDate) {
+          await ctx.runMutation(internal.loanCharges.recordDrawProration, {
+            loanId: draw.loanId,
+            drawRequestId: drawId,
+            wireDate,
+            createdBy: admin._id,
+          });
+        }
       }
 
       await ctx.db.patch(drawId, {
         status: args.status,
         adminNotes: args.adminNotes,
+        wireDate: args.status === "approved" ? wireDate : undefined,
         reviewedBy: admin._id,
         reviewedAt: Date.now(),
       });
@@ -199,6 +219,7 @@ export const reviewDrawRequest = mutation({
       v.literal("denied")
     ),
     adminNotes: v.optional(v.string()),
+    wireDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const admin = await requireRole(ctx, "admin");
@@ -210,6 +231,11 @@ export const reviewDrawRequest = mutation({
     }
 
     // If approved, check and update loan drawFundsUsed BEFORE patching draw status
+    const wireDate = args.wireDate?.trim() || undefined;
+    if (args.status === "approved" && !wireDate) {
+      throw new ConvexError("Wire date is required to approve a draw");
+    }
+    if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
       if (loan) {
@@ -217,13 +243,28 @@ export const reviewDrawRequest = mutation({
         if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
           throw new ConvexError("Draw would exceed fund limit");
         }
-        await ctx.db.patch(draw.loanId, { drawFundsUsed: newUsed });
+        await ctx.db.patch(draw.loanId, {
+          drawFundsUsed: newUsed,
+          monthlyPayment: calculateMonthlyInterest(
+            getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
+            loan.interestRate
+          ),
+        });
+        if (wireDate) {
+          await ctx.runMutation(internal.loanCharges.recordDrawProration, {
+            loanId: draw.loanId,
+            drawRequestId: args.id,
+            wireDate,
+            createdBy: admin._id,
+          });
+        }
       }
     }
 
     await ctx.db.patch(args.id, {
       status: args.status,
       adminNotes: args.adminNotes,
+      wireDate: args.status === "approved" ? wireDate : undefined,
       reviewedBy: admin._id,
       reviewedAt: Date.now(),
     });

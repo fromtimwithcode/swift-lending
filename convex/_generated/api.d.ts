@@ -21,6 +21,8 @@ import type * as investor from "../investor.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_dates from "../lib/dates.js";
+import type * as lib_loanCalculations from "../lib/loanCalculations.js";
+import type * as loanCharges from "../loanCharges.js";
 import type * as loanPayments from "../loanPayments.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
@@ -47,6 +49,8 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/constants": typeof lib_constants;
   "lib/dates": typeof lib_dates;
+  "lib/loanCalculations": typeof lib_loanCalculations;
+  loanCharges: typeof loanCharges;
   loanPayments: typeof loanPayments;
   messages: typeof messages;
   migrations: typeof migrations;

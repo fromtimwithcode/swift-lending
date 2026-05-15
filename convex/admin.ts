@@ -6,6 +6,7 @@ import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
+import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -293,10 +294,19 @@ export const createLoan = mutation({
     }
 
     const { rehabBudgetItems, ...loanFields } = args;
+    const monthlyPayment = calculateMonthlyInterest(
+      getCurrentPrincipalOut({
+        loanAmount: canonicalLoanAmount,
+        drawFundsTotal: args.drawFundsTotal,
+        drawFundsUsed: args.drawFundsUsed,
+      }),
+      args.interestRate
+    );
 
     const id = await ctx.db.insert("loans", {
       ...loanFields,
       loanAmount: canonicalLoanAmount,
+      monthlyPayment,
       pointsEarned: canonicalPointsEarned,
       borrowerName,
       entityName,
@@ -327,6 +337,13 @@ export const createLoan = mutation({
     }
 
     await saveBorrowerTitleContact(ctx, args.borrowerId, titleCompany, titleCompanyContact);
+
+    if (closeDate) {
+      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+        loanId: id,
+        createdBy: admin._id,
+      });
+    }
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
@@ -403,6 +420,7 @@ export const updateLoan = mutation({
     const effectiveDrawFundsUsed = fields.drawFundsUsed ?? existing.drawFundsUsed;
     const effectiveDrawFundsTotal = fields.drawFundsTotal ?? existing.drawFundsTotal;
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
+    const effectiveInterestRate = fields.interestRate ?? existing.interestRate;
 
     if (effectiveLoanAmount <= 0) {
       throw new ConvexError("Total loan amount must be greater than 0");
@@ -454,6 +472,25 @@ export const updateLoan = mutation({
       updates.pointsEarned = getPointsEarned(effectiveLoanAmount);
     }
 
+    if (
+      fields.purchasePrice !== undefined ||
+      fields.rehabBudgetTotal !== undefined ||
+      fields.loanAmount !== undefined ||
+      fields.drawFundsTotal !== undefined ||
+      fields.drawFundsUsed !== undefined ||
+      fields.interestRate !== undefined ||
+      fields.monthlyPayment !== undefined
+    ) {
+      updates.monthlyPayment = calculateMonthlyInterest(
+        getCurrentPrincipalOut({
+          loanAmount: effectiveLoanAmount,
+          drawFundsTotal: effectiveDrawFundsTotal,
+          drawFundsUsed: effectiveDrawFundsUsed,
+        }),
+        effectiveInterestRate
+      );
+    }
+
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(id, updates);
     }
@@ -465,6 +502,20 @@ export const updateLoan = mutation({
         (updates.titleCompany as string | undefined) ?? existing.titleCompany,
         (updates.titleCompanyContact as string | undefined) ?? existing.titleCompanyContact
       );
+    }
+
+    if (
+      fields.closeDate !== undefined ||
+      fields.purchasePrice !== undefined ||
+      fields.rehabBudgetTotal !== undefined ||
+      fields.drawFundsTotal !== undefined ||
+      fields.drawFundsUsed !== undefined ||
+      fields.interestRate !== undefined
+    ) {
+      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+        loanId: id,
+        createdBy: admin._id,
+      });
     }
 
     await ctx.runMutation(internal.activityLog.log, {

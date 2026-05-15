@@ -86,6 +86,76 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
     className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
     dot: "bg-gray-500",
   },
+  articles: {
+    label: "Articles of Organization",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  operating_agreement: {
+    label: "Operating Agreement",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  property_photo: {
+    label: "Property Photo",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  closing_statement: {
+    label: "Closing Statement",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  wire_instructions: {
+    label: "Wire Instructions",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  receipt: {
+    label: "Receipt",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  lien_waiver: {
+    label: "Lien Waiver",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  rehab_budget: {
+    label: "Rehab Budget",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  prepaid_interest: {
+    label: "Prepaid Interest",
+    className: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-900/30 dark:text-blue-300 dark:ring-blue-400/10",
+    dot: "bg-blue-500",
+  },
+  monthly_interest: {
+    label: "Monthly Interest",
+    className: "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-900/30 dark:text-purple-300 dark:ring-purple-400/10",
+    dot: "bg-purple-500",
+  },
+  draw_proration: {
+    label: "Draw Proration",
+    className: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/10 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-amber-400/10",
+    dot: "bg-amber-500",
+  },
+  scheduled: {
+    label: "Scheduled",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
+  paid: {
+    label: "Paid",
+    className: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-900/30 dark:text-green-300 dark:ring-green-400/10",
+    dot: "bg-green-500",
+  },
+  waived: {
+    label: "Waived",
+    className: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10 dark:bg-red-900/30 dark:text-red-300 dark:ring-red-400/10",
+    dot: "bg-red-500",
+  },
 };
 
 interface StatusBadgeProps {
