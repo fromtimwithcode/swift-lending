@@ -23,6 +23,7 @@ import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 export default function AdminInvestorDetailPage() {
   const params = useParams();
@@ -310,16 +311,18 @@ export default function AdminInvestorDetailPage() {
       header: "Next Payment",
       render: (row) =>
         editingInvestmentId === row._id ? (
-          <input
-            className={inputClass}
-            type="date"
+          <DatePickerField
             value={editInvestForm.nextPaymentDate}
-            onChange={(e) =>
+            onChange={(value) =>
               setEditInvestForm((p) => ({
                 ...p,
-                nextPaymentDate: e.target.value,
+                nextPaymentDate: value,
               }))
             }
+            valueFormat="iso"
+            placeholder="Select date"
+            required
+            ariaLabel="Next Payment Date"
           />
         ) : (
           new Date(row.nextPaymentDate).toLocaleDateString()
@@ -589,16 +592,18 @@ export default function AdminInvestorDetailPage() {
                 <label className="block text-xs text-muted-foreground mb-1">
                   Inception Date *
                 </label>
-                <input
-                  className={inputClass}
-                  type="date"
+                <DatePickerField
                   value={investForm.inceptionDate}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setInvestForm((p) => ({
                       ...p,
-                      inceptionDate: e.target.value,
+                      inceptionDate: value,
                     }))
                   }
+                  valueFormat="iso"
+                  placeholder="Select inception date"
+                  required
+                  ariaLabel="Inception Date"
                 />
               </div>
               <div>
@@ -639,16 +644,18 @@ export default function AdminInvestorDetailPage() {
                 <label className="block text-xs text-muted-foreground mb-1">
                   Next Payment Date *
                 </label>
-                <input
-                  className={inputClass}
-                  type="date"
+                <DatePickerField
                   value={investForm.nextPaymentDate}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setInvestForm((p) => ({
                       ...p,
-                      nextPaymentDate: e.target.value,
+                      nextPaymentDate: value,
                     }))
                   }
+                  valueFormat="iso"
+                  placeholder="Select payment date"
+                  required
+                  ariaLabel="Next Payment Date"
                 />
               </div>
               <div>

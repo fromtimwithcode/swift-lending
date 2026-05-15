@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/format";
 import { getSixMonthMaturityDate } from "@/lib/dates";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
 type RehabItem = {
@@ -636,20 +637,20 @@ export default function NewLoanPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Close Date</label>
-              <input
-                className={inputClass}
+              <DatePickerField
                 value={form.closeDate}
-                onChange={(e) => handleCloseDateChange(e.target.value)}
-                placeholder="MM/DD/YYYY"
+                onChange={handleCloseDateChange}
+                placeholder="Select close date"
+                ariaLabel="Close Date"
               />
             </div>
             <div>
               <label className={labelClass}>Maturity Date</label>
-              <input
-                className={inputClass}
+              <DatePickerField
                 value={form.maturityDate}
-                onChange={(e) => update("maturityDate", e.target.value)}
-                placeholder="MM/DD/YYYY"
+                onChange={(value) => update("maturityDate", value)}
+                placeholder="Select maturity date"
+                ariaLabel="Maturity Date"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Auto-fills six months after close date. You can still edit it.

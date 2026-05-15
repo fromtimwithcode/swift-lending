@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 const STATUSES = [
   "submitted",
@@ -675,15 +676,21 @@ export default function LoanDetailPage() {
               <>
                 <div>
                   <label className="text-sm text-muted-foreground">Close Date</label>
-                  <input
-                    {...field("closeDate")}
-                    onChange={(e) => handleCloseDateChange(e.target.value)}
-                    placeholder="MM/DD/YYYY"
+                  <DatePickerField
+                    value={editData.closeDate ?? ""}
+                    onChange={handleCloseDateChange}
+                    placeholder="Select close date"
+                    ariaLabel="Close Date"
                   />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Maturity Date</label>
-                  <input {...field("maturityDate")} placeholder="MM/DD/YYYY" />
+                  <DatePickerField
+                    value={editData.maturityDate ?? ""}
+                    onChange={(value) => setEditData((prev) => ({ ...prev, maturityDate: value }))}
+                    placeholder="Select maturity date"
+                    ariaLabel="Maturity Date"
+                  />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Auto-fills six months after close date. You can still edit it.
                   </p>
@@ -990,20 +997,22 @@ export default function LoanDetailPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Payment Date</label>
-                <input
+                <DatePickerField
                   value={paymentData.paymentDate}
-                  onChange={(e) => setPaymentData((p) => ({ ...p, paymentDate: e.target.value }))}
-                  placeholder="MM/DD/YYYY"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  onChange={(value) => setPaymentData((p) => ({ ...p, paymentDate: value }))}
+                  placeholder="Select payment date"
+                  required
+                  ariaLabel="Payment Date"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Due Date</label>
-                <input
+                <DatePickerField
                   value={paymentData.dueDate}
-                  onChange={(e) => setPaymentData((p) => ({ ...p, dueDate: e.target.value }))}
-                  placeholder="MM/DD/YYYY"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  onChange={(value) => setPaymentData((p) => ({ ...p, dueDate: value }))}
+                  placeholder="Select due date"
+                  required
+                  ariaLabel="Due Date"
                 />
               </div>
               <div>
