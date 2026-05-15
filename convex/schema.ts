@@ -110,6 +110,7 @@ const schema = defineSchema({
     adminNotes: v.optional(v.string()),
     reviewedBy: v.optional(v.id("userProfiles")),
     reviewedAt: v.optional(v.number()),
+    wireDate: v.optional(v.string()),
   })
     .index("by_loanId", ["loanId"])
     .index("by_borrowerId", ["borrowerId"])
@@ -206,6 +207,37 @@ const schema = defineSchema({
     recordedBy: v.id("userProfiles"),
   })
     .index("by_loanId", ["loanId"])
+    .index("by_status", ["status"]),
+
+  loanCharges: defineTable({
+    loanId: v.id("loans"),
+    borrowerId: v.id("userProfiles"),
+    drawRequestId: v.optional(v.id("drawRequests")),
+    type: v.union(
+      v.literal("prepaid_interest"),
+      v.literal("monthly_interest"),
+      v.literal("draw_proration")
+    ),
+    amount: v.number(),
+    principalBasis: v.number(),
+    interestRate: v.number(),
+    periodStart: v.string(),
+    periodEnd: v.string(),
+    dueDate: v.string(),
+    status: v.union(
+      v.literal("scheduled"),
+      v.literal("paid"),
+      v.literal("waived")
+    ),
+    perDiem: v.optional(v.number()),
+    daysCharged: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdBy: v.id("userProfiles"),
+  })
+    .index("by_loanId", ["loanId"])
+    .index("by_borrowerId", ["borrowerId"])
+    .index("by_loanId_and_type", ["loanId", "type"])
+    .index("by_drawRequestId", ["drawRequestId"])
     .index("by_status", ["status"]),
 
   propertyComps: defineTable({

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 import { calculatePayoffEstimate } from "@/lib/loan-calc";
+import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
@@ -40,6 +41,7 @@ export default function BorrowerLoanDetailPage() {
   const draws = useQuery(api.borrower.getDrawRequestsForLoan, { loanId: id });
   const isRepeatEntity = useQuery(api.borrower.isRepeatEntity, { loanId: id });
   const loanPayments = useQuery(api.borrower.getMyLoanPayments, { loanId: id });
+  const charges = useQuery(api.loanCharges.getMyChargesForLoan, { loanId: id });
 
   if (loan === undefined) {
     return <DetailPageSkeleton />;
@@ -68,6 +70,32 @@ export default function BorrowerLoanDetailPage() {
       header: "Notes",
       render: (row) => (row.adminNotes as string) || "—",
       className: "hidden md:table-cell",
+    },
+  ];
+  const currentPrincipalOut = getCurrentPrincipalOut(loan);
+  const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const chargeColumns: Column<Record<string, unknown>>[] = [
+    {
+      key: "type",
+      header: "Type",
+      render: (row) => <StatusBadge status={row.type as string} />,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => formatCurrency(row.amount as number),
+    },
+    {
+      key: "periodStart",
+      header: "Period",
+      render: (row) => `${row.periodStart as string} - ${row.periodEnd as string}`,
+      className: "hidden md:table-cell",
+    },
+    { key: "dueDate", header: "Due" },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => <StatusBadge status={row.status as string} />,
     },
   ];
 
@@ -123,6 +151,10 @@ export default function BorrowerLoanDetailPage() {
               label="Loan Amount"
               value={formatCurrency(loan.loanAmount)}
             />
+            <DetailRow
+              label="Current Principal Out"
+              value={formatCurrency(currentPrincipalOut)}
+            />
             <DetailRow label="Terms" value={loan.terms} />
             <DetailRow
               label="Interest Rate"
@@ -133,12 +165,8 @@ export default function BorrowerLoanDetailPage() {
               value={PAYMENT_TYPE_LABELS[loan.paymentType ?? "monthly"]}
             />
             <DetailRow
-              label="Monthly Payment"
-              value={
-                loan.monthlyPayment
-                  ? formatCurrency(loan.monthlyPayment)
-                  : "—"
-              }
+              label="Current Monthly Payment"
+              value={formatCurrency(currentMonthlyPayment)}
             />
             <DetailRow
               label="Points / Origination Fee"
@@ -277,6 +305,32 @@ export default function BorrowerLoanDetailPage() {
           </div>
         );
       })()}
+
+      {/* Payment History */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Charges / Interest Schedule
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Interest charges are shown separately from payments received.
+            </p>
+          </div>
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-right">
+            <p className="text-xs text-muted-foreground">Current Monthly</p>
+            <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
+          </div>
+        </div>
+        {charges && charges.length > 0 ? (
+          <DataTable
+            data={charges as unknown as Record<string, unknown>[]}
+            columns={chargeColumns}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No interest charges scheduled yet</p>
+        )}
+      </div>
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">

@@ -7,7 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info, FileText } from "lucide-react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
 import { formatCurrency, formatFileSize } from "@/lib/format";
@@ -21,6 +21,15 @@ interface UploadedPhoto {
   storageId: Id<"_storage">;
   fileName: string;
   previewUrl: string;
+}
+
+type EntityDocumentType = "articles" | "operating_agreement";
+
+interface UploadedEntityDocument {
+  storageId: Id<"_storage">;
+  fileName: string;
+  fileSize: number;
+  type: EntityDocumentType;
 }
 
 export default function LoanApplicationPage() {
@@ -46,8 +55,13 @@ export default function LoanApplicationPage() {
   });
 
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [uploadedEntityDocuments, setUploadedEntityDocuments] = useState<UploadedEntityDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const entityDocumentInputRefs = useRef<Record<EntityDocumentType, HTMLInputElement | null>>({
+    articles: null,
+    operating_agreement: null,
+  });
   const purchasePrice = Number(form.purchasePrice) || 0;
   const rehabBudgetTotal = Number(form.rehabBudgetTotal) || 0;
   const totalLoanAmount = purchasePrice + rehabBudgetTotal;
@@ -121,12 +135,64 @@ export default function LoanApplicationPage() {
     }
   };
 
+  const handleEntityDocumentUpload = async (
+    files: FileList | null,
+    type: EntityDocumentType
+  ) => {
+    if (!files || files.length === 0) return;
+
+    const validFiles = Array.from(files).filter((f) => {
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`File "${f.name}" is too large (${formatFileSize(f.size)}). Max ${formatFileSize(MAX_FILE_SIZE_BYTES)}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    setUploading(true);
+
+    try {
+      for (const file of validFiles) {
+        const url = await generateUploadUrl();
+        const result = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!result.ok) throw new Error("Upload failed: " + result.statusText);
+        const { storageId } = await result.json();
+
+        setUploadedEntityDocuments((prev) => [
+          ...prev,
+          {
+            storageId,
+            fileName: file.name,
+            fileSize: file.size,
+            type,
+          },
+        ]);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Document upload failed"));
+    } finally {
+      setUploading(false);
+      const input = entityDocumentInputRefs.current[type];
+      if (input) input.value = "";
+    }
+  };
+
   const removePhoto = (index: number) => {
     setUploadedPhotos((prev) => {
       const removed = prev[index];
       if (removed) URL.revokeObjectURL(removed.previewUrl);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const removeEntityDocument = (index: number) => {
+    setUploadedEntityDocuments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -176,6 +242,12 @@ export default function LoanApplicationPage() {
           storageId: p.storageId,
           fileName: p.fileName,
         })),
+        entityDocumentFileIds: uploadedEntityDocuments.map((doc) => ({
+          storageId: doc.storageId,
+          fileName: doc.fileName,
+          fileSize: doc.fileSize,
+          type: doc.type,
+        })),
       });
       router.push(`/dashboard/borrower/loans/${loanId}`);
     } catch (err) {
@@ -212,6 +284,72 @@ export default function LoanApplicationPage() {
                 Entity / LLC Name <span className="text-red-500">*</span>
               </label>
               <input {...field("entityName", { placeholder: "e.g. My LLC" })} />
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/20 p-4">
+              <div className="mb-3">
+                <p className="text-sm font-medium">LLC Documents</p>
+                <p className="text-xs text-muted-foreground">
+                  Upload Articles of Organization or Operating Agreement files with this application.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([
+                  ["articles", "Articles of Organization"],
+                  ["operating_agreement", "Operating Agreement / OA"],
+                ] as const).map(([type, label]) => (
+                  <div key={type}>
+                    <input
+                      ref={(el) => {
+                        entityDocumentInputRefs.current[type] = el;
+                      }}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                      multiple
+                      onChange={(e) => handleEntityDocumentUpload(e.target.files, type)}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => entityDocumentInputRefs.current[type]?.click()}
+                      disabled={uploading}
+                      className="flex min-h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-3 text-center text-sm font-medium transition-colors hover:border-primary/50 hover:bg-muted disabled:opacity-50 active:scale-[0.96]"
+                    >
+                      {uploading ? <Loader2 className="size-5 animate-spin" /> : <Upload className="size-5" />}
+                      <span>{label}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {uploadedEntityDocuments.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadedEntityDocuments.map((doc, index) => (
+                    <div
+                      key={`${doc.storageId}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{doc.fileName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.type === "articles" ? "Articles of Organization" : "Operating Agreement"} · {formatFileSize(doc.fileSize)}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeEntityDocument(index)}
+                        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.96]"
+                        aria-label={`Remove ${doc.fileName}`}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
