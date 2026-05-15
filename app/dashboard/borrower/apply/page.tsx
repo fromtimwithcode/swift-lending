@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 interface UploadedPhoto {
   storageId: Id<"_storage">;
@@ -581,8 +582,11 @@ export default function LoanApplicationPage() {
               <label className="mb-1.5 block text-sm font-medium">
                 What is the desired close date?
               </label>
-              <input
-                {...field("desiredCloseDate", { type: "date" })}
+              <DatePickerField
+                value={form.desiredCloseDate}
+                onChange={(value) => update("desiredCloseDate", value)}
+                placeholder="Select desired close date"
+                ariaLabel="Desired Close Date"
               />
             </div>
           </div>

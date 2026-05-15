@@ -14,6 +14,7 @@ import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 function DetailRow({
   label,
@@ -117,11 +118,12 @@ export default function AdminDrawDetailPage() {
               <label className="mb-1.5 block text-sm font-medium">
                 Wire Date
               </label>
-              <input
+              <DatePickerField
                 value={wireDate}
-                onChange={(e) => setWireDate(e.target.value)}
-                placeholder="MM/DD/YYYY"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                onChange={setWireDate}
+                placeholder="Select wire date"
+                required
+                ariaLabel="Wire Date"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Required to create prorated interest when approving a draw.
