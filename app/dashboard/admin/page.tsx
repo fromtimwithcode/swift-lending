@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
 import {
   Landmark,
   DollarSign,
@@ -60,6 +61,7 @@ export default function AdminOverviewPage() {
   const stats = useQuery(api.admin.getOverviewStats);
   const allLoans = useQuery(api.admin.getLoans, {});
   const paymentsSummary = useQuery(api.loanPayments.getAllPaymentsSummary);
+  const paymentReminders = useQuery(api.loanPayments.getAdminPaymentReminders);
   const borrowerPerformance = useQuery(api.admin.getBorrowerPerformance);
   const router = useRouter();
   const [drilldown, setDrilldown] = useState<{
@@ -221,6 +223,12 @@ export default function AdminOverviewPage() {
           icon={BarChart3}
         />
       </motion.div>
+
+      <PaymentRemindersCard
+        data={paymentReminders}
+        description="All active loans with past due payments or payments coming up soon."
+        onLoanClick={(loanId) => router.push(`/dashboard/admin/loans/${loanId}`)}
+      />
 
       {/* Charts */}
       {stats.totalLoans > 0 && (

@@ -20,13 +20,14 @@ import {
   Trash2,
   ChevronUp,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
-import { getSixMonthMaturityDate } from "@/lib/dates";
+import { formatUsDate, getSixMonthMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
@@ -47,6 +48,24 @@ const STATUSES = [
   "sent_to_title",
   "closed",
 ] as const;
+
+const VALID_STATUS_TRANSITIONS: Record<(typeof STATUSES)[number], (typeof STATUSES)[number][]> = {
+  submitted: ["under_review", "additional_info_needed", "denied", "closed"],
+  under_review: ["approved", "additional_info_needed", "denied", "closed"],
+  additional_info_needed: ["under_review", "denied", "closed"],
+  approved: ["funded", "denied", "closed"],
+  funded: ["sent_to_title", "closed"],
+  sent_to_title: ["closed"],
+  denied: ["under_review", "approved", "closed"],
+  closed: [],
+};
+
+function canChangeLoanStatus(
+  currentStatus: (typeof STATUSES)[number],
+  nextStatus: (typeof STATUSES)[number]
+) {
+  return currentStatus === nextStatus || VALID_STATUS_TRANSITIONS[currentStatus].includes(nextStatus);
+}
 
 type TitleContactOption = {
   titleCompany: string;
@@ -89,6 +108,7 @@ export default function LoanDetailPage() {
   const updateLoan = useMutation(api.admin.updateLoan);
   const attachClosingStatement = useMutation(api.admin.attachClosingStatement);
   const removeClosingStatement = useMutation(api.admin.removeClosingStatement);
+  const recordLoanReturned = useMutation(api.admin.recordLoanReturned);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const recordPayment = useMutation(api.loanPayments.recordPayment);
   const deletePayment = useMutation(api.loanPayments.deletePayment);
@@ -103,7 +123,14 @@ export default function LoanDetailPage() {
   const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [removingClosing, setRemovingClosing] = useState(false);
+  const [returnFormOpen, setReturnFormOpen] = useState(false);
+  const [returnSaving, setReturnSaving] = useState(false);
+  const [returnData, setReturnData] = useState({
+    returnedDate: formatUsDate(new Date()),
+    notes: "",
+  });
   const [paymentData, setPaymentData] = useState({
+    chargeId: "",
     amount: "",
     paymentDate: "",
     dueDate: "",
@@ -133,6 +160,49 @@ export default function LoanDetailPage() {
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
   const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
+  const scheduledCharges = [...(charges ?? [])]
+    .filter((charge) => charge.status === "scheduled")
+    .sort((a, b) => {
+      const aTime = parseUsDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bTime = parseUsDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
+    });
+  const nextScheduledCharge = scheduledCharges[0];
+
+  const getDefaultPaymentStatus = (dueDate: string) => {
+    const parsedDueDate = parseUsDate(dueDate);
+    if (!parsedDueDate) return "on_time" as const;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return parsedDueDate < today ? "late" as const : "on_time" as const;
+  };
+
+  const openPaymentFormForCharge = (charge?: { _id: Id<"loanCharges">; amount: number; dueDate: string }) => {
+    setPaymentFormOpen(true);
+    setPaymentData((prev) => ({
+      ...prev,
+      chargeId: charge?._id ?? "",
+      amount: charge ? String(charge.amount) : loan.monthlyPayment ? String(loan.monthlyPayment) : "",
+      dueDate: charge?.dueDate ?? prev.dueDate,
+      status: charge ? getDefaultPaymentStatus(charge.dueDate) : prev.status,
+    }));
+  };
+
+  const handleScheduledChargeSelect = (chargeId: string) => {
+    const charge = scheduledCharges.find((item) => item._id === chargeId);
+    setPaymentData((prev) => ({
+      ...prev,
+      chargeId,
+      ...(charge
+        ? {
+            amount: String(charge.amount),
+            dueDate: charge.dueDate,
+            status: getDefaultPaymentStatus(charge.dueDate),
+          }
+        : {}),
+    }));
+  };
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -143,6 +213,25 @@ export default function LoanDetailPage() {
       toast.success("Status updated");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to update status"));
+    }
+  };
+
+  const handleRecordLoanReturned = async () => {
+    if (!returnData.returnedDate) return;
+    setReturnSaving(true);
+    try {
+      await recordLoanReturned({
+        id,
+        returnedDate: returnData.returnedDate,
+        notes: returnData.notes || undefined,
+      });
+      setReturnFormOpen(false);
+      setReturnData({ returnedDate: formatUsDate(new Date()), notes: "" });
+      toast.success("Funds returned recorded. Loan removed from monthly payment reminders.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to record returned funds"));
+    } finally {
+      setReturnSaving(false);
     }
   };
 
@@ -313,8 +402,9 @@ export default function LoanDetailPage() {
     if (!paymentData.amount || !paymentData.paymentDate || !paymentData.dueDate) return;
     setPaymentSaving(true);
     try {
-      await recordPayment({
+      const result = await recordPayment({
         loanId: id,
+        chargeId: paymentData.chargeId ? paymentData.chargeId as Id<"loanCharges"> : undefined,
         amount: Number(paymentData.amount),
         paymentDate: paymentData.paymentDate,
         dueDate: paymentData.dueDate,
@@ -324,6 +414,7 @@ export default function LoanDetailPage() {
       });
       setPaymentFormOpen(false);
       setPaymentData({
+        chargeId: "",
         amount: loan.monthlyPayment ? String(loan.monthlyPayment) : "",
         paymentDate: "",
         dueDate: "",
@@ -331,7 +422,13 @@ export default function LoanDetailPage() {
         status: "on_time",
         notes: "",
       });
-      toast.success("Payment recorded");
+      toast.success(
+        result.chargeMarkedPaid
+          ? "Payment recorded and scheduled charge marked paid."
+          : paymentData.chargeId
+            ? "Payment recorded. Scheduled charge remains open for follow-up."
+            : "Payment recorded"
+      );
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to record payment"));
     } finally {
@@ -411,6 +508,27 @@ export default function LoanDetailPage() {
       header: "Status",
       render: (row) => <StatusBadge status={row.status as string} />,
     },
+    {
+      key: "_id",
+      header: "",
+      render: (row) =>
+        row.status === "scheduled" ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openPaymentFormForCharge({
+                _id: row._id as Id<"loanCharges">,
+                amount: row.amount as number,
+                dueDate: row.dueDate as string,
+              });
+            }}
+            className="rounded-lg border border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+          >
+            Record
+          </button>
+        ) : null,
+    },
   ];
 
   return (
@@ -431,7 +549,7 @@ export default function LoanDetailPage() {
                 <>
                   <button
                     onClick={() => setEditing(false)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96]"
                   >
                     <X className="size-4" />
                     Cancel
@@ -439,7 +557,7 @@ export default function LoanDetailPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -450,18 +568,47 @@ export default function LoanDetailPage() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={startEditing}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  <Pencil className="size-4" />
-                  Edit
-                </button>
+                <>
+                  {canRecordReturned && (
+                    <button
+                      type="button"
+                      onClick={() => setReturnFormOpen(true)}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 active:scale-[0.96]"
+                    >
+                      <RotateCcw className="size-4" />
+                      Record Funds Returned
+                    </button>
+                  )}
+                  <button
+                    onClick={startEditing}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96]"
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </button>
+                </>
               )}
             </div>
           }
         />
       </div>
+
+      {loan.returnedDate && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-balance">Funds Returned</p>
+              <p className="mt-1 text-sm">Returned on <span className="tabular-nums">{loan.returnedDate}</span></p>
+              {loan.returnedNotes && (
+                <p className="mt-2 text-sm text-emerald-700/80 dark:text-emerald-300/80">
+                  {loan.returnedNotes}
+                </p>
+              )}
+            </div>
+            <StatusBadge status="closed" />
+          </div>
+        </div>
+      )}
 
       {/* Status */}
       <div className="rounded-xl border border-border bg-card p-6">
@@ -469,17 +616,31 @@ export default function LoanDetailPage() {
           Loan Status
         </h3>
         <div className="flex flex-wrap items-center gap-2">
-          {STATUSES.map((status) => (
-            <button
-              key={status}
-              onClick={() => handleStatusChange(status)}
-              className={`transition-opacity ${
-                loan.status === status ? "opacity-100" : "opacity-40 hover:opacity-70"
-              }`}
-            >
-              <StatusBadge status={status} />
-            </button>
-          ))}
+          {STATUSES.map((status) => {
+            const isCurrent = loan.status === status;
+            const canChange = canChangeLoanStatus(loan.status, status);
+
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => {
+                  if (canChange) handleStatusChange(status);
+                }}
+                disabled={!canChange}
+                title={canChange ? undefined : `Cannot move from ${loan.status} to ${status}`}
+                className={`min-h-10 transition-[opacity,scale] duration-150 ${
+                  isCurrent
+                    ? "opacity-100"
+                    : canChange
+                      ? "opacity-40 hover:opacity-70 active:scale-[0.96]"
+                      : "cursor-not-allowed opacity-25"
+                }`}
+              >
+                <StatusBadge status={status} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -934,13 +1095,8 @@ export default function LoanDetailPage() {
           {["funded", "closed", "sent_to_title"].includes(loan.status) && (
             <button
               onClick={() => {
-                setPaymentFormOpen((v) => !v);
-                if (!paymentFormOpen) {
-                  setPaymentData((prev) => ({
-                    ...prev,
-                    amount: loan.monthlyPayment ? String(loan.monthlyPayment) : "",
-                  }));
-                }
+                if (paymentFormOpen) setPaymentFormOpen(false);
+                else openPaymentFormForCharge(nextScheduledCharge);
               }}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
             >
@@ -986,6 +1142,23 @@ export default function LoanDetailPage() {
         {paymentFormOpen && (
           <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4">
             <div className="grid gap-3 sm:grid-cols-3">
+              {scheduledCharges.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Scheduled Charge</label>
+                  <select
+                    value={paymentData.chargeId}
+                    onChange={(e) => handleScheduledChargeSelect(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  >
+                    <option value="">No scheduled charge</option>
+                    {scheduledCharges.map((charge) => (
+                      <option key={charge._id} value={charge._id}>
+                        {charge.dueDate} - {formatCurrency(charge.amount)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount</label>
                 <input
@@ -1142,6 +1315,66 @@ export default function LoanDetailPage() {
         onClose={() => setUploadOpen(false)}
         loanId={id}
       />
+      {returnFormOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="return-funds-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !returnSaving) setReturnFormOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-[0_8px_48px_rgba(0,0,0,0.18)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
+            <h3 id="return-funds-title" className="text-lg font-semibold text-balance">
+              Record Funds Returned
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground text-pretty">
+              This will mark the loan closed and remove it from monthly payment reminders.
+            </p>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Return Date</label>
+                <DatePickerField
+                  value={returnData.returnedDate}
+                  onChange={(value) => setReturnData((prev) => ({ ...prev, returnedDate: value }))}
+                  required
+                  ariaLabel="Return Date"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Notes</label>
+                <textarea
+                  value={returnData.notes}
+                  onChange={(event) => setReturnData((prev) => ({ ...prev, notes: event.target.value }))}
+                  rows={3}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  placeholder="Optional notes about the return"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setReturnFormOpen(false)}
+                disabled={returnSaving}
+                className="min-h-10 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRecordLoanReturned}
+                disabled={returnSaving || !returnData.returnedDate}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+              >
+                {returnSaving && <Loader2 className="size-4 animate-spin" />}
+                Save Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmDialog
         open={confirmDeletePayment !== null}
         title="Delete this payment?"

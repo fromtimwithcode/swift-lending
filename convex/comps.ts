@@ -1,7 +1,13 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
+
+const COMPARABLE_STATUSES = ["closed", "funded", "sent_to_title"] as const;
+const MAX_COMPS = 8;
+
+type LoanDoc = Doc<"loans">;
 
 export const getCompsForLoan = query({
   args: { loanId: v.id("loans") },
@@ -14,44 +20,75 @@ export const getCompsForLoan = query({
   },
 });
 
-export const saveComps = internalMutation({
-  args: {
-    loanId: v.id("loans"),
-    comps: v.array(
-      v.object({
-        address: v.string(),
-        salePrice: v.number(),
-        saleDate: v.string(),
-        sqft: v.number(),
-        bedrooms: v.number(),
-        bathrooms: v.number(),
-        distanceMiles: v.number(),
-        yearBuilt: v.number(),
-        source: v.string(),
-      })
-    ),
-  },
-  handler: async (ctx, args) => {
-    const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new ConvexError("Loan not found — cannot save comps for non-existent loan");
+function isComparableStatus(status: LoanDoc["status"]) {
+  return (COMPARABLE_STATUSES as readonly string[]).includes(status);
+}
 
-    for (const comp of args.comps) {
-      await ctx.db.insert("propertyComps", {
-        loanId: args.loanId,
-        ...comp,
-      });
-    }
-  },
-});
+function formatUsDate(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+}
 
-// Mock street names for generating comp addresses
-const STREETS = [
-  "Oak St", "Maple Ave", "Cedar Ln", "Pine Dr", "Elm Blvd",
-  "Birch Rd", "Walnut Way", "Cherry Ct", "Willow Pl", "Spruce Ter",
-];
+function parseUsDateTime(value: string | undefined) {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
 
-function randomBetween(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  return date.getTime();
+}
+
+function getAddressParts(address: string) {
+  const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
+  const statePartIndex = parts.findIndex((part) => /\b[A-Z]{2}\b(?:\s+\d{5})?/.test(part));
+  const stateMatch = address.match(/,\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?(?:,|$)/);
+
+  return {
+    city: statePartIndex > 0 ? parts[statePartIndex - 1].toLowerCase() : undefined,
+    state: stateMatch?.[1],
+  };
+}
+
+function similarityPoints(targetValue: number | undefined, candidateValue: number | undefined, maxPoints: number) {
+  if (!targetValue || !candidateValue) return 0;
+  const percentDiff = Math.abs(candidateValue - targetValue) / targetValue;
+  return Math.max(0, maxPoints - percentDiff * maxPoints * 3);
+}
+
+function getStatusPoints(status: LoanDoc["status"]) {
+  if (status === "closed") return 12;
+  if (status === "funded") return 10;
+  if (status === "sent_to_title") return 8;
+  return 0;
+}
+
+function getRecencyPoints(candidate: LoanDoc) {
+  const dateTime = parseUsDateTime(candidate.closeDate) ?? candidate._creationTime;
+  const monthsOld = Math.max(0, (Date.now() - dateTime) / (1000 * 60 * 60 * 24 * 30));
+  return Math.max(0, 12 - monthsOld / 2);
+}
+
+function scoreComparableLoan(target: LoanDoc, candidate: LoanDoc) {
+  const targetAddress = getAddressParts(target.propertyAddress);
+  const candidateAddress = getAddressParts(candidate.propertyAddress);
+
+  let score = 0;
+  if (targetAddress.state && targetAddress.state === candidateAddress.state) score += 18;
+  if (targetAddress.city && targetAddress.city === candidateAddress.city) score += 22;
+  score += similarityPoints(target.purchasePrice, candidate.purchasePrice, 28);
+  score += similarityPoints(target.afterRepairValue, candidate.afterRepairValue, 12);
+  score += similarityPoints(target.rehabBudgetTotal, candidate.rehabBudgetTotal, 8);
+  score += getStatusPoints(candidate.status);
+  score += getRecencyPoints(candidate);
+
+  return Math.round(Math.min(100, score));
 }
 
 export const fetchComps = mutation({
@@ -62,7 +99,6 @@ export const fetchComps = mutation({
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
 
-    // Delete existing comps for this loan
     const existing = await ctx.db
       .query("propertyComps")
       .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
@@ -71,39 +107,37 @@ export const fetchComps = mutation({
       await ctx.db.delete(comp._id);
     }
 
-    const basePrice = loan.purchasePrice;
-    const count = randomBetween(3, 5);
-    const comps = [];
+    const loans = await ctx.db.query("loans").collect();
+    const fetchedAt = Date.now();
+    const comparableLoans = loans
+      .filter((candidate) => candidate._id !== args.loanId)
+      .filter((candidate) => candidate.propertyAddress.trim().length > 0)
+      .filter((candidate) => candidate.purchasePrice > 0)
+      .filter((candidate) => isComparableStatus(candidate.status))
+      .map((candidate) => ({
+        candidate,
+        score: scoreComparableLoan(loan, candidate),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_COMPS);
 
-    for (let i = 0; i < count; i++) {
-      const priceFactor = 0.8 + Math.random() * 0.4; // ±20%
-      const sqft = randomBetween(1000, 3500);
-      const beds = randomBetween(2, 5);
-      const baths = randomBetween(1, 3);
-      const houseNum = randomBetween(100, 9999);
-      const street = STREETS[randomBetween(0, STREETS.length - 1)];
-      const year = randomBetween(1950, 2023);
-      const saleMonth = randomBetween(1, 12);
-      const saleDay = randomBetween(1, 28);
-      const saleYear = randomBetween(2024, 2026);
-
-      comps.push({
-        address: `${houseNum} ${street}`,
-        salePrice: Math.round(basePrice * priceFactor),
-        saleDate: `${String(saleMonth).padStart(2, "0")}/${String(saleDay).padStart(2, "0")}/${saleYear}`,
-        sqft,
-        bedrooms: beds,
-        bathrooms: baths,
-        distanceMiles: Math.round(Math.random() * 50) / 10, // 0.0 - 5.0 mi
-        yearBuilt: year,
-        source: "mock",
-      });
-    }
-
-    await ctx.runMutation(internal.comps.saveComps, {
+    const comps = comparableLoans.map(({ candidate, score }) => ({
       loanId: args.loanId,
-      comps,
-    });
+      sourceLoanId: candidate._id,
+      address: candidate.propertyAddress,
+      salePrice: candidate.purchasePrice,
+      saleDate: candidate.closeDate ?? formatUsDate(new Date(candidate._creationTime)),
+      ...(candidate.afterRepairValue !== undefined ? { afterRepairValue: candidate.afterRepairValue } : {}),
+      ...(candidate.rehabBudgetTotal !== undefined ? { rehabBudgetTotal: candidate.rehabBudgetTotal } : {}),
+      loanAmount: candidate.loanAmount,
+      similarityScore: score,
+      fetchedAt,
+      source: "internal_loan",
+    }));
+
+    for (const comp of comps) {
+      await ctx.db.insert("propertyComps", comp);
+    }
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
@@ -111,7 +145,7 @@ export const fetchComps = mutation({
       action: "comps.fetch",
       entityType: "loan",
       entityId: args.loanId,
-      details: `Fetched ${comps.length} property comps for ${loan.propertyAddress}`,
+      details: `Refreshed ${comps.length} internal property comps for ${loan.propertyAddress}`,
     });
 
     return comps;
