@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
+import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoanStatus } from "./lib/constants";
 import { getDefaultInterestRate } from "./lib/settings";
 
 function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
@@ -242,8 +242,12 @@ export const submitDrawRequest = mutation({
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
     if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
-    if (loan.status !== "funded") throw new ConvexError("Loan must be funded to request draws");
-    if (args.amountRequested <= 0) throw new ConvexError("Draw amount must be greater than 0");
+    if (!isDrawEligibleLoanStatus(loan.status)) {
+      throw new ConvexError("Loan is not eligible for draw requests");
+    }
+    if (!Number.isFinite(args.amountRequested) || args.amountRequested <= 0) {
+      throw new ConvexError("Draw amount must be greater than 0");
+    }
 
     const trimmedDescription = args.workDescription.trim();
     if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
