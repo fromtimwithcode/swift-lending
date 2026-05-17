@@ -29,7 +29,7 @@ import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { formatUsDate, getSixMonthMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
+import { calculateMonthlyInterest, calculateMonthlyPerDiem, getCurrentPrincipalOut, getDaysInMonth } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
@@ -127,6 +127,7 @@ export default function LoanDetailPage() {
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnData, setReturnData] = useState({
     returnedDate: formatUsDate(new Date()),
+    returnedAmount: "",
     notes: "",
   });
   const [paymentData, setPaymentData] = useState({
@@ -160,6 +161,34 @@ export default function LoanDetailPage() {
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
   const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const totalPaymentsReceived = payments
+    ? payments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
+    : 0;
+  const payoffEstimate = ["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate
+    ? calculatePayoffEstimate(
+        currentPrincipalOut,
+        loan.interestRate,
+        loan.closeDate,
+        new Date(),
+        (loan.paymentType as "balloon" | "monthly") ?? "monthly",
+        totalPaymentsReceived
+      )
+    : null;
+  const returnDateForInterest = parseUsDate(returnData.returnedDate) ?? new Date();
+  const returnMonthDailyInterest = calculateMonthlyPerDiem(
+    currentPrincipalOut,
+    loan.interestRate,
+    returnDateForInterest
+  );
+  const returnMonthDays = getDaysInMonth(returnDateForInterest);
+  const returnMonthLabel = returnDateForInterest.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  const returnedAmountValue = Number(returnData.returnedAmount);
+  const canSaveReturn = Boolean(
+    returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
+  );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
   const scheduledCharges = [...(charges ?? [])]
     .filter((charge) => charge.status === "scheduled")
@@ -216,17 +245,32 @@ export default function LoanDetailPage() {
     }
   };
 
+  const openReturnForm = () => {
+    setReturnData({
+      returnedDate: formatUsDate(new Date()),
+      returnedAmount: payoffEstimate ? String(payoffEstimate.totalPayoff) : "",
+      notes: "",
+    });
+    setReturnFormOpen(true);
+  };
+
   const handleRecordLoanReturned = async () => {
+    const returnedAmount = Number(returnData.returnedAmount);
     if (!returnData.returnedDate) return;
+    if (!Number.isFinite(returnedAmount) || returnedAmount <= 0) {
+      toast.error("Enter a valid amount returned");
+      return;
+    }
     setReturnSaving(true);
     try {
       await recordLoanReturned({
         id,
         returnedDate: returnData.returnedDate,
+        returnedAmount,
         notes: returnData.notes || undefined,
       });
       setReturnFormOpen(false);
-      setReturnData({ returnedDate: formatUsDate(new Date()), notes: "" });
+      setReturnData({ returnedDate: formatUsDate(new Date()), returnedAmount: "", notes: "" });
       toast.success("Funds returned recorded. Loan removed from monthly payment reminders.");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to record returned funds"));
@@ -572,7 +616,7 @@ export default function LoanDetailPage() {
                   {canRecordReturned && (
                     <button
                       type="button"
-                      onClick={() => setReturnFormOpen(true)}
+                      onClick={openReturnForm}
                       className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 active:scale-[0.96]"
                     >
                       <RotateCcw className="size-4" />
@@ -599,6 +643,11 @@ export default function LoanDetailPage() {
             <div>
               <p className="text-sm font-semibold text-balance">Funds Returned</p>
               <p className="mt-1 text-sm">Returned on <span className="tabular-nums">{loan.returnedDate}</span></p>
+              {loan.returnedAmount !== undefined && (
+                <p className="mt-1 text-sm">
+                  Amount returned: <span className="font-semibold tabular-nums">{formatCurrency(loan.returnedAmount)}</span>
+                </p>
+              )}
               {loan.returnedNotes && (
                 <p className="mt-2 text-sm text-emerald-700/80 dark:text-emerald-300/80">
                   {loan.returnedNotes}
@@ -1012,45 +1061,45 @@ export default function LoanDetailPage() {
       </div>
 
       {/* Payoff Estimate */}
-      {["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate && (() => {
-        const totalPaymentsReceived = payments
-          ? payments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
-          : 0;
-        const payoff = calculatePayoffEstimate(
-          loan.loanAmount,
-          loan.interestRate,
-          loan.closeDate,
-          new Date(),
-          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
-          totalPaymentsReceived
-        );
-        if (!payoff) return null;
-        return (
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-              Payoff Estimate
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Principal</p>
-                <p className="text-sm font-semibold">{formatCurrency(payoff.principal)}</p>
+      {payoffEstimate && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+            Payoff Estimate
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Principal Out</p>
+              <p className="text-sm font-semibold tabular-nums">{formatCurrency(payoffEstimate.principal)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
+              <p className="text-sm font-semibold tabular-nums">{formatCurrency(payoffEstimate.accruedInterest)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Total Payoff</p>
+              <p className="text-lg font-bold text-primary tabular-nums">{formatCurrency(payoffEstimate.totalPayoff)}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Months Since Close</p>
+              <p className="text-sm font-semibold tabular-nums">{payoffEstimate.monthsAccrued}</p>
+            </div>
+          </div>
+          <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Daily Interest for {returnMonthLabel}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Based on {formatCurrency(currentPrincipalOut)} principal out at {loan.interestRate}% over {returnMonthDays} days.
+                </p>
               </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
-                <p className="text-sm font-semibold">{formatCurrency(payoff.accruedInterest)}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Total Payoff</p>
-                <p className="text-lg font-bold text-primary">{formatCurrency(payoff.totalPayoff)}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Months Since Close</p>
-                <p className="text-sm font-semibold">{payoff.monthsAccrued}</p>
+              <div className="text-left sm:text-right">
+                <p className="text-2xl font-bold tabular-nums text-primary">{formatCurrency(returnMonthDailyInterest)}</p>
+                <p className="text-xs text-muted-foreground">per day</p>
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* Property Comps */}
       <PropertyComps loanId={id} />
@@ -1343,6 +1392,34 @@ export default function LoanDetailPage() {
                 />
               </div>
               <div>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Amount Returned</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={returnData.returnedAmount}
+                  onChange={(event) => setReturnData((prev) => ({ ...prev, returnedAmount: event.target.value }))}
+                  className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  placeholder="0.00"
+                  required
+                />
+                {payoffEstimate && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Current payoff estimate: <span className="tabular-nums">{formatCurrency(payoffEstimate.totalPayoff)}</span>
+                  </p>
+                )}
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-muted-foreground">Daily interest for {returnMonthLabel}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatCurrency(returnMonthDailyInterest)}</p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatCurrency(currentMonthlyPayment)} monthly interest divided by {returnMonthDays} days.
+                </p>
+              </div>
+              <div>
                 <label className="mb-1 block text-sm font-medium text-muted-foreground">Notes</label>
                 <textarea
                   value={returnData.notes}
@@ -1365,7 +1442,7 @@ export default function LoanDetailPage() {
               <button
                 type="button"
                 onClick={handleRecordLoanReturned}
-                disabled={returnSaving || !returnData.returnedDate}
+                disabled={returnSaving || !canSaveReturn}
                 className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 {returnSaving && <Loader2 className="size-4 animate-spin" />}

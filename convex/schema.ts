@@ -36,6 +36,7 @@ const schema = defineSchema({
     closeDate: v.optional(v.string()),
     maturityDate: v.optional(v.string()),
     returnedDate: v.optional(v.string()),
+    returnedAmount: v.optional(v.number()),
     returnedAt: v.optional(v.number()),
     returnedBy: v.optional(v.id("userProfiles")),
     returnedNotes: v.optional(v.string()),
@@ -189,7 +190,9 @@ const schema = defineSchema({
     emailSent: v.boolean(),
   })
     .index("by_recipientId", ["recipientId"])
-    .index("by_recipientId_and_isRead", ["recipientId", "isRead"]),
+    .index("by_recipientId_and_isRead", ["recipientId", "isRead"])
+    .index("by_loanId", ["loanId"])
+    .index("by_drawRequestId", ["drawRequestId"]),
 
   loanPayments: defineTable({
     loanId: v.id("loans"),
@@ -264,7 +267,9 @@ const schema = defineSchema({
     similarityScore: v.optional(v.number()),
     fetchedAt: v.optional(v.number()),
     source: v.string(),
-  }).index("by_loanId", ["loanId"]),
+  })
+    .index("by_loanId", ["loanId"])
+    .index("by_sourceLoanId", ["sourceLoanId"]),
 
   activityLog: defineTable({
     userId: v.id("userProfiles"),

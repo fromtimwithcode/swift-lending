@@ -5,7 +5,7 @@ import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
-import { validateUsDate } from "./lib/dates";
+import { parseUsDate, validateUsDate } from "./lib/dates";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
@@ -108,13 +108,21 @@ export const getOverviewStats = query({
       .filter((l) => l.status === "closed")
       .reduce((sum, l) => sum + l.pointsEarned + (l.monthlyInterestEarned ?? 0), 0);
 
-    const activeStatuses = [
-      "funded",
-      "sent_to_title",
-    ] as const;
-    const activeLoans = allLoans.filter((l) =>
-      (activeStatuses as readonly string[]).includes(l.status) && !l.returnedDate
-    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const activeLoans = allLoans.filter((loan) => {
+      if (loan.returnedDate) return false;
+      if ((loan.paymentType ?? "monthly") === "balloon") return false;
+      if (loan.monthlyPayment <= 0) return false;
+      if (loan.status === "funded" || loan.status === "sent_to_title") return true;
+
+      if (loan.status === "closed") {
+        const maturity = parseUsDate(loan.maturityDate ?? "");
+        return maturity !== null && maturity >= today;
+      }
+
+      return false;
+    });
     const monthlyCashFlow = activeLoans.reduce(
       (sum, l) => sum + l.monthlyPayment,
       0
@@ -531,6 +539,112 @@ export const updateLoan = mutation({
   },
 });
 
+async function deleteLoanAndRelatedRecords(ctx: MutationCtx, loanId: Id<"loans">) {
+  const loan = await ctx.db.get(loanId);
+  if (!loan) return null;
+
+  const [rehabBudgetItems, drawRequests, loanDocuments, loanPayments, loanCharges, messages, propertyComps, notifications] =
+    await Promise.all([
+      ctx.db.query("rehabBudgetItems").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("drawRequests").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("documents").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("loanPayments").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("loanCharges").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("messages").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("propertyComps").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("notifications").withIndex("by_loanId", (q) => q.eq("loanId", loanId)).collect(),
+    ]);
+
+  const documentsById = new Map(loanDocuments.map((document) => [document._id, document]));
+  for (const drawRequest of drawRequests) {
+    const [drawDocuments, drawNotifications] = await Promise.all([
+      ctx.db
+        .query("documents")
+        .withIndex("by_drawRequestId", (q) => q.eq("drawRequestId", drawRequest._id))
+        .collect(),
+      ctx.db
+        .query("notifications")
+        .withIndex("by_drawRequestId", (q) => q.eq("drawRequestId", drawRequest._id))
+        .collect(),
+    ]);
+    for (const document of drawDocuments) {
+      documentsById.set(document._id, document);
+    }
+    for (const notification of drawNotifications) {
+      notifications.push(notification);
+    }
+  }
+
+  const deletedFileIds = new Set<string>();
+  for (const document of documentsById.values()) {
+    await ctx.storage.delete(document.fileId);
+    deletedFileIds.add(document.fileId);
+    await ctx.db.delete(document._id);
+  }
+
+  if (loan.closingStatementFileId && !deletedFileIds.has(loan.closingStatementFileId)) {
+    await ctx.storage.delete(loan.closingStatementFileId);
+  }
+
+  for (const item of rehabBudgetItems) await ctx.db.delete(item._id);
+  for (const payment of loanPayments) await ctx.db.delete(payment._id);
+  for (const charge of loanCharges) await ctx.db.delete(charge._id);
+  for (const message of messages) await ctx.db.delete(message._id);
+  for (const comp of propertyComps) await ctx.db.delete(comp._id);
+  for (const drawRequest of drawRequests) await ctx.db.delete(drawRequest._id);
+  for (const notification of new Map(notifications.map((item) => [item._id, item])).values()) await ctx.db.delete(notification._id);
+
+  const sourcePropertyComps = await ctx.db
+    .query("propertyComps")
+    .withIndex("by_sourceLoanId", (q) => q.eq("sourceLoanId", loanId))
+    .collect();
+  for (const comp of sourcePropertyComps) {
+    await ctx.db.patch(comp._id, { sourceLoanId: undefined });
+  }
+
+  await ctx.db.delete(loanId);
+  return loan;
+}
+
+export const bulkDeleteLoans = mutation({
+  args: {
+    loanIds: v.array(v.id("loans")),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const uniqueLoanIds = [...new Set(args.loanIds)];
+
+    if (uniqueLoanIds.length === 0) {
+      throw new ConvexError("Select at least one loan to delete");
+    }
+
+    if (uniqueLoanIds.length > MAX_BULK_OPERATION_SIZE) {
+      throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
+    }
+
+    let deletedCount = 0;
+
+    for (const loanId of uniqueLoanIds) {
+      const deletedLoan = await deleteLoanAndRelatedRecords(ctx, loanId);
+      if (deletedLoan) deletedCount++;
+    }
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "loan.delete",
+      entityType: "loan",
+      details: `Deleted ${deletedCount}/${uniqueLoanIds.length} loans`,
+      metadata: JSON.stringify({ loanIds: uniqueLoanIds }),
+    });
+
+    return {
+      requested: uniqueLoanIds.length,
+      deleted: deletedCount,
+    };
+  },
+});
+
 export const getApplications = query({
   args: {},
   handler: async (ctx) => {
@@ -689,6 +803,7 @@ export const recordLoanReturned = mutation({
   args: {
     id: v.id("loans"),
     returnedDate: v.string(),
+    returnedAmount: v.number(),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -702,11 +817,15 @@ export const recordLoanReturned = mutation({
 
     const returnedDate = args.returnedDate.trim();
     validateUsDate(returnedDate, "Return date");
+    if (!Number.isFinite(args.returnedAmount) || args.returnedAmount <= 0) {
+      throw new ConvexError("Returned amount must be greater than 0");
+    }
     const returnedNotes = args.notes?.trim() || undefined;
 
     await ctx.db.patch(args.id, {
       status: "closed",
       returnedDate,
+      returnedAmount: Math.round(args.returnedAmount * 100) / 100,
       returnedAt: Date.now(),
       returnedBy: admin._id,
       ...(returnedNotes ? { returnedNotes } : {}),
@@ -718,7 +837,7 @@ export const recordLoanReturned = mutation({
       action: "loan.returned",
       entityType: "loan",
       entityId: args.id,
-      details: `Recorded funds returned for ${loan.propertyAddress} on ${returnedDate}`,
+      details: `Recorded ${formatCurrencyPlain(args.returnedAmount)} returned for ${loan.propertyAddress} on ${returnedDate}`,
     });
 
     return args.id;
