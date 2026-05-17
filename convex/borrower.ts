@@ -2,7 +2,8 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
+import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
+import { getDefaultInterestRate } from "./lib/settings";
 
 function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
   return purchasePrice + (rehabBudgetTotal ?? 0);
@@ -108,7 +109,7 @@ export const submitApplication = mutation({
     }
 
     // Calculate default financial fields
-    const interestRate = DEFAULT_INTEREST_RATE;
+    const interestRate = await getDefaultInterestRate(ctx);
     const monthlyPayment = getMonthlyPayment(totalLoanAmount, interestRate);
     const pointsEarned = getPointsEarned(totalLoanAmount);
 

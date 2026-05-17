@@ -93,6 +93,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "user.toggleActive": "Toggled User Active",
   "user.bulkToggleActive": "Bulk Toggled Users Active",
   "user.updateProfile": "Updated User Profile",
+  "settings.updateDefaultInterestRate": "Updated Default Interest Rate",
   "investment.create": "Created Investment",
   "investment.update": "Updated Investment",
   "investment.delete": "Deleted Investment",

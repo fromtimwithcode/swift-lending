@@ -6,7 +6,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { SearchInput } from "@/components/dashboard/search-input";
-import { Loader2, Settings } from "lucide-react";
+import { Loader2, Percent } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
@@ -16,13 +16,17 @@ import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 export default function AdminSettingsPage() {
   const borrowers = useQuery(api.users.getAllBorrowers);
   const investors = useQuery(api.users.getAllInvestors);
+  const adminSettings = useQuery(api.settings.getAdminSettings);
   const toggleActive = useMutation(api.users.toggleUserActive);
+  const updateDefaultInterestRate = useMutation(api.settings.updateDefaultInterestRate);
   const [activeTab, setActiveTab] = useState<"borrowers" | "investors">(
     "borrowers"
   );
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
+  const [defaultInterestRateInput, setDefaultInterestRateInput] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const handleSearch = useCallback((v: string) => setSearch(v), []);
 
@@ -50,9 +54,20 @@ export default function AdminSettingsPage() {
     );
   }, [investors, search]);
 
-  if (borrowers === undefined || investors === undefined) {
+  if (borrowers === undefined || investors === undefined || adminSettings === undefined) {
     return <PageSkeleton />;
   }
+
+  const defaultInterestRateValue = defaultInterestRateInput ?? String(adminSettings.defaultInterestRate);
+  const parsedDefaultInterestRate = Number(defaultInterestRateValue);
+  const defaultInterestRateIsInvalid =
+    defaultInterestRateValue.trim() === "" ||
+    !Number.isFinite(parsedDefaultInterestRate) ||
+    parsedDefaultInterestRate < adminSettings.minDefaultInterestRate ||
+    parsedDefaultInterestRate > adminSettings.maxDefaultInterestRate;
+  const normalizedDefaultInterestRate = Math.round(parsedDefaultInterestRate * 100) / 100;
+  const defaultInterestRateChanged =
+    !defaultInterestRateIsInvalid && normalizedDefaultInterestRate !== adminSettings.defaultInterestRate;
 
   const handleToggle = async (id: string, name: string, isActive: boolean) => {
     if (isActive) {
@@ -81,6 +96,28 @@ export default function AdminSettingsPage() {
     } finally {
       setTogglingId(null);
       setConfirmDeactivate(null);
+    }
+  };
+
+  const saveFinancialSettings = async () => {
+    if (defaultInterestRateIsInvalid) {
+      toast.error(
+        `Enter a rate between ${adminSettings.minDefaultInterestRate}% and ${adminSettings.maxDefaultInterestRate}%`
+      );
+      return;
+    }
+
+    setSavingSettings(true);
+    try {
+      const result = await updateDefaultInterestRate({
+        defaultInterestRate: parsedDefaultInterestRate,
+      });
+      setDefaultInterestRateInput(String(result.defaultInterestRate));
+      toast.success("Financial settings updated");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update financial settings"));
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -242,17 +279,70 @@ export default function AdminSettingsPage() {
         </p>
       )}
 
-      {/* System Config Placeholder */}
-      <div className="rounded-xl border border-dashed border-border bg-card p-6">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <Settings className="size-5" />
-          <div>
-            <p className="text-sm font-medium">System Configuration</p>
-            <p className="text-xs">
-              Additional settings and configuration options coming soon.
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Percent className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Financial Settings</p>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Controls the default rate for new loan forms, borrower estimates, and dashboard cash-flow projection. Existing loans keep their saved rate.
+              </p>
+            </div>
+          </div>
+          <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground tabular-nums">
+            {adminSettings.defaultInterestRateConfigured
+              ? "Saved setting"
+              : `${adminSettings.defaultInterestRateFallback}% fallback`}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,18rem)_1fr] md:items-end">
+          <label className="block text-sm font-medium text-foreground">
+            Default Annual Interest Rate
+            <div className="relative mt-2">
+              <input
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                type="number"
+                min={adminSettings.minDefaultInterestRate}
+                max={adminSettings.maxDefaultInterestRate}
+                step="0.01"
+                inputMode="decimal"
+                value={defaultInterestRateValue}
+                onChange={(e) => setDefaultInterestRateInput(e.target.value)}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                %
+              </span>
+            </div>
+          </label>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Allowed range is {adminSettings.minDefaultInterestRate}% to {adminSettings.maxDefaultInterestRate}%. Cash flow uses current principal out: total loan minus remaining holdback.
             </p>
+            <button
+              type="button"
+              onClick={saveFinancialSettings}
+              disabled={!defaultInterestRateChanged || defaultInterestRateIsInvalid || savingSettings}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[background-color,color,opacity,transform] hover:bg-primary/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingSettings ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "Save Settings"
+              )}
+            </button>
           </div>
         </div>
+
+        {defaultInterestRateIsInvalid && (
+          <p className="mt-3 text-xs text-destructive">
+            Enter a rate between {adminSettings.minDefaultInterestRate}% and {adminSettings.maxDefaultInterestRate}%.
+          </p>
+        )}
       </div>
       <ConfirmDialog
         open={confirmDeactivate !== null}
