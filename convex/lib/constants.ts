@@ -82,6 +82,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "loan.status": "Changed Loan Status",
   "loan.returned": "Recorded Funds Returned",
   "loan.bulkStatus": "Bulk Updated Loan Status",
+  "loan.delete": "Deleted Loan",
   "loan.attachClosing": "Attached Closing Statement",
   "loan.removeClosing": "Removed Closing Statement",
   "draw.review": "Reviewed Draw Request",

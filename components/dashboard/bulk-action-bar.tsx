@@ -45,7 +45,7 @@ export function BulkActionBar({
                   key={action.label}
                   onClick={action.onClick}
                   disabled={disabled}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-[background-color,scale] duration-150 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 ${
                     action.variant === "destructive"
                       ? "bg-red-600 text-white hover:bg-red-700"
                       : "bg-primary text-primary-foreground hover:bg-primary/80"
@@ -58,7 +58,7 @@ export function BulkActionBar({
             </div>
             <button
               onClick={onClear}
-              className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground active:scale-[0.96]"
             >
               <X className="size-4" />
             </button>

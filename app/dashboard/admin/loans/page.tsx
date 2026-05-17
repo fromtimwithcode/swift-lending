@@ -11,7 +11,7 @@ import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { Landmark, Plus } from "lucide-react";
+import { Landmark, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { getErrorMessage } from "@/lib/errors";
 
 type TabFilter = "all" | "pipeline" | "closed" | "returned";
 
@@ -46,13 +47,20 @@ const LOAN_STATUSES = [
 export default function AdminLoansPage() {
   const loans = useQuery(api.admin.getLoans, {});
   const bulkUpdateStatus = useMutation(api.admin.bulkUpdateLoanStatus);
+  const bulkDeleteLoans = useMutation(api.admin.bulkDeleteLoans);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description?: string;
+    confirmLabel?: string;
+    variant?: "default" | "destructive";
+    action: () => Promise<void>;
+  } | null>(null);
 
   const filteredLoans = useMemo(() => {
     if (!loans) return [];
@@ -189,6 +197,7 @@ export default function AdminLoansPage() {
   const handleBulkStatusChange = (status: string) => {
     setConfirmAction({
       title: `Change status of ${selectedIds.size} loan(s) to "${status}"?`,
+      confirmLabel: "Confirm",
       action: async () => {
         const loanIds = [...selectedIds] as Id<"loans">[];
         setBulkLoading(true);
@@ -207,6 +216,32 @@ export default function AdminLoansPage() {
           setBulkStatusOpen(false);
         } catch {
           toast.error("Bulk status update failed. Please try again.");
+        } finally {
+          setBulkLoading(false);
+          setConfirmAction(null);
+        }
+      },
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const count = selectedIds.size;
+    setConfirmAction({
+      title: `Permanently delete ${count} loan(s)?`,
+      description:
+        "This also deletes related draws, documents, payments, charges, messages, and notifications. This action cannot be undone.",
+      confirmLabel: "Delete Loans",
+      variant: "destructive",
+      action: async () => {
+        const loanIds = [...selectedIds] as Id<"loans">[];
+        setBulkLoading(true);
+        try {
+          const result = await bulkDeleteLoans({ loanIds });
+          toast.success(`${result.deleted} loan(s) deleted`);
+          setSelectedIds(new Set());
+          setBulkStatusOpen(false);
+        } catch (err) {
+          toast.error(getErrorMessage(err, "Failed to delete loans"));
         } finally {
           setBulkLoading(false);
           setConfirmAction(null);
@@ -313,6 +348,12 @@ export default function AdminLoansPage() {
               }
             },
           },
+          {
+            label: "Delete Selected",
+            icon: <Trash2 className="size-4" />,
+            onClick: handleBulkDelete,
+            variant: "destructive",
+          },
         ]}
       />
 
@@ -335,7 +376,9 @@ export default function AdminLoansPage() {
       <ConfirmDialog
         open={confirmAction !== null}
         title={confirmAction?.title ?? ""}
-        confirmLabel="Confirm"
+        description={confirmAction?.description}
+        confirmLabel={confirmAction?.confirmLabel ?? "Confirm"}
+        variant={confirmAction?.variant ?? "default"}
         loading={bulkLoading}
         onConfirm={() => confirmAction?.action()}
         onCancel={() => setConfirmAction(null)}
