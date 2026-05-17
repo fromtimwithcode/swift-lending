@@ -13,10 +13,12 @@ import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/format";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);
   const draws = useQuery(api.borrower.getMyDrawRequests);
+  const paymentReminders = useQuery(api.loanPayments.getMyPaymentReminders);
   const router = useRouter();
 
   if (loans === undefined) {
@@ -110,6 +112,14 @@ export default function BorrowerDashboardPage() {
           </motion.div>
         ))}
       </motion.div>
+
+      <PaymentRemindersCard
+        data={paymentReminders}
+        title="Upcoming Payments"
+        description="Payments that are past due or coming up soon."
+        showBorrower={false}
+        onLoanClick={(loanId) => router.push(`/dashboard/borrower/loans/${loanId}`)}
+      />
 
       {/* Loans Table */}
       {loans.length > 0 ? (

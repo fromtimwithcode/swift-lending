@@ -113,7 +113,7 @@ export const getOverviewStats = query({
       "sent_to_title",
     ] as const;
     const activeLoans = allLoans.filter((l) =>
-      (activeStatuses as readonly string[]).includes(l.status)
+      (activeStatuses as readonly string[]).includes(l.status) && !l.returnedDate
     );
     const monthlyCashFlow = activeLoans.reduce(
       (sum, l) => sum + l.monthlyPayment,
@@ -129,7 +129,7 @@ export const getOverviewStats = query({
       "sent_to_title",
     ] as const;
     const pipelineLoans = allLoans.filter((l) =>
-      (pipelineStatuses as readonly string[]).includes(l.status)
+      (pipelineStatuses as readonly string[]).includes(l.status) && !l.returnedDate
     );
     const pipelineValue = pipelineLoans.reduce(
       (sum, l) => sum + l.loanAmount,
@@ -631,7 +631,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   approved: ["funded", "denied", "closed"],
   funded: ["sent_to_title", "closed"],
   sent_to_title: ["closed"],
-  denied: [],
+  denied: ["under_review", "approved", "closed"],
   closed: [],
 };
 
@@ -645,6 +645,9 @@ export const updateLoanStatus = mutation({
 
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new ConvexError("Loan not found");
+    if (existing.returnedDate && args.status !== "closed") {
+      throw new ConvexError("Cannot change status after funds have been marked returned");
+    }
 
     if (existing.status === args.status) {
       return args.id;
@@ -676,6 +679,46 @@ export const updateLoanStatus = mutation({
       entityType: "loan",
       entityId: args.id,
       details: `Changed status from "${existing.status}" to "${args.status}" for ${existing.propertyAddress}`,
+    });
+
+    return args.id;
+  },
+});
+
+export const recordLoanReturned = mutation({
+  args: {
+    id: v.id("loans"),
+    returnedDate: v.string(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const loan = await ctx.db.get(args.id);
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.returnedDate) throw new ConvexError("Funds have already been marked returned for this loan");
+    if (!["funded", "sent_to_title", "closed"].includes(loan.status)) {
+      throw new ConvexError("Funds can only be marked returned for funded, sent to title, or closed loans");
+    }
+
+    const returnedDate = args.returnedDate.trim();
+    validateUsDate(returnedDate, "Return date");
+    const returnedNotes = args.notes?.trim() || undefined;
+
+    await ctx.db.patch(args.id, {
+      status: "closed",
+      returnedDate,
+      returnedAt: Date.now(),
+      returnedBy: admin._id,
+      ...(returnedNotes ? { returnedNotes } : {}),
+    });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "loan.returned",
+      entityType: "loan",
+      entityId: args.id,
+      details: `Recorded funds returned for ${loan.propertyAddress} on ${returnedDate}`,
     });
 
     return args.id;
@@ -1063,6 +1106,11 @@ export const bulkUpdateLoanStatus = mutation({
       const loan = await ctx.db.get(loanId);
       if (!loan) {
         results.push({ loanId, success: false, error: "Loan not found" });
+        continue;
+      }
+
+      if (loan.returnedDate && args.status !== "closed") {
+        results.push({ loanId, success: false, error: "Cannot change status after funds have been marked returned" });
         continue;
       }
 

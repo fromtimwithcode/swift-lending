@@ -35,6 +35,10 @@ const schema = defineSchema({
     rehabBudgetTotal: v.optional(v.number()),
     closeDate: v.optional(v.string()),
     maturityDate: v.optional(v.string()),
+    returnedDate: v.optional(v.string()),
+    returnedAt: v.optional(v.number()),
+    returnedBy: v.optional(v.id("userProfiles")),
+    returnedNotes: v.optional(v.string()),
     terms: v.string(),
     interestRate: v.number(),
     monthlyPayment: v.number(),
@@ -69,6 +73,7 @@ const schema = defineSchema({
   })
     .index("by_borrowerId", ["borrowerId"])
     .index("by_status", ["status"])
+    .index("by_returnedDate", ["returnedDate"])
     .index("by_createdBy", ["createdBy"]),
 
   rehabBudgetItems: defineTable({
@@ -188,6 +193,7 @@ const schema = defineSchema({
 
   loanPayments: defineTable({
     loanId: v.id("loans"),
+    chargeId: v.optional(v.id("loanCharges")),
     amount: v.number(),
     paymentDate: v.string(),
     dueDate: v.string(),
@@ -207,6 +213,7 @@ const schema = defineSchema({
     recordedBy: v.id("userProfiles"),
   })
     .index("by_loanId", ["loanId"])
+    .index("by_chargeId", ["chargeId"])
     .index("by_status", ["status"]),
 
   loanCharges: defineTable({
@@ -242,14 +249,20 @@ const schema = defineSchema({
 
   propertyComps: defineTable({
     loanId: v.id("loans"),
+    sourceLoanId: v.optional(v.id("loans")),
     address: v.string(),
     salePrice: v.number(),
     saleDate: v.string(),
-    sqft: v.number(),
-    bedrooms: v.number(),
-    bathrooms: v.number(),
-    distanceMiles: v.number(),
-    yearBuilt: v.number(),
+    sqft: v.optional(v.number()),
+    bedrooms: v.optional(v.number()),
+    bathrooms: v.optional(v.number()),
+    distanceMiles: v.optional(v.number()),
+    yearBuilt: v.optional(v.number()),
+    afterRepairValue: v.optional(v.number()),
+    rehabBudgetTotal: v.optional(v.number()),
+    loanAmount: v.optional(v.number()),
+    similarityScore: v.optional(v.number()),
+    fetchedAt: v.optional(v.number()),
     source: v.string(),
   }).index("by_loanId", ["loanId"]),
 

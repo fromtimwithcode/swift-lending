@@ -21,7 +21,7 @@ import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
-type TabFilter = "all" | "pipeline" | "closed";
+type TabFilter = "all" | "pipeline" | "closed" | "returned";
 
 const PIPELINE_STATUSES = [
   "submitted",
@@ -60,9 +60,11 @@ export default function AdminLoansPage() {
     let filtered = [...loans];
 
     if (activeTab === "pipeline") {
-      filtered = filtered.filter((l) => PIPELINE_STATUSES.includes(l.status));
+      filtered = filtered.filter((l) => PIPELINE_STATUSES.includes(l.status) && !l.returnedDate);
     } else if (activeTab === "closed") {
-      filtered = filtered.filter((l) => l.status === "closed");
+      filtered = filtered.filter((l) => l.status === "closed" && !l.returnedDate);
+    } else if (activeTab === "returned") {
+      filtered = filtered.filter((l) => Boolean(l.returnedDate));
     }
 
     if (search) {
@@ -95,12 +97,17 @@ export default function AdminLoansPage() {
     {
       label: "Pipeline",
       value: "pipeline",
-      count: loans.filter((l) => PIPELINE_STATUSES.includes(l.status)).length,
+      count: loans.filter((l) => PIPELINE_STATUSES.includes(l.status) && !l.returnedDate).length,
     },
     {
       label: "Closed",
       value: "closed",
-      count: loans.filter((l) => l.status === "closed").length,
+      count: loans.filter((l) => l.status === "closed" && !l.returnedDate).length,
+    },
+    {
+      label: "Loans Returned",
+      value: "returned",
+      count: loans.filter((l) => Boolean(l.returnedDate)).length,
     },
   ];
 
@@ -122,20 +129,20 @@ export default function AdminLoansPage() {
       key: "loanAmount",
       header: "Loan Amount",
       sortable: true,
-      render: (row) => formatCurrency(row.loanAmount),
+      render: (row) => <span className="tabular-nums">{formatCurrency(row.loanAmount)}</span>,
     },
     {
       key: "interestRate",
       header: "Rate",
       sortable: true,
-      render: (row) => `${row.interestRate}%`,
+      render: (row) => <span className="tabular-nums">{row.interestRate}%</span>,
       className: "hidden lg:table-cell",
     },
     {
       key: "monthlyPayment",
       header: "Monthly",
       sortable: true,
-      render: (row) => formatCurrency(row.monthlyPayment),
+      render: (row) => <span className="tabular-nums">{formatCurrency(row.monthlyPayment)}</span>,
       className: "hidden lg:table-cell",
     },
     {
@@ -148,8 +155,15 @@ export default function AdminLoansPage() {
       key: "closeDate",
       header: "Close Date",
       sortable: true,
-      render: (row) => row.closeDate ?? "—",
+      render: (row) => row.closeDate ? <span className="tabular-nums">{row.closeDate}</span> : "—",
       className: "hidden md:table-cell",
+    },
+    {
+      key: "returnedDate",
+      header: "Returned",
+      sortable: true,
+      render: (row) => row.returnedDate ? <span className="tabular-nums">{row.returnedDate}</span> : "—",
+      className: activeTab === "returned" ? "" : "hidden xl:table-cell",
     },
   ];
 
@@ -162,6 +176,7 @@ export default function AdminLoansPage() {
     { header: "Monthly Payment", key: "monthlyPayment" },
     { header: "Status", key: "status" },
     { header: "Close Date", key: "closeDate" },
+    { header: "Returned Date", key: "returnedDate" },
     { header: "Terms", key: "terms" },
     { header: "Points Earned", key: "pointsEarned" },
   ];
@@ -309,7 +324,7 @@ export default function AdminLoansPage() {
                 key={status}
                 onClick={() => handleBulkStatusChange(status)}
                 disabled={bulkLoading}
-                className="transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="min-h-10 transition-[opacity,scale] duration-150 hover:opacity-80 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 <StatusBadge status={status} />
               </button>

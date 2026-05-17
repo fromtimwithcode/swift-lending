@@ -1,8 +1,13 @@
 import { query, mutation } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { requireAdmin } from "./lib/auth";
+import { requireAdmin, requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_BULK_OPERATION_SIZE, formatCurrencyPlain } from "./lib/constants";
+import { DEFAULT_PAYMENT_DUE_DAY, MAX_BULK_OPERATION_SIZE, formatCurrencyPlain } from "./lib/constants";
+
+const REMINDER_WINDOW_DAYS = 14;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const methodValidator = v.union(
   v.literal("ach"),
@@ -18,6 +23,332 @@ const statusValidator = v.union(
   v.literal("missed")
 );
 
+type LoanDoc = Doc<"loans">;
+type LoanPaymentDoc = Doc<"loanPayments">;
+type LoanChargeDoc = Doc<"loanCharges">;
+
+function parseUsDate(value: string | undefined) {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatUsDate(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function daysUntil(dueDate: Date, today: Date) {
+  return Math.round((dueDate.getTime() - today.getTime()) / MS_PER_DAY);
+}
+
+function getDueDate(year: number, monthIndex: number, paymentDueDay: number) {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(paymentDueDay, lastDay));
+}
+
+function addMonths(date: Date, months: number, paymentDueDay: number) {
+  return getDueDate(date.getFullYear(), date.getMonth() + months, paymentDueDay);
+}
+
+function getEligiblePaymentAmount(payment: LoanPaymentDoc) {
+  return payment.status === "missed" ? 0 : payment.amount;
+}
+
+function hasLoggedPayment(
+  payments: LoanPaymentDoc[],
+  dueDate: string,
+  expectedAmount: number,
+  chargeId?: Id<"loanCharges">
+) {
+  const paidAmount = payments.reduce((sum, payment) => {
+    if (chargeId && (payment.chargeId === chargeId || (!payment.chargeId && payment.dueDate === dueDate))) {
+      return sum + getEligiblePaymentAmount(payment);
+    }
+    if (!chargeId && payment.dueDate === dueDate) return sum + getEligiblePaymentAmount(payment);
+    return sum;
+  }, 0);
+  return paidAmount + 0.01 >= expectedAmount;
+}
+
+function shouldTrackMonthlyPayments(loan: LoanDoc, today: Date) {
+  if (loan.returnedDate) return false;
+  if ((loan.paymentType ?? "monthly") === "balloon") return false;
+  if (loan.monthlyPayment <= 0) return false;
+  if (loan.status === "funded" || loan.status === "sent_to_title") return true;
+
+  if (loan.status === "closed") {
+    const maturity = parseUsDate(loan.maturityDate);
+    return maturity !== null && maturity >= today;
+  }
+
+  return false;
+}
+
+function getMonthlyDueDates(loan: LoanDoc, windowEnd: Date) {
+  const closeDate = parseUsDate(loan.closeDate);
+  if (!closeDate) return [];
+
+  const paymentDueDay = loan.paymentDueDay ?? DEFAULT_PAYMENT_DUE_DAY;
+  const firstDueDate = getDueDate(closeDate.getFullYear(), closeDate.getMonth() + 2, paymentDueDay);
+  const maturityDate = parseUsDate(loan.maturityDate);
+  const effectiveEnd = maturityDate && maturityDate < windowEnd ? maturityDate : windowEnd;
+  const dueDates: Date[] = [];
+
+  for (let dueDate = firstDueDate; dueDate <= effectiveEnd; dueDate = addMonths(dueDate, 1, paymentDueDay)) {
+    dueDates.push(dueDate);
+  }
+
+  return dueDates;
+}
+
+function reminderStatus(days: number): "past_due" | "due_soon" {
+  return days < 0 ? "past_due" : "due_soon";
+}
+
+function addReminder(
+  reminders: Array<{
+    loanId: Id<"loans">;
+    borrowerName: string;
+    propertyAddress: string;
+    amount: number;
+    dueDate: string;
+    daysUntilDue: number;
+    status: "past_due" | "due_soon";
+    source: "scheduled_charge" | "monthly_payment";
+    type: string;
+    chargeId?: Id<"loanCharges">;
+  }>,
+  args: {
+    loan: LoanDoc;
+    amount: number;
+    dueDate: string;
+    daysUntilDue: number;
+    source: "scheduled_charge" | "monthly_payment";
+    type: string;
+    chargeId?: Id<"loanCharges">;
+  }
+) {
+  const base = {
+    loanId: args.loan._id,
+    borrowerName: args.loan.borrowerName,
+    propertyAddress: args.loan.propertyAddress,
+    amount: args.amount,
+    dueDate: args.dueDate,
+    daysUntilDue: args.daysUntilDue,
+    status: reminderStatus(args.daysUntilDue),
+    source: args.source,
+    type: args.type,
+  };
+  reminders.push(args.chargeId ? { ...base, chargeId: args.chargeId } : base);
+}
+
+function groupByLoan<T extends { loanId: Id<"loans"> }>(items: T[]) {
+  const grouped = new Map<Id<"loans">, T[]>();
+  for (const item of items) {
+    const existing = grouped.get(item.loanId);
+    if (existing) existing.push(item);
+    else grouped.set(item.loanId, [item]);
+  }
+  return grouped;
+}
+
+async function getReminderData(
+  ctx: QueryCtx,
+  loans: LoanDoc[],
+  preloaded?: {
+    payments?: LoanPaymentDoc[];
+    charges?: LoanChargeDoc[];
+  }
+) {
+  const today = startOfToday();
+  const windowEnd = new Date(today);
+  windowEnd.setDate(today.getDate() + REMINDER_WINDOW_DAYS);
+  const reminders: Array<{
+    loanId: Id<"loans">;
+    borrowerName: string;
+    propertyAddress: string;
+    amount: number;
+    dueDate: string;
+    daysUntilDue: number;
+    status: "past_due" | "due_soon";
+    source: "scheduled_charge" | "monthly_payment";
+    type: string;
+    chargeId?: Id<"loanCharges">;
+  }> = [];
+
+  const paymentsByLoan = preloaded?.payments ? groupByLoan(preloaded.payments) : null;
+  const chargesByLoan = preloaded?.charges ? groupByLoan(preloaded.charges) : null;
+
+  for (const loan of loans) {
+    const payments = paymentsByLoan
+      ? paymentsByLoan.get(loan._id) ?? []
+      : await ctx.db
+          .query("loanPayments")
+          .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+          .collect();
+    const charges = chargesByLoan
+      ? chargesByLoan.get(loan._id) ?? []
+      : await ctx.db
+          .query("loanCharges")
+          .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+          .collect();
+    const chargeDueDates = new Set(charges.map((charge) => charge.dueDate));
+
+    for (const charge of charges) {
+      if (charge.status !== "scheduled") continue;
+      const dueDate = parseUsDate(charge.dueDate);
+      if (!dueDate) continue;
+      const dueInDays = daysUntil(dueDate, today);
+      if (dueInDays > REMINDER_WINDOW_DAYS) continue;
+      if (hasLoggedPayment(payments, charge.dueDate, charge.amount, charge._id)) continue;
+
+      addReminder(reminders, {
+        loan,
+        amount: charge.amount,
+        dueDate: charge.dueDate,
+        daysUntilDue: dueInDays,
+        source: "scheduled_charge",
+        type: charge.type,
+        chargeId: charge._id,
+      });
+    }
+
+    if (!shouldTrackMonthlyPayments(loan, today)) continue;
+    const monthlyDueDates = getMonthlyDueDates(loan, windowEnd);
+    const shouldShowMonthlyDueDate = (monthlyDueDate: Date) => {
+      const dueDate = formatUsDate(monthlyDueDate);
+      if (chargeDueDates.has(dueDate)) return false;
+      if (daysUntil(monthlyDueDate, today) > REMINDER_WINDOW_DAYS) return false;
+      return !hasLoggedPayment(payments, dueDate, loan.monthlyPayment);
+    };
+
+    const latestUnpaidDueDate = [...monthlyDueDates]
+      .filter((monthlyDueDate) => monthlyDueDate <= today)
+      .reverse()
+      .find(shouldShowMonthlyDueDate);
+    const nextUnpaidDueDate = monthlyDueDates
+      .filter((monthlyDueDate) => monthlyDueDate > today)
+      .find(shouldShowMonthlyDueDate);
+
+    for (const monthlyDueDate of [latestUnpaidDueDate, nextUnpaidDueDate].filter(
+      (dueDate): dueDate is Date => dueDate !== undefined
+    )) {
+      const dueDate = formatUsDate(monthlyDueDate);
+      const dueInDays = daysUntil(monthlyDueDate, today);
+
+      addReminder(reminders, {
+        loan,
+        amount: loan.monthlyPayment,
+        dueDate,
+        daysUntilDue: dueInDays,
+        source: "monthly_payment",
+        type: "monthly_payment",
+      });
+    }
+  }
+
+  reminders.sort((a, b) => {
+    if (a.status !== b.status) return a.status === "past_due" ? -1 : 1;
+    return a.daysUntilDue - b.daysUntilDue;
+  });
+
+  return {
+    reminders: reminders.slice(0, 25),
+    pastDueCount: reminders.filter((reminder) => reminder.status === "past_due").length,
+    dueSoonCount: reminders.filter((reminder) => reminder.status === "due_soon").length,
+    totalAmountDue: reminders.reduce((sum, reminder) => sum + reminder.amount, 0),
+    windowDays: REMINDER_WINDOW_DAYS,
+  };
+}
+
+async function findChargeForPayment(
+  ctx: MutationCtx,
+  args: {
+    loanId: Id<"loans">;
+    chargeId?: Id<"loanCharges">;
+    dueDate: string;
+    amount: number;
+  }
+) {
+  if (args.chargeId) {
+    const charge = await ctx.db.get(args.chargeId);
+    if (!charge) throw new ConvexError("Scheduled charge not found");
+    if (charge.loanId !== args.loanId) throw new ConvexError("Scheduled charge does not belong to this loan");
+    if (charge.status === "waived") throw new ConvexError("Cannot record a payment against a waived charge");
+    return charge;
+  }
+
+  const charges = await ctx.db
+    .query("loanCharges")
+    .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
+    .collect();
+
+  return charges.find(
+    (charge) =>
+      charge.status === "scheduled" &&
+      charge.dueDate === args.dueDate &&
+      Math.abs(charge.amount - args.amount) < 0.01
+  );
+}
+
+function isPaidPaymentStatus(status: LoanPaymentDoc["status"]) {
+  return status === "on_time" || status === "late";
+}
+
+function getPaidAmountForCharge(payments: LoanPaymentDoc[], charge: LoanChargeDoc) {
+  return payments.reduce((sum, payment) => {
+    if (payment.status === "missed") return sum;
+    if (payment.chargeId === charge._id) return sum + payment.amount;
+    if (!payment.chargeId && payment.dueDate === charge.dueDate) return sum + payment.amount;
+    return sum;
+  }, 0);
+}
+
+async function reopenChargeIfNeeded(
+  ctx: MutationCtx,
+  chargeId: Id<"loanCharges">,
+  excludingPaymentIds: Set<string>
+) {
+  const charge = await ctx.db.get(chargeId);
+  if (!charge || charge.status !== "paid") return;
+
+  const remainingPayments = await ctx.db
+    .query("loanPayments")
+    .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
+    .collect();
+  const paidAmount = remainingPayments.reduce(
+    (sum, payment) => {
+      if (excludingPaymentIds.has(payment._id)) return sum;
+      if (payment.chargeId === charge._id) return sum + getEligiblePaymentAmount(payment);
+      if (!payment.chargeId && payment.dueDate === charge.dueDate) return sum + getEligiblePaymentAmount(payment);
+      return sum;
+    },
+    0
+  );
+
+  if (paidAmount + 0.01 < charge.amount) {
+    await ctx.db.patch(chargeId, { status: "scheduled" });
+  }
+}
+
 export const getPaymentsForLoan = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
@@ -30,11 +361,38 @@ export const getPaymentsForLoan = query({
   },
 });
 
+export const getAdminPaymentReminders = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const loans = await ctx.db.query("loans").collect();
+    const payments = await ctx.db.query("loanPayments").collect();
+    const charges = await ctx.db.query("loanCharges").collect();
+    return await getReminderData(ctx, loans, { payments, charges });
+  },
+});
+
+export const getMyPaymentReminders = query({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await requireRole(ctx, "borrower");
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
+      .collect();
+    const charges = await ctx.db
+      .query("loanCharges")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
+      .collect();
+    return await getReminderData(ctx, loans, { charges });
+  },
+});
+
 export const getAllPaymentsSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    // TODO(scale): Unbounded .collect() on all payments — worst scaling offender, paginate or aggregate at scale
+    // TODO(scale): Unbounded .collect() on all payments - worst scaling offender, paginate or aggregate at scale
     const payments = await ctx.db.query("loanPayments").collect();
 
     // Exclude missed payments from revenue (missed = no money received)
@@ -68,6 +426,7 @@ export const getAllPaymentsSummary = query({
 export const recordPayment = mutation({
   args: {
     loanId: v.id("loans"),
+    chargeId: v.optional(v.id("loanCharges")),
     amount: v.number(),
     paymentDate: v.string(),
     dueDate: v.string(),
@@ -106,21 +465,51 @@ export const recordPayment = mutation({
 
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
+    if (loan.returnedDate) {
+      throw new ConvexError("Cannot record payments after funds have been marked returned");
+    }
 
     // Only allow payments on funded/active loans
     if (!["funded", "closed", "sent_to_title"].includes(loan.status)) {
       throw new ConvexError("Payments can only be recorded for funded, sent to title, or closed loans");
     }
 
+    const linkedCharge = await findChargeForPayment(ctx, args);
+    const linkedChargeId = linkedCharge?._id;
     const trimmedNotes = args.notes?.trim() || undefined;
+    const paymentFields = {
+      loanId: args.loanId,
+      amount: args.amount,
+      paymentDate: args.paymentDate,
+      dueDate: args.dueDate,
+      method: args.method,
+      status: args.status,
+    };
 
     const id = await ctx.db.insert("loanPayments", {
-      ...args,
-      notes: trimmedNotes,
+      ...paymentFields,
+      ...(linkedChargeId ? { chargeId: linkedChargeId } : {}),
+      ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       recordedBy: admin._id,
     });
 
-    // Notify borrower (skip for missed payments — $0 notification is confusing)
+    const loanPayments = linkedCharge
+      ? await ctx.db
+          .query("loanPayments")
+          .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
+          .collect()
+      : [];
+    const chargeMarkedPaid = Boolean(
+      linkedChargeId &&
+      linkedCharge &&
+      isPaidPaymentStatus(args.status) &&
+      getPaidAmountForCharge(loanPayments, linkedCharge) + 0.01 >= linkedCharge.amount
+    );
+    if (chargeMarkedPaid && linkedChargeId) {
+      await ctx.db.patch(linkedChargeId, { status: "paid" });
+    }
+
+    // Notify borrower (skip for missed payments - $0 notification is confusing)
     if (args.status !== "missed") {
       await ctx.runMutation(internal.notifications.createNotification, {
         recipientId: loan.borrowerId,
@@ -140,7 +529,7 @@ export const recordPayment = mutation({
       details: `Recorded ${args.status} payment of ${formatCurrencyPlain(args.amount)} for ${loan.propertyAddress}`,
     });
 
-    return id;
+    return { paymentId: id, chargeId: linkedChargeId ?? null, chargeMarkedPaid };
   },
 });
 
@@ -153,12 +542,19 @@ export const bulkDeletePayments = mutation({
     if (args.paymentIds.length > MAX_BULK_OPERATION_SIZE) {
       throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
+    const deletingIds = new Set(args.paymentIds.map((id) => String(id)));
+    const linkedChargeIds = new Set<Id<"loanCharges">>();
     let deleted = 0;
     for (const paymentId of args.paymentIds) {
       const existing = await ctx.db.get(paymentId);
       if (!existing) continue;
+      if (existing.chargeId) linkedChargeIds.add(existing.chargeId);
       await ctx.db.delete(paymentId);
       deleted++;
+    }
+
+    for (const chargeId of linkedChargeIds) {
+      await reopenChargeIfNeeded(ctx, chargeId, deletingIds);
     }
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -178,6 +574,9 @@ export const deletePayment = mutation({
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new ConvexError("Payment not found");
     await ctx.db.delete(args.id);
+    if (existing.chargeId) {
+      await reopenChargeIfNeeded(ctx, existing.chargeId, new Set([String(args.id)]));
+    }
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
