@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 import { parseUsDate, validateUsDate } from "./lib/dates";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
+import { getDefaultInterestRate } from "./lib/settings";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -110,10 +111,10 @@ export const getOverviewStats = query({
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const defaultInterestRate = await getDefaultInterestRate(ctx);
     const activeLoans = allLoans.filter((loan) => {
       if (loan.returnedDate) return false;
       if ((loan.paymentType ?? "monthly") === "balloon") return false;
-      if (loan.monthlyPayment <= 0) return false;
       if (loan.status === "funded" || loan.status === "sent_to_title") return true;
 
       if (loan.status === "closed") {
@@ -123,10 +124,17 @@ export const getOverviewStats = query({
 
       return false;
     });
-    const monthlyCashFlow = activeLoans.reduce(
-      (sum, l) => sum + l.monthlyPayment,
-      0
-    );
+    const activeCashFlow = activeLoans.map((loan) => {
+      const principalOut = getCurrentPrincipalOut(loan);
+      return {
+        principalOut,
+        drawRemaining: Math.max(0, (loan.drawFundsTotal ?? 0) - (loan.drawFundsUsed ?? 0)),
+        monthlyCashFlow: calculateMonthlyInterest(principalOut, defaultInterestRate),
+      };
+    });
+    const monthlyCashFlow = Math.round(activeCashFlow.reduce((sum, l) => sum + l.monthlyCashFlow, 0) * 100) / 100;
+    const totalPrincipalOut = Math.round(activeCashFlow.reduce((sum, l) => sum + l.principalOut, 0) * 100) / 100;
+    const totalDrawRemaining = Math.round(activeCashFlow.reduce((sum, l) => sum + l.drawRemaining, 0) * 100) / 100;
 
     const pipelineStatuses = [
       "submitted",
@@ -175,6 +183,9 @@ export const getOverviewStats = query({
       totalCapital,
       closedLoanRevenue,
       monthlyCashFlow,
+      cashFlowInterestRate: defaultInterestRate,
+      totalPrincipalOut,
+      totalDrawRemaining,
       pipelineValue,
       statusCounts,
       monthlyVolume,

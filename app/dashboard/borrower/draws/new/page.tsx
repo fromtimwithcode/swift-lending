@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
+import { isDrawEligibleLoanStatus } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -24,9 +24,11 @@ export default function NewDrawRequestPage() {
   const [saving, setSaving] = useState(false);
 
   const loans = useQuery(api.borrower.getMyLoans);
+  const drawEligibleLoans = loans?.filter((l) => isDrawEligibleLoanStatus(l.status)) ?? [];
+  const selectedLoan = drawEligibleLoans.find((l) => l._id === loanId);
   const draws = useQuery(
     api.borrower.getDrawRequestsForLoan,
-    loanId ? { loanId: loanId as Id<"loans"> } : "skip"
+    selectedLoan ? { loanId: selectedLoan._id } : "skip"
   );
   const submitDraw = useMutation(api.borrower.submitDrawRequest);
 
@@ -34,23 +36,25 @@ export default function NewDrawRequestPage() {
     return <DetailPageSkeleton />;
   }
 
-  const fundedLoans = loans.filter((l) => l.status === "funded");
-  const selectedLoan = fundedLoans.find((l) => l._id === loanId);
-
   const pendingTotal = (draws ?? [])
     .filter((d) => d.status === "pending" || d.status === "under_review")
     .reduce((sum, d) => sum + d.amountRequested, 0);
-  const available = selectedLoan?.drawFundsTotal
+  const available = selectedLoan?.drawFundsTotal !== undefined
     ? selectedLoan.drawFundsTotal - (selectedLoan.drawFundsUsed ?? 0) - pendingTotal
     : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loanId || !amount || !description.trim()) {
+    if (!selectedLoan || !amount || !description.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
-    if (available !== undefined && Number(amount) > available) {
+    const requestedAmount = Number(amount);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      toast.error("Draw amount must be greater than 0");
+      return;
+    }
+    if (available !== undefined && requestedAmount > available) {
       toast.error(`Amount exceeds available funds (${formatCurrency(available)})`);
       return;
     }
@@ -58,8 +62,8 @@ export default function NewDrawRequestPage() {
     setSaving(true);
     try {
       await submitDraw({
-        loanId: loanId as Id<"loans">,
-        amountRequested: Number(amount),
+        loanId: selectedLoan._id,
+        amountRequested: requestedAmount,
         workDescription: description,
       });
       router.push("/dashboard/borrower/draws");
@@ -81,15 +85,14 @@ export default function NewDrawRequestPage() {
         </Link>
         <PageHeader
           title="New Draw Request"
-          description="Request a draw disbursement on a funded loan"
+          description="Request a draw disbursement on an eligible loan"
         />
       </div>
 
-      {fundedLoans.length === 0 ? (
+      {drawEligibleLoans.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <p className="text-muted-foreground">
-            You don&apos;t have any funded loans. Draw requests can only be
-            submitted on funded loans.
+            You don&apos;t have any loans eligible for draw requests.
           </p>
         </div>
       ) : (
@@ -106,7 +109,7 @@ export default function NewDrawRequestPage() {
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 >
                   <option value="">Choose a loan...</option>
-                  {fundedLoans.map((loan) => (
+                  {drawEligibleLoans.map((loan) => (
                     <option key={loan._id} value={loan._id}>
                       {loan.propertyAddress} — {formatCurrency(loan.loanAmount)}
                     </option>
@@ -114,7 +117,7 @@ export default function NewDrawRequestPage() {
                 </select>
               </div>
 
-              {selectedLoan && selectedLoan.drawFundsTotal && (
+              {selectedLoan && selectedLoan.drawFundsTotal !== undefined && (
                 <div className="rounded-lg bg-muted/50 p-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">

@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Local object URLs are used for pre-submit upload previews. */
 
 import { useState, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -37,6 +37,7 @@ export default function LoanApplicationPage() {
   const router = useRouter();
   const submitApplication = useMutation(api.borrower.submitApplication);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const loanDefaults = useQuery(api.settings.getLoanDefaults);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -66,6 +67,7 @@ export default function LoanApplicationPage() {
   const purchasePrice = Number(form.purchasePrice) || 0;
   const rehabBudgetTotal = Number(form.rehabBudgetTotal) || 0;
   const totalLoanAmount = purchasePrice + rehabBudgetTotal;
+  const defaultInterestRate = loanDefaults?.defaultInterestRate ?? DEFAULT_INTEREST_RATE;
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -444,14 +446,14 @@ export default function LoanApplicationPage() {
               <div>
                 <p className="text-xs text-blue-600 dark:text-blue-400">Interest Rate</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-                  {DEFAULT_INTEREST_RATE}%
+                  {defaultInterestRate}%
                 </p>
               </div>
               <div>
                 <p className="text-xs text-blue-600 dark:text-blue-400">Est. Monthly Payment</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                   {formatCurrency(
-                    calculateMonthlyPayment(totalLoanAmount, DEFAULT_INTEREST_RATE)
+                    calculateMonthlyPayment(totalLoanAmount, defaultInterestRate)
                   )}
                 </p>
               </div>

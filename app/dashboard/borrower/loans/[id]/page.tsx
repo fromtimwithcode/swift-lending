@@ -14,7 +14,7 @@ import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 import { calculatePayoffEstimate } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, isDrawEligibleLoanStatus } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 
 function DetailRow({
@@ -207,7 +207,7 @@ export default function BorrowerLoanDetailPage() {
             const pendingTotal = (draws ?? [])
               .filter((d) => (d.status as string) === "pending" || (d.status as string) === "under_review")
               .reduce((sum, d) => sum + (d.amountRequested as number), 0);
-            const available = loan.drawFundsTotal
+            const available = loan.drawFundsTotal !== undefined
               ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal
               : undefined;
             return (
@@ -215,7 +215,7 @@ export default function BorrowerLoanDetailPage() {
                 <DetailRow
                   label="Total Draw Funds"
                   value={
-                    loan.drawFundsTotal
+                    loan.drawFundsTotal !== undefined
                       ? formatCurrency(loan.drawFundsTotal)
                       : undefined
                   }
@@ -223,7 +223,7 @@ export default function BorrowerLoanDetailPage() {
                 <DetailRow
                   label="Used"
                   value={
-                    loan.drawFundsUsed
+                    loan.drawFundsUsed !== undefined
                       ? formatCurrency(loan.drawFundsUsed)
                       : "$0"
                   }
@@ -383,7 +383,7 @@ export default function BorrowerLoanDetailPage() {
           <h3 className="text-sm font-medium text-muted-foreground">
             Draw Requests
           </h3>
-          {loan.status === "funded" && (
+          {isDrawEligibleLoanStatus(loan.status) && (
             <Link
               href={`/dashboard/borrower/draws/new?loanId=${id}`}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"

@@ -102,6 +102,13 @@ const schema = defineSchema({
     .index("by_borrowerId", ["borrowerId"])
     .index("by_borrowerId_and_normalizedKey", ["borrowerId", "normalizedKey"]),
 
+  appSettings: defineTable({
+    key: v.literal("defaultInterestRate"),
+    value: v.number(),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("userProfiles")),
+  }).index("by_key", ["key"]),
+
   drawRequests: defineTable({
     loanId: v.id("loans"),
     borrowerId: v.id("userProfiles"),

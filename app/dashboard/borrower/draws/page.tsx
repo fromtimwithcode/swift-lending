@@ -116,7 +116,7 @@ export default function BorrowerDrawsPage() {
         <EmptyState
           icon={HandCoins}
           title="No draw requests"
-          description="Submit a draw request on a funded loan."
+          description="Submit a draw request on an eligible loan."
           action={
             <Link
               href="/dashboard/borrower/draws/new"

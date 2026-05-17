@@ -213,7 +213,7 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Monthly Cash Flow"
           value={formatCurrency(stats.monthlyCashFlow)}
-          subtitle="Active loan payments"
+          subtitle={`${stats.cashFlowInterestRate}% IO on ${formatCurrencyShort(stats.totalPrincipalOut)} out`}
           icon={Wallet}
         />
         <KpiCard

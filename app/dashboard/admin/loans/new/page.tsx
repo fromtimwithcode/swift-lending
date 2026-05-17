@@ -34,8 +34,11 @@ type TitleContactOption = {
 export default function NewLoanPage() {
   const createLoan = useMutation(api.admin.createLoan);
   const borrowers = useQuery(api.users.getAllBorrowers);
+  const loanDefaults = useQuery(api.settings.getLoanDefaults);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [interestRateEdited, setInterestRateEdited] = useState(false);
+  const loanDefaultsLoading = loanDefaults === undefined;
 
   const [form, setForm] = useState({
     borrowerId: "",
@@ -94,6 +97,15 @@ export default function NewLoanPage() {
     }));
   }, [form.purchasePrice, form.rehabBudgetTotal, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, rehabItemsTotal]);
 
+  useEffect(() => {
+    if (!loanDefaults || interestRateEdited) return;
+
+    setForm((prev) => {
+      const defaultRate = String(loanDefaults.defaultInterestRate);
+      return prev.interestRate === defaultRate ? prev : { ...prev, interestRate: defaultRate };
+    });
+  }, [loanDefaults, interestRateEdited]);
+
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -145,6 +157,11 @@ export default function NewLoanPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (loanDefaultsLoading) {
+      toast.error("Loan defaults are still loading");
+      return;
+    }
 
     if (!form.borrowerId) {
       toast.error("Please select a borrower");
@@ -411,7 +428,10 @@ export default function NewLoanPage() {
                 type="number"
                 step="0.01"
                 value={form.interestRate}
-                onChange={(e) => update("interestRate", e.target.value)}
+                onChange={(e) => {
+                  setInterestRateEdited(true);
+                  update("interestRate", e.target.value);
+                }}
                 placeholder="0"
               />
             </div>
@@ -749,11 +769,11 @@ export default function NewLoanPage() {
           </Link>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || loanDefaultsLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
-            Create Loan
+            {loanDefaultsLoading ? "Loading Defaults" : "Create Loan"}
           </button>
         </div>
       </form>
