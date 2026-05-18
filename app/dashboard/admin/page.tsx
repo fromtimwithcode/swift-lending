@@ -63,6 +63,11 @@ export default function AdminOverviewPage() {
   const paymentsSummary = useQuery(api.loanPayments.getAllPaymentsSummary);
   const paymentReminders = useQuery(api.loanPayments.getAdminPaymentReminders);
   const borrowerPerformance = useQuery(api.admin.getBorrowerPerformance);
+  const [selectedKpiYear, setSelectedKpiYear] = useState<number | null>(null);
+  const loanPeriodKpis = useQuery(
+    api.admin.getLoanPeriodKpis,
+    selectedKpiYear ? { year: selectedKpiYear } : {}
+  );
   const router = useRouter();
   const [drilldown, setDrilldown] = useState<{
     title: string;
@@ -98,6 +103,11 @@ export default function AdminOverviewPage() {
   const borrowerClosedLoans = borrowerPerformance?.reduce((sum, borrower) => sum + borrower.totalLoans, 0) ?? 0;
   const borrowerInProgressLoans = borrowerPerformance?.reduce((sum, borrower) => sum + borrower.inProgressLoans, 0) ?? 0;
   const borrowerClosedCapital = borrowerPerformance?.reduce((sum, borrower) => sum + borrower.totalCapital, 0) ?? 0;
+  const kpiYears = loanPeriodKpis
+    ? loanPeriodKpis.availableYears.length > 0
+      ? loanPeriodKpis.availableYears
+      : [loanPeriodKpis.selectedYear]
+    : [];
 
   const getLoanMonth = (closeDate: string | undefined) => {
     if (!closeDate) return null;
@@ -223,6 +233,62 @@ export default function AdminOverviewPage() {
           icon={BarChart3}
         />
       </motion.div>
+
+      {loanPeriodKpis && (
+        <div className="card-premium p-6">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Loan KPIs by Period
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Grouped by loan close date for quarter and full-year reporting.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Year
+              <select
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                value={loanPeriodKpis.selectedYear}
+                onChange={(event) => setSelectedKpiYear(Number(event.target.value))}
+              >
+                {kpiYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="pb-2 pr-3">Period</th>
+                  <th className="pb-2 pr-3">Total Loans</th>
+                  <th className="pb-2 pr-3">Active</th>
+                  <th className="pb-2 pr-3">In Progress</th>
+                  <th className="pb-2 pr-3">Funded</th>
+                  <th className="pb-2">Capital</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loanPeriodKpis.periods.map((period) => (
+                  <tr key={period.key} className="border-b border-border/50 last:border-0">
+                    <td className="py-3 pr-3 font-medium">{period.label}</td>
+                    <td className="py-3 pr-3 tabular-nums">{period.totalLoans}</td>
+                    <td className="py-3 pr-3 tabular-nums">{period.activeLoans}</td>
+                    <td className="py-3 pr-3 tabular-nums">{period.inProgressLoans}</td>
+                    <td className="py-3 pr-3 tabular-nums">{period.fundedLoans}</td>
+                    <td className="py-3 tabular-nums">{formatCurrencyShort(period.totalCapital)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <PaymentRemindersCard
         data={paymentReminders}

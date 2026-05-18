@@ -16,6 +16,42 @@ export const LOAN_STATUS_LABELS: Record<string, string> = {
   closed: "Closed",
 };
 
+/** Loan statuses before funds are out. */
+export const PRE_FUNDING_LOAN_STATUSES = [
+  "submitted",
+  "under_review",
+  "additional_info_needed",
+  "approved",
+] as const;
+
+/** Loan statuses that are outstanding and active. */
+export const ACTIVE_LOAN_STATUSES = ["funded", "sent_to_title"] as const;
+
+/** Loan statuses that reached funding at any point. */
+export const FUNDED_LOAN_STATUSES = ["funded", "sent_to_title", "closed"] as const;
+
+/** Loan statuses that are still in the admin pipeline. */
+export const PIPELINE_LOAN_STATUSES = [
+  ...PRE_FUNDING_LOAN_STATUSES,
+  ...ACTIVE_LOAN_STATUSES,
+] as const;
+
+export function isPreFundingLoanStatus(status: string) {
+  return (PRE_FUNDING_LOAN_STATUSES as readonly string[]).includes(status);
+}
+
+export function isActiveLoanStatus(status: string) {
+  return (ACTIVE_LOAN_STATUSES as readonly string[]).includes(status);
+}
+
+export function isFundedLoanStatus(status: string) {
+  return (FUNDED_LOAN_STATUSES as readonly string[]).includes(status);
+}
+
+export function isPipelineLoanStatus(status: string) {
+  return (PIPELINE_LOAN_STATUSES as readonly string[]).includes(status);
+}
+
 /** Loan statuses that can submit borrower draw requests. */
 export const DRAW_ELIGIBLE_LOAN_STATUSES = ["funded", "sent_to_title"] as const;
 

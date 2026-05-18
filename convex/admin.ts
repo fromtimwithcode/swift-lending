@@ -4,7 +4,16 @@ import type { Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { DEFAULT_POINTS_PERCENTAGE, MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
+import {
+  DEFAULT_POINTS_PERCENTAGE,
+  MAX_BULK_OPERATION_SIZE,
+  LOAN_STATUS_LABELS,
+  formatCurrencyPlain,
+  isActiveLoanStatus,
+  isFundedLoanStatus,
+  isPipelineLoanStatus,
+  isPreFundingLoanStatus,
+} from "./lib/constants";
 import { parseUsDate, validateUsDate } from "./lib/dates";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { getDefaultInterestRate } from "./lib/settings";
@@ -31,15 +40,6 @@ const loanStatusValidator = v.union(
   v.literal("sent_to_title"),
   v.literal("closed")
 );
-
-const IN_PROGRESS_LOAN_STATUSES = new Set([
-  "submitted",
-  "under_review",
-  "additional_info_needed",
-  "approved",
-  "funded",
-  "sent_to_title",
-]);
 
 function titleContactKey(titleCompany: string, titleCompanyContact: string | undefined) {
   return `${titleCompany.trim().toLowerCase()}::${(titleCompanyContact ?? "").trim().toLowerCase()}`;
@@ -136,17 +136,7 @@ export const getOverviewStats = query({
     const totalPrincipalOut = Math.round(activeCashFlow.reduce((sum, l) => sum + l.principalOut, 0) * 100) / 100;
     const totalDrawRemaining = Math.round(activeCashFlow.reduce((sum, l) => sum + l.drawRemaining, 0) * 100) / 100;
 
-    const pipelineStatuses = [
-      "submitted",
-      "under_review",
-      "additional_info_needed",
-      "approved",
-      "funded",
-      "sent_to_title",
-    ] as const;
-    const pipelineLoans = allLoans.filter((l) =>
-      (pipelineStatuses as readonly string[]).includes(l.status) && !l.returnedDate
-    );
+    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
     const pipelineValue = pipelineLoans.reduce(
       (sum, l) => sum + l.loanAmount,
       0
@@ -190,6 +180,82 @@ export const getOverviewStats = query({
       statusCounts,
       monthlyVolume,
       recentLoans,
+    };
+  },
+});
+
+export const getLoanPeriodKpis = query({
+  args: {
+    year: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    if (args.year !== undefined && (!Number.isInteger(args.year) || args.year < 1900 || args.year > 3000)) {
+      throw new ConvexError("Year must be a valid four-digit year");
+    }
+
+    const allLoans = await ctx.db.query("loans").collect();
+    const years = new Set<number>();
+    const loansWithCloseDate: { loan: (typeof allLoans)[number]; closeDate: Date }[] = [];
+
+    for (const loan of allLoans) {
+      if (!loan.closeDate) continue;
+      const closeDate = parseUsDate(loan.closeDate);
+      if (!closeDate) continue;
+      years.add(closeDate.getFullYear());
+      loansWithCloseDate.push({ loan, closeDate });
+    }
+
+    const availableYears = [...years].sort((a, b) => b - a);
+    const selectedYear = args.year ?? availableYears[0] ?? new Date().getFullYear();
+
+    const periods = [
+      { key: "q1", label: "Q1", startMonth: 1, endMonth: 3 },
+      { key: "q2", label: "Q2", startMonth: 4, endMonth: 6 },
+      { key: "q3", label: "Q3", startMonth: 7, endMonth: 9 },
+      { key: "q4", label: "Q4", startMonth: 10, endMonth: 12 },
+      { key: "full-year", label: "Full Year", startMonth: 1, endMonth: 12 },
+    ].map((period) => ({
+      ...period,
+      totalLoans: 0,
+      activeLoans: 0,
+      inProgressLoans: 0,
+      fundedLoans: 0,
+      totalCapital: 0,
+    }));
+
+    const addLoanToPeriod = (period: (typeof periods)[number], loan: (typeof allLoans)[number]) => {
+      period.totalLoans += 1;
+      period.totalCapital += loan.loanAmount;
+      if (isActiveLoanStatus(loan.status) && !loan.returnedDate) {
+        period.activeLoans += 1;
+      }
+      if (isPreFundingLoanStatus(loan.status)) {
+        period.inProgressLoans += 1;
+      }
+      if (isFundedLoanStatus(loan.status)) {
+        period.fundedLoans += 1;
+      }
+    };
+
+    for (const { loan, closeDate } of loansWithCloseDate) {
+      if (closeDate.getFullYear() !== selectedYear) continue;
+
+      const month = closeDate.getMonth() + 1;
+      const quarter = periods.find(
+        (period) => period.key !== "full-year" && month >= period.startMonth && month <= period.endMonth
+      );
+      const fullYear = periods[4];
+
+      if (quarter) addLoanToPeriod(quarter, loan);
+      addLoanToPeriod(fullYear, loan);
+    }
+
+    return {
+      selectedYear,
+      availableYears,
+      periods,
     };
   },
 });
@@ -956,7 +1022,7 @@ export const getBorrowerPerformance = query({
     const results = borrowers.map((borrower) => {
       const loans = loansByBorrower.get(borrower._id) ?? [];
       const closedLoans = loans.filter((loan) => loan.status === "closed");
-      const inProgressLoans = loans.filter((loan) => IN_PROGRESS_LOAN_STATUSES.has(loan.status));
+      const inProgressLoans = loans.filter((loan) => isPipelineLoanStatus(loan.status));
       const totalCapital = closedLoans.reduce((sum, l) => sum + l.loanAmount, 0);
 
       let totalPayments = 0;

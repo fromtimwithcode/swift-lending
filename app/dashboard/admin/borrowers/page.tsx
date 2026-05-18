@@ -67,11 +67,37 @@ export default function AdminBorrowersPage() {
     },
     {
       key: "activeLoanCount",
-      header: "Active Loans",
+      header: "Active",
       sortable: true,
       render: (row) => (
         <span className="font-medium">{row.activeLoanCount}</span>
       ),
+    },
+    {
+      key: "inProgressLoanCount",
+      header: "In Progress",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium">{row.inProgressLoanCount}</span>
+      ),
+      className: "hidden lg:table-cell",
+    },
+    {
+      key: "fundedLoanCount",
+      header: "Funded",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium">{row.fundedLoanCount}</span>
+      ),
+    },
+    {
+      key: "loanCount",
+      header: "Total Loans",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium">{row.loanCount}</span>
+      ),
+      className: "hidden xl:table-cell",
     },
     {
       key: "totalCapital",
@@ -103,6 +129,9 @@ export default function AdminBorrowersPage() {
     { header: "Email", key: "email" },
     { header: "Phone", key: "phone" },
     { header: "Active Loans", key: "activeLoanCount" },
+    { header: "In Progress Loans", key: "inProgressLoanCount" },
+    { header: "Funded Loans", key: "fundedLoanCount" },
+    { header: "Total Loans", key: "loanCount" },
     { header: "Total Capital", key: "totalCapital" },
     { header: "Active", key: "isActive" },
   ];

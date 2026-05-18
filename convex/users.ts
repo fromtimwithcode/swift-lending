@@ -3,7 +3,12 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin, requireUser, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
+import {
+  MAX_BULK_OPERATION_SIZE,
+  isActiveLoanStatus,
+  isFundedLoanStatus,
+  isPreFundingLoanStatus,
+} from "./lib/constants";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -127,7 +132,9 @@ export const getAllBorrowers = query({
 
     const borrowersWithStats = borrowers.map((borrower) => {
       const loans = loansByBorrower.get(borrower._id) ?? [];
-      const activeLoans = loans.filter((l) => l.status !== "closed" && l.status !== "denied");
+      const activeLoans = loans.filter((l) => isActiveLoanStatus(l.status) && !l.returnedDate);
+      const inProgressLoans = loans.filter((l) => isPreFundingLoanStatus(l.status));
+      const fundedLoans = loans.filter((l) => isFundedLoanStatus(l.status));
       const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
       const titleContacts = new Map<string, { titleCompany: string; titleCompanyContact?: string }>();
 
@@ -152,6 +159,8 @@ export const getAllBorrowers = query({
         ...borrower,
         loanCount: loans.length,
         activeLoanCount: activeLoans.length,
+        inProgressLoanCount: inProgressLoans.length,
+        fundedLoanCount: fundedLoans.length,
         totalCapital,
         titleContacts: Array.from(titleContacts.values()),
       };
@@ -528,7 +537,9 @@ export const getAllUsers = query({
 
     return allUsers.map((user) => {
       const loans = loansByBorrower.get(user._id) ?? [];
-      const activeLoans = loans.filter((l) => l.status !== "closed" && l.status !== "denied");
+      const activeLoans = loans.filter((l) => isActiveLoanStatus(l.status) && !l.returnedDate);
+      const inProgressLoans = loans.filter((l) => isPreFundingLoanStatus(l.status));
+      const fundedLoans = loans.filter((l) => isFundedLoanStatus(l.status));
       const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
 
       const investments = investmentsByInvestor.get(user._id) ?? [];
@@ -537,6 +548,9 @@ export const getAllUsers = query({
       return {
         ...user,
         activeLoanCount: user.role === "borrower" ? activeLoans.length : undefined,
+        inProgressLoanCount: user.role === "borrower" ? inProgressLoans.length : undefined,
+        fundedLoanCount: user.role === "borrower" ? fundedLoans.length : undefined,
+        loanCount: user.role === "borrower" ? loans.length : undefined,
         totalCapital: user.role === "borrower" ? totalCapital : undefined,
         investmentCount: user.role === "investor" ? investments.length : undefined,
         totalInvested: user.role === "investor" ? totalInvested : undefined,
