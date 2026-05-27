@@ -13,6 +13,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as borrower from "../borrower.js";
 import type * as comps from "../comps.js";
+import type * as crons from "../crons.js";
 import type * as documents from "../documents.js";
 import type * as draws from "../draws.js";
 import type * as email from "../email.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   borrower: typeof borrower;
   comps: typeof comps;
+  crons: typeof crons;
   documents: typeof documents;
   draws: typeof draws;
   email: typeof email;

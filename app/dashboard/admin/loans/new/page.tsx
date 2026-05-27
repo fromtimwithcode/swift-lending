@@ -29,6 +29,8 @@ type RehabItem = {
 type TitleContactOption = {
   titleCompany: string;
   titleCompanyContact?: string;
+  titleCompanyContactEmail?: string;
+  titleCompanyContactPhone?: string;
 };
 
 export default function NewLoanPage() {
@@ -62,6 +64,8 @@ export default function NewLoanPage() {
     status: "submitted" as const,
     titleCompany: "",
     titleCompanyContact: "",
+    titleCompanyContactEmail: "",
+    titleCompanyContactPhone: "",
     drawFundsTotal: "",
     drawFundsUsed: "",
     notes: "",
@@ -75,12 +79,12 @@ export default function NewLoanPage() {
     (sum, item) => sum + (Number(item.allocatedAmount) || 0),
     0
   );
+  const defaultLoanAmount = (Number(form.purchasePrice) || 0) + (rehabItemsTotal || Number(form.rehabBudgetTotal) || 0);
+  const [loanAmountEdited, setLoanAmountEdited] = useState(false);
 
-  // Auto-calculate total loan amount, monthly payment, and points from purchase + rehab.
+  // Default loan amount to purchase + rehab, but let admins override it for larger down payments.
   useEffect(() => {
-    const purchasePrice = Number(form.purchasePrice) || 0;
-    const rehabBudget = rehabItemsTotal || Number(form.rehabBudgetTotal) || 0;
-    const loanAmount = purchasePrice + rehabBudget;
+    const loanAmount = loanAmountEdited ? Number(form.loanAmount) || 0 : defaultLoanAmount;
     const rate = Number(form.interestRate) || 0;
     const principalOut = getCurrentPrincipalOut({
       loanAmount,
@@ -89,13 +93,27 @@ export default function NewLoanPage() {
     });
     const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
     const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
-    setForm((prev) => ({
-      ...prev,
-      loanAmount: loanAmount ? String(loanAmount) : "",
-      monthlyPayment: monthly ? String(monthly) : "",
-      pointsEarned: points ? String(points) : "",
-    }));
-  }, [form.purchasePrice, form.rehabBudgetTotal, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, rehabItemsTotal]);
+    const nextLoanAmount = loanAmountEdited ? form.loanAmount : defaultLoanAmount ? String(defaultLoanAmount) : "";
+    const nextMonthlyPayment = monthly ? String(monthly) : "";
+    const nextPointsEarned = points ? String(points) : "";
+
+    setForm((prev) => {
+      if (
+        prev.loanAmount === nextLoanAmount &&
+        prev.monthlyPayment === nextMonthlyPayment &&
+        prev.pointsEarned === nextPointsEarned
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        loanAmount: nextLoanAmount,
+        monthlyPayment: nextMonthlyPayment,
+        pointsEarned: nextPointsEarned,
+      };
+    });
+  }, [defaultLoanAmount, form.loanAmount, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, loanAmountEdited]);
 
   useEffect(() => {
     if (!loanDefaults || interestRateEdited) return;
@@ -108,6 +126,19 @@ export default function NewLoanPage() {
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleLoanAmountChange = (value: string) => {
+    setLoanAmountEdited(true);
+    update("loanAmount", value);
+  };
+
+  const resetLoanAmount = () => {
+    setLoanAmountEdited(false);
+    setForm((prev) => ({
+      ...prev,
+      loanAmount: defaultLoanAmount ? String(defaultLoanAmount) : "",
+    }));
+  };
 
   const handleBorrowerSelect = (borrowerId: string) => {
     const borrower = borrowers?.find((b) => b._id === borrowerId);
@@ -141,6 +172,8 @@ export default function NewLoanPage() {
         ...prev,
         titleCompany: "",
         titleCompanyContact: "",
+        titleCompanyContactEmail: "",
+        titleCompanyContactPhone: "",
       }));
       return;
     }
@@ -152,6 +185,8 @@ export default function NewLoanPage() {
       ...prev,
       titleCompany: contact.titleCompany,
       titleCompanyContact: contact.titleCompanyContact ?? "",
+      titleCompanyContactEmail: contact.titleCompanyContactEmail ?? "",
+      titleCompanyContactPhone: contact.titleCompanyContactPhone ?? "",
     }));
   };
 
@@ -189,6 +224,10 @@ export default function NewLoanPage() {
     }
     if (!form.loanAmount || Number(form.loanAmount) <= 0) {
       toast.error("Valid total loan amount is required");
+      return;
+    }
+    if (form.drawFundsTotal && Number(form.drawFundsTotal) > Number(form.loanAmount)) {
+      toast.error("Construction holdback cannot exceed total loan amount");
       return;
     }
     if (Number(form.interestRate) < 0) {
@@ -252,6 +291,8 @@ export default function NewLoanPage() {
         status: form.status,
         titleCompany: form.titleCompany || undefined,
         titleCompanyContact: form.titleCompanyContact || undefined,
+        titleCompanyContactEmail: form.titleCompanyContactEmail || undefined,
+        titleCompanyContactPhone: form.titleCompanyContactPhone || undefined,
         drawFundsTotal: form.drawFundsTotal
           ? Number(form.drawFundsTotal)
           : undefined,
@@ -405,12 +446,24 @@ export default function NewLoanPage() {
             <div>
               <label className={labelClass}>Total Loan Amount</label>
               <input
-                className={`${inputClass} bg-muted/40 font-medium`}
+                className={`${inputClass} font-medium`}
                 type="number"
                 value={form.loanAmount}
+                onChange={(e) => handleLoanAmountChange(e.target.value)}
                 placeholder="0"
-                readOnly
               />
+              <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>Defaults to purchase + rehab. Adjust if borrower brings cash to close.</span>
+                {loanAmountEdited && (
+                  <button
+                    type="button"
+                    onClick={resetLoanAmount}
+                    className="shrink-0 font-medium text-primary hover:text-primary/80"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className={labelClass}>Terms</label>
@@ -711,6 +764,26 @@ export default function NewLoanPage() {
                 className={inputClass}
                 value={form.titleCompanyContact}
                 onChange={(e) => update("titleCompanyContact", e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Title Contact Email</label>
+              <input
+                className={inputClass}
+                value={form.titleCompanyContactEmail}
+                onChange={(e) => update("titleCompanyContactEmail", e.target.value)}
+                type="email"
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Title Contact Phone</label>
+              <input
+                className={inputClass}
+                value={form.titleCompanyContactPhone}
+                onChange={(e) => update("titleCompanyContactPhone", e.target.value)}
+                type="tel"
                 placeholder="Optional"
               />
             </div>

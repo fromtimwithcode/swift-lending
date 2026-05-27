@@ -14,6 +14,11 @@ function parseUsDate(value: string): Date | null {
   return date;
 }
 
+function getDueDate(year: number, monthIndex: number, paymentDueDay: number) {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(paymentDueDay, lastDay));
+}
+
 export function roundCents(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -34,6 +39,15 @@ export function getCurrentPrincipalOut(args: {
 export function calculateMonthlyInterest(principalOut: number, annualRate: number) {
   if (principalOut <= 0 || annualRate <= 0) return 0;
   return roundCents((principalOut * annualRate) / 100 / 12);
+}
+
+export function calculateMonthlyPaymentDue(args: {
+  principalOut: number;
+  annualRate: number;
+  paymentType?: "balloon" | "monthly";
+}) {
+  if ((args.paymentType ?? "monthly") === "balloon") return 0;
+  return calculateMonthlyInterest(args.principalOut, args.annualRate);
 }
 
 export function getDaysInMonth(date: Date) {
@@ -61,6 +75,47 @@ export function getFirstMonthlyInterestPeriod(closeDate: string) {
     periodEnd: formatUsDate(periodEnd),
     dueDate: formatUsDate(dueDate),
   };
+}
+
+export function getMonthlyInterestPeriods(args: {
+  closeDate: string;
+  windowEnd: Date;
+  maturityDate?: string;
+  paymentDueDay?: number;
+  maxPeriods?: number;
+}) {
+  const close = parseUsDate(args.closeDate);
+  if (!close) return [];
+
+  const maturity = args.maturityDate ? parseUsDate(args.maturityDate) : null;
+  const effectiveEnd = maturity && maturity < args.windowEnd ? maturity : args.windowEnd;
+  const paymentDueDay = args.paymentDueDay ?? 1;
+  const maxPeriods = args.maxPeriods ?? 120;
+  const periods: Array<{
+    periodStart: string;
+    periodEnd: string;
+    dueDate: string;
+    periodStartDate: Date;
+  }> = [];
+
+  for (
+    let periodStart = new Date(close.getFullYear(), close.getMonth() + 1, 1), count = 0;
+    count < maxPeriods;
+    periodStart = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 1), count++
+  ) {
+    const periodEnd = getMonthEnd(periodStart);
+    const dueDate = getDueDate(periodStart.getFullYear(), periodStart.getMonth() + 1, paymentDueDay);
+    if (dueDate > effectiveEnd) break;
+
+    periods.push({
+      periodStart: formatUsDate(periodStart),
+      periodEnd: formatUsDate(periodEnd),
+      dueDate: formatUsDate(dueDate),
+      periodStartDate: periodStart,
+    });
+  }
+
+  return periods;
 }
 
 export function calculatePrepaidInterest(args: {

@@ -1,7 +1,12 @@
 import { query, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
+import { MAX_FILE_SIZE_BYTES } from "./lib/constants";
+
+const MAX_DOCUMENT_BATCH_SIZE = 50;
 
 const documentTypeValidator = v.union(
   v.literal("articles"),
@@ -14,6 +19,120 @@ const documentTypeValidator = v.union(
   v.literal("rehab_budget"),
   v.literal("other")
 );
+
+const documentInputValidator = v.object({
+  fileId: v.id("_storage"),
+  fileName: v.string(),
+  fileSize: v.optional(v.number()),
+  type: documentTypeValidator,
+});
+
+type DocumentType = Doc<"documents">["type"];
+type DocumentInput = {
+  fileId: Id<"_storage">;
+  fileName: string;
+  fileSize?: number;
+  type: DocumentType;
+};
+
+function normalizeDocumentInput(doc: DocumentInput) {
+  const fileName = doc.fileName.trim();
+  if (!fileName) throw new ConvexError("Document file name cannot be empty");
+  if (doc.fileSize !== undefined) {
+    if (doc.fileSize < 0) throw new ConvexError("Document file size cannot be negative");
+    if (doc.fileSize > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
+  }
+
+  return { ...doc, fileName };
+}
+
+async function verifyDocumentAccess(
+  ctx: MutationCtx,
+  profile: Doc<"userProfiles">,
+  loanId: Id<"loans"> | undefined,
+  drawRequestId: Id<"drawRequests"> | undefined
+) {
+  let loan = loanId ? await ctx.db.get(loanId) : null;
+
+  if (profile.role === "borrower" && loanId && (!loan || loan.borrowerId !== profile._id)) {
+    throw new ConvexError("Not your loan");
+  }
+
+  if (drawRequestId) {
+    const draw = await ctx.db.get(drawRequestId);
+    if (profile.role === "borrower" && (!draw || draw.borrowerId !== profile._id)) {
+      throw new ConvexError("Not your draw request");
+    }
+    if (!loan && draw?.loanId) {
+      loan = await ctx.db.get(draw.loanId);
+    }
+  }
+
+  return loan;
+}
+
+async function notifyBorrowerDocumentUpload(
+  ctx: MutationCtx,
+  profile: Doc<"userProfiles">,
+  loanId: Id<"loans"> | undefined,
+  loan: Doc<"loans"> | null,
+  documents: DocumentInput[]
+) {
+  if (isAdminLike(profile.role) || !loanId) return;
+
+  const count = documents.length;
+  const target = loan?.propertyAddress ?? "a loan";
+  const title = count === 1 ? "New Document Uploaded" : "New Documents Uploaded";
+  const body = count === 1
+    ? `${profile.displayName} uploaded "${documents[0].fileName}" for ${target}.`
+    : `${profile.displayName} uploaded ${count} documents for ${target}.`;
+  const adminLikeUsers = await getAdminLikeUsers(ctx);
+
+  for (const admin of adminLikeUsers) {
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: admin._id,
+      type: "document_uploaded",
+      title,
+      body,
+      loanId,
+    });
+  }
+}
+
+async function saveDocumentBatch(
+  ctx: MutationCtx,
+  profile: Doc<"userProfiles">,
+  args: {
+    documents: DocumentInput[];
+    loanId?: Id<"loans">;
+    drawRequestId?: Id<"drawRequests">;
+  }
+) {
+  if (args.documents.length === 0) throw new ConvexError("Select at least one document");
+  if (args.documents.length > MAX_DOCUMENT_BATCH_SIZE) {
+    throw new ConvexError(`Upload up to ${MAX_DOCUMENT_BATCH_SIZE} documents at a time`);
+  }
+
+  const documents = args.documents.map(normalizeDocumentInput);
+  const loan = await verifyDocumentAccess(ctx, profile, args.loanId, args.drawRequestId);
+  const ids: Id<"documents">[] = [];
+
+  for (const doc of documents) {
+    ids.push(await ctx.db.insert("documents", {
+      ownerId: profile._id,
+      loanId: args.loanId,
+      drawRequestId: args.drawRequestId,
+      type: doc.type,
+      fileId: doc.fileId,
+      fileName: doc.fileName,
+      fileSize: doc.fileSize,
+    }));
+  }
+
+  await notifyBorrowerDocumentUpload(ctx, profile, args.loanId, loan, documents);
+
+  return ids;
+}
 
 export const generateUploadUrl = mutation({
   args: {},
@@ -34,49 +153,30 @@ export const saveDocument = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
-
-    // If borrower, verify loan ownership
-    if (profile.role === "borrower" && args.loanId) {
-      const loan = await ctx.db.get(args.loanId);
-      if (!loan || loan.borrowerId !== profile._id) {
-        throw new ConvexError("Not your loan");
-      }
-    }
-
-    // If borrower provides drawRequestId, verify ownership
-    if (profile.role === "borrower" && args.drawRequestId) {
-      const draw = await ctx.db.get(args.drawRequestId);
-      if (!draw || draw.borrowerId !== profile._id) {
-        throw new ConvexError("Not your draw request");
-      }
-    }
-
-    const id = await ctx.db.insert("documents", {
-      ownerId: profile._id,
+    const ids = await saveDocumentBatch(ctx, profile, {
+      documents: [{
+        fileId: args.fileId,
+        fileName: args.fileName,
+        fileSize: args.fileSize,
+        type: args.type,
+      }],
       loanId: args.loanId,
       drawRequestId: args.drawRequestId,
-      type: args.type,
-      fileId: args.fileId,
-      fileName: args.fileName,
-      fileSize: args.fileSize,
     });
 
-    // If borrower uploads a document with a loanId, notify all admins/developers
-    if (!isAdminLike(profile.role) && args.loanId) {
-      const loan = await ctx.db.get(args.loanId);
-      const adminLikeUsers = await getAdminLikeUsers(ctx);
-      for (const admin of adminLikeUsers) {
-        await ctx.runMutation(internal.notifications.createNotification, {
-          recipientId: admin._id,
-          type: "document_uploaded",
-          title: "New Document Uploaded",
-          body: `${profile.displayName} uploaded "${args.fileName}" for ${loan?.propertyAddress ?? "a loan"}.`,
-          loanId: args.loanId,
-        });
-      }
-    }
+    return ids[0];
+  },
+});
 
-    return id;
+export const saveDocuments = mutation({
+  args: {
+    documents: v.array(documentInputValidator),
+    loanId: v.optional(v.id("loans")),
+    drawRequestId: v.optional(v.id("drawRequests")),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
+    return await saveDocumentBatch(ctx, profile, args);
   },
 });
 

@@ -194,8 +194,10 @@ export default function BorrowerLoanDetailPage() {
           <div className="space-y-3">
             <DetailRow label="Close Date" value={loan.closeDate} />
             <DetailRow label="Maturity Date" value={loan.maturityDate} />
-            <DetailRow label="Title Company" value={loan.titleCompany} />
+            <DetailRow label="Title Company" value={loan.titleCompany ?? loan.titleCompanyName} />
             <DetailRow label="Title Contact" value={loan.titleCompanyContact} />
+            <DetailRow label="Title Contact Email" value={loan.titleCompanyContactEmail} />
+            <DetailRow label="Title Contact Phone" value={loan.titleCompanyContactPhone} />
           </div>
         </div>
 

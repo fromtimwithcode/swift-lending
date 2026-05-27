@@ -15,7 +15,7 @@ import {
   isPreFundingLoanStatus,
 } from "./lib/constants";
 import { parseUsDate, validateUsDate } from "./lib/dates";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
+import { calculateMonthlyInterest, calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { getDefaultInterestRate } from "./lib/settings";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
@@ -45,8 +45,16 @@ function titleContactKey(titleCompany: string, titleCompanyContact: string | und
   return `${titleCompany.trim().toLowerCase()}::${(titleCompanyContact ?? "").trim().toLowerCase()}`;
 }
 
-function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
-  return purchasePrice + (rehabBudgetTotal ?? 0);
+function optionalString(value: string | undefined) {
+  return value?.trim() || undefined;
+}
+
+function optionalEmail(value: string | undefined, label: string) {
+  const email = optionalString(value)?.toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ConvexError(`${label} must be a valid email address`);
+  }
+  return email;
 }
 
 function getPointsEarned(totalLoanAmount: number) {
@@ -57,12 +65,17 @@ async function saveBorrowerTitleContact(
   ctx: MutationCtx,
   borrowerId: Id<"userProfiles">,
   titleCompany: string | undefined,
-  titleCompanyContact: string | undefined
+  titleCompanyContact: string | undefined,
+  titleCompanyContactEmail: string | undefined,
+  titleCompanyContactPhone: string | undefined,
+  options?: { replaceContactDetails?: boolean }
 ) {
-  const company = titleCompany?.trim();
+  const company = optionalString(titleCompany);
   if (!company) return;
 
-  const contact = titleCompanyContact?.trim() || undefined;
+  const contact = optionalString(titleCompanyContact);
+  const email = optionalEmail(titleCompanyContactEmail, "Title contact email");
+  const phone = optionalString(titleCompanyContactPhone);
   const normalizedKey = titleContactKey(company, contact);
   const existing = await ctx.db
     .query("borrowerTitleContacts")
@@ -72,11 +85,26 @@ async function saveBorrowerTitleContact(
     .take(1);
 
   if (existing[0]) {
-    await ctx.db.patch(existing[0]._id, {
+    const updates: Partial<{
+      titleCompany: string;
+      titleCompanyContact: string | undefined;
+      titleCompanyContactEmail: string | undefined;
+      titleCompanyContactPhone: string | undefined;
+      updatedAt: number;
+    }> = {
       titleCompany: company,
       titleCompanyContact: contact,
       updatedAt: Date.now(),
-    });
+    };
+
+    if (email !== undefined || options?.replaceContactDetails) {
+      updates.titleCompanyContactEmail = email;
+    }
+    if (phone !== undefined || options?.replaceContactDetails) {
+      updates.titleCompanyContactPhone = phone;
+    }
+
+    await ctx.db.patch(existing[0]._id, updates);
     return;
   }
 
@@ -84,6 +112,8 @@ async function saveBorrowerTitleContact(
     borrowerId,
     titleCompany: company,
     titleCompanyContact: contact,
+    titleCompanyContactEmail: email,
+    titleCompanyContactPhone: phone,
     normalizedKey,
     updatedAt: Date.now(),
   });
@@ -114,7 +144,6 @@ export const getOverviewStats = query({
     const defaultInterestRate = await getDefaultInterestRate(ctx);
     const activeLoans = allLoans.filter((loan) => {
       if (loan.returnedDate) return false;
-      if ((loan.paymentType ?? "monthly") === "balloon") return false;
       if (loan.status === "funded" || loan.status === "sent_to_title") return true;
 
       if (loan.status === "closed") {
@@ -145,7 +174,8 @@ export const getOverviewStats = query({
     // Status distribution for charts (eliminates need for separate getLoans call)
     const statusCounts: Record<string, number> = {};
     for (const loan of allLoans) {
-      statusCounts[loan.status] = (statusCounts[loan.status] || 0) + 1;
+      const status = loan.returnedDate ? "funds_returned" : loan.status;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
 
     // Monthly volume by close date
@@ -309,6 +339,8 @@ export const createLoan = mutation({
     status: loanStatusValidator,
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
+    titleCompanyContactEmail: v.optional(v.string()),
+    titleCompanyContactPhone: v.optional(v.string()),
     strategy: v.optional(strategyValidator),
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     drawFundsTotal: v.optional(v.number()),
@@ -333,13 +365,15 @@ export const createLoan = mutation({
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
     const terms = args.terms.trim();
-    const titleCompany = args.titleCompany?.trim() || undefined;
-    const titleCompanyContact = args.titleCompanyContact?.trim() || undefined;
-    const notes = args.notes?.trim() || undefined;
-    const closeDate = args.closeDate?.trim() || undefined;
-    const maturityDate = args.maturityDate?.trim() || undefined;
+    const titleCompany = optionalString(args.titleCompany);
+    const titleCompanyContact = optionalString(args.titleCompanyContact);
+    const titleCompanyContactEmail = optionalEmail(args.titleCompanyContactEmail, "Title contact email");
+    const titleCompanyContactPhone = optionalString(args.titleCompanyContactPhone);
+    const notes = optionalString(args.notes);
+    const closeDate = optionalString(args.closeDate);
+    const maturityDate = optionalString(args.maturityDate);
 
-    if (closeDate) validateUsDate(closeDate, "Close date");
+    if (closeDate) validateUsDate(closeDate, "Close date", { allowFuture: true });
     if (maturityDate) validateUsDate(maturityDate, "Maturity date", { allowFuture: true });
 
     if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
@@ -347,11 +381,11 @@ export const createLoan = mutation({
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
 
-    const canonicalLoanAmount = getTotalLoanAmount(args.purchasePrice, args.rehabBudgetTotal);
-    const canonicalPointsEarned = getPointsEarned(canonicalLoanAmount);
+    const loanAmount = args.loanAmount;
+    const canonicalPointsEarned = getPointsEarned(loanAmount);
 
     // Validate financial fields
-    if (canonicalLoanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
+    if (loanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
     if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
     if (args.monthlyPayment < 0) throw new ConvexError("Monthly payment cannot be negative");
@@ -374,23 +408,29 @@ export const createLoan = mutation({
     if (args.drawFundsUsed !== undefined && args.drawFundsTotal !== undefined && args.drawFundsUsed > args.drawFundsTotal) {
       throw new ConvexError("Draw funds used cannot exceed draw funds total");
     }
+    if (args.drawFundsTotal !== undefined && args.drawFundsTotal > loanAmount) {
+      throw new ConvexError("Draw funds total cannot exceed total loan amount");
+    }
     if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
       throw new ConvexError("After repair value should not be less than purchase price");
     }
 
     const { rehabBudgetItems, ...loanFields } = args;
-    const monthlyPayment = calculateMonthlyInterest(
-      getCurrentPrincipalOut({
-        loanAmount: canonicalLoanAmount,
-        drawFundsTotal: args.drawFundsTotal,
-        drawFundsUsed: args.drawFundsUsed,
-      }),
-      args.interestRate
-    );
+    const paymentType = args.paymentType ?? "monthly";
+    const principalOut = getCurrentPrincipalOut({
+      loanAmount,
+      drawFundsTotal: args.drawFundsTotal,
+      drawFundsUsed: args.drawFundsUsed,
+    });
+    const monthlyPayment = calculateMonthlyPaymentDue({
+      principalOut,
+      annualRate: args.interestRate,
+      paymentType,
+    });
 
     const id = await ctx.db.insert("loans", {
       ...loanFields,
-      loanAmount: canonicalLoanAmount,
+      loanAmount,
       monthlyPayment,
       pointsEarned: canonicalPointsEarned,
       borrowerName,
@@ -399,10 +439,12 @@ export const createLoan = mutation({
       terms,
       titleCompany,
       titleCompanyContact,
+      titleCompanyContactEmail,
+      titleCompanyContactPhone,
       notes,
       closeDate,
       maturityDate,
-      paymentType: args.paymentType ?? "monthly",
+      paymentType,
       createdBy: admin._id,
     });
 
@@ -421,7 +463,14 @@ export const createLoan = mutation({
       }
     }
 
-    await saveBorrowerTitleContact(ctx, args.borrowerId, titleCompany, titleCompanyContact);
+    await saveBorrowerTitleContact(
+      ctx,
+      args.borrowerId,
+      titleCompany,
+      titleCompanyContact,
+      titleCompanyContactEmail,
+      titleCompanyContactPhone
+    );
 
     if (closeDate) {
       await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
@@ -436,7 +485,7 @@ export const createLoan = mutation({
       action: "loan.create",
       entityType: "loan",
       entityId: id,
-      details: `Created loan for ${propertyAddress} (${formatCurrencyPlain(canonicalLoanAmount)})`,
+      details: `Created loan for ${propertyAddress} (${formatCurrencyPlain(loanAmount)})`,
     });
 
     return id;
@@ -465,6 +514,8 @@ export const updateLoan = mutation({
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
+    titleCompanyContactEmail: v.optional(v.string()),
+    titleCompanyContactPhone: v.optional(v.string()),
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
@@ -479,6 +530,8 @@ export const updateLoan = mutation({
     // Validate financial fields if provided
     if (fields.purchasePrice !== undefined && fields.purchasePrice < 0)
       throw new ConvexError("Purchase price cannot be negative");
+    if (fields.loanAmount !== undefined && fields.loanAmount <= 0)
+      throw new ConvexError("Total loan amount must be greater than 0");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
       throw new ConvexError("Interest rate cannot be negative");
     if (fields.monthlyPayment !== undefined && fields.monthlyPayment < 0)
@@ -500,12 +553,12 @@ export const updateLoan = mutation({
 
     // Cross-field validation (use provided values or fall back to existing)
     const effectivePurchasePrice = fields.purchasePrice ?? existing.purchasePrice;
-    const effectiveRehabBudgetTotal = fields.rehabBudgetTotal ?? existing.rehabBudgetTotal;
-    const effectiveLoanAmount = getTotalLoanAmount(effectivePurchasePrice, effectiveRehabBudgetTotal);
+    const effectiveLoanAmount = fields.loanAmount ?? existing.loanAmount;
     const effectiveDrawFundsUsed = fields.drawFundsUsed ?? existing.drawFundsUsed;
     const effectiveDrawFundsTotal = fields.drawFundsTotal ?? existing.drawFundsTotal;
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
     const effectiveInterestRate = fields.interestRate ?? existing.interestRate;
+    const effectivePaymentType = fields.paymentType ?? existing.paymentType ?? "monthly";
 
     if (effectiveLoanAmount <= 0) {
       throw new ConvexError("Total loan amount must be greater than 0");
@@ -513,6 +566,9 @@ export const updateLoan = mutation({
 
     if (effectiveDrawFundsUsed !== undefined && effectiveDrawFundsTotal !== undefined && effectiveDrawFundsUsed > effectiveDrawFundsTotal) {
       throw new ConvexError("Draw funds used cannot exceed draw funds total");
+    }
+    if (effectiveDrawFundsTotal !== undefined && effectiveDrawFundsTotal > effectiveLoanAmount) {
+      throw new ConvexError("Draw funds total cannot exceed total loan amount");
     }
     if (effectiveARV !== undefined && effectiveARV < effectivePurchasePrice) {
       throw new ConvexError("After repair value should not be less than purchase price");
@@ -523,7 +579,8 @@ export const updateLoan = mutation({
       "borrowerName", "entityName", "propertyAddress", "terms",
     ]);
     const optionalStringFields = new Set([
-      "closeDate", "maturityDate", "titleCompany", "titleCompanyContact", "notes",
+      "closeDate", "maturityDate", "titleCompany", "titleCompanyContact",
+      "titleCompanyContactEmail", "titleCompanyContactPhone", "notes",
     ]);
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -534,10 +591,15 @@ export const updateLoan = mutation({
             if (!trimmed) throw new ConvexError(`${key} cannot be empty`);
             updates[key] = trimmed;
           } else if (optionalStringFields.has(key)) {
-            if (!trimmed) continue; // skip empty optional strings
-            if (key === "closeDate") validateUsDate(trimmed, "Close date");
+            if (!trimmed) {
+              updates[key] = undefined;
+              continue;
+            }
+            if (key === "closeDate") validateUsDate(trimmed, "Close date", { allowFuture: true });
             if (key === "maturityDate") validateUsDate(trimmed, "Maturity date", { allowFuture: true });
-            updates[key] = trimmed;
+            updates[key] = key === "titleCompanyContactEmail"
+              ? optionalEmail(trimmed, "Title contact email")
+              : trimmed;
           } else {
             updates[key] = value;
           }
@@ -548,8 +610,6 @@ export const updateLoan = mutation({
     }
 
     if (
-      fields.purchasePrice !== undefined ||
-      fields.rehabBudgetTotal !== undefined ||
       fields.loanAmount !== undefined ||
       fields.pointsEarned !== undefined
     ) {
@@ -564,28 +624,52 @@ export const updateLoan = mutation({
       fields.drawFundsTotal !== undefined ||
       fields.drawFundsUsed !== undefined ||
       fields.interestRate !== undefined ||
+      fields.paymentType !== undefined ||
       fields.monthlyPayment !== undefined
     ) {
-      updates.monthlyPayment = calculateMonthlyInterest(
-        getCurrentPrincipalOut({
+      updates.monthlyPayment = calculateMonthlyPaymentDue({
+        principalOut: getCurrentPrincipalOut({
           loanAmount: effectiveLoanAmount,
           drawFundsTotal: effectiveDrawFundsTotal,
           drawFundsUsed: effectiveDrawFundsUsed,
         }),
-        effectiveInterestRate
-      );
+        annualRate: effectiveInterestRate,
+        paymentType: effectivePaymentType,
+      });
     }
 
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(id, updates);
     }
 
-    if (fields.titleCompany !== undefined || fields.titleCompanyContact !== undefined) {
+    const hasOwnUpdate = (key: string) => Object.prototype.hasOwnProperty.call(updates, key);
+    const nextTitleCompany = hasOwnUpdate("titleCompany")
+      ? updates.titleCompany as string | undefined
+      : existing.titleCompany;
+    const nextTitleCompanyContact = hasOwnUpdate("titleCompanyContact")
+      ? updates.titleCompanyContact as string | undefined
+      : existing.titleCompanyContact;
+    const nextTitleCompanyContactEmail = hasOwnUpdate("titleCompanyContactEmail")
+      ? updates.titleCompanyContactEmail as string | undefined
+      : existing.titleCompanyContactEmail;
+    const nextTitleCompanyContactPhone = hasOwnUpdate("titleCompanyContactPhone")
+      ? updates.titleCompanyContactPhone as string | undefined
+      : existing.titleCompanyContactPhone;
+    const titleContactChanged =
+      nextTitleCompany !== existing.titleCompany ||
+      nextTitleCompanyContact !== existing.titleCompanyContact ||
+      nextTitleCompanyContactEmail !== existing.titleCompanyContactEmail ||
+      nextTitleCompanyContactPhone !== existing.titleCompanyContactPhone;
+
+    if (titleContactChanged) {
       await saveBorrowerTitleContact(
         ctx,
         existing.borrowerId,
-        (updates.titleCompany as string | undefined) ?? existing.titleCompany,
-        (updates.titleCompanyContact as string | undefined) ?? existing.titleCompanyContact
+        nextTitleCompany,
+        nextTitleCompanyContact,
+        nextTitleCompanyContactEmail,
+        nextTitleCompanyContactPhone,
+        { replaceContactDetails: true }
       );
     }
 
@@ -595,7 +679,8 @@ export const updateLoan = mutation({
       fields.rehabBudgetTotal !== undefined ||
       fields.drawFundsTotal !== undefined ||
       fields.drawFundsUsed !== undefined ||
-      fields.interestRate !== undefined
+      fields.interestRate !== undefined ||
+      fields.paymentType !== undefined
     ) {
       await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
         loanId: id,

@@ -21,6 +21,12 @@ import { useRouter } from "next/navigation";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { motion } from "framer-motion";
 import { staggerContainer } from "@/lib/animations";
+import {
+  getLoanDisplayStatus,
+  getLoanStatusLabel,
+  isActiveLoanDisplay,
+  isFundsReturnedLoan,
+} from "@/lib/loan-display";
 import { useState } from "react";
 import {
   BarChart,
@@ -44,6 +50,7 @@ const STATUS_COLORS: Record<string, string> = {
   funded: "#a855f7",
   sent_to_title: "#6366f1",
   closed: "#10b981",
+  funds_returned: "#14b8a6",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -55,6 +62,7 @@ const STATUS_LABELS: Record<string, string> = {
   funded: "Funded",
   sent_to_title: "Sent to Title",
   closed: "Closed",
+  funds_returned: "Funds Returned",
 };
 
 export default function AdminOverviewPage() {
@@ -126,7 +134,11 @@ export default function AdminOverviewPage() {
   };
 
   const openStatusDrilldown = (status: string) => {
-    const loans = (allLoans ?? []).filter((loan) => loan.status === status);
+    const loans = (allLoans ?? []).filter((loan) => {
+      if (status === "funds_returned") return isFundsReturnedLoan(loan);
+      if (status === "closed") return loan.status === "closed" && !loan.returnedDate;
+      return loan.status === status && !loan.returnedDate;
+    });
     setDrilldown({
       title: `${STATUS_LABELS[status] ?? status} Loans`,
       description: `${loans.length} loan${loans.length === 1 ? "" : "s"} currently marked ${STATUS_LABELS[status] ?? status}`,
@@ -176,15 +188,37 @@ export default function AdminOverviewPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Loan State",
       sortable: true,
-      render: (row) => <StatusBadge status={row.status} />,
+      render: (row) => (
+        <div className="space-y-1">
+          <StatusBadge status={getLoanDisplayStatus(row)} />
+          {isActiveLoanDisplay(row) && (
+            <p className="text-xs text-muted-foreground">{getLoanStatusLabel(row.status)}</p>
+          )}
+          {isFundsReturnedLoan(row) && row.returnedDate && (
+            <p className="text-xs text-muted-foreground tabular-nums">Returned {row.returnedDate}</p>
+          )}
+        </div>
+      ),
     },
     {
       key: "closeDate",
-      header: "Close Date",
+      header: "Close / Return",
       sortable: true,
-      render: (row) => row.closeDate ?? "\u2014",
+      render: (row) => (
+        <div className="space-y-1 tabular-nums">
+          <p>{row.closeDate ?? "\u2014"}</p>
+          {row.returnedDate && (
+            <p className="text-xs font-medium text-teal-700 dark:text-teal-300">
+              Returned {row.returnedDate}
+            </p>
+          )}
+          {row.returnedAmount !== undefined && (
+            <p className="text-xs text-muted-foreground">{formatCurrency(row.returnedAmount)}</p>
+          )}
+        </div>
+      ),
     },
   ];
 

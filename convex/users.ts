@@ -136,23 +136,36 @@ export const getAllBorrowers = query({
       const inProgressLoans = loans.filter((l) => isPreFundingLoanStatus(l.status));
       const fundedLoans = loans.filter((l) => isFundedLoanStatus(l.status));
       const totalCapital = loans.reduce((sum, l) => sum + l.loanAmount, 0);
-      const titleContacts = new Map<string, { titleCompany: string; titleCompanyContact?: string }>();
+      const titleContacts = new Map<string, {
+        titleCompany: string;
+        titleCompanyContact?: string;
+        titleCompanyContactEmail?: string;
+        titleCompanyContactPhone?: string;
+      }>();
 
       for (const contact of savedContactsByBorrower.get(borrower._id) ?? []) {
         titleContacts.set(contact.normalizedKey, {
           titleCompany: contact.titleCompany,
           titleCompanyContact: contact.titleCompanyContact,
+          titleCompanyContactEmail: contact.titleCompanyContactEmail,
+          titleCompanyContactPhone: contact.titleCompanyContactPhone,
         });
       }
 
       for (const loan of loans) {
-        const company = loan.titleCompany?.trim();
+        const company = (loan.titleCompany ?? loan.titleCompanyName)?.trim();
         if (!company) continue;
         const contact = loan.titleCompanyContact?.trim() || undefined;
+        const email = loan.titleCompanyContactEmail?.trim() || undefined;
+        const phone = loan.titleCompanyContactPhone?.trim() || undefined;
         const key = `${company.toLowerCase()}::${(contact ?? "").toLowerCase()}`;
-        if (!titleContacts.has(key)) {
-          titleContacts.set(key, { titleCompany: company, titleCompanyContact: contact });
-        }
+        const existing = titleContacts.get(key);
+        titleContacts.set(key, {
+          titleCompany: existing?.titleCompany ?? company,
+          titleCompanyContact: existing?.titleCompanyContact ?? contact,
+          titleCompanyContactEmail: existing?.titleCompanyContactEmail ?? email,
+          titleCompanyContactPhone: existing?.titleCompanyContactPhone ?? phone,
+        });
       }
 
       return {

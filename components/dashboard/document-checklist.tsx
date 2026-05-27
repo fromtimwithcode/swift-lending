@@ -46,13 +46,15 @@ interface UploadProgress {
   total: number;
 }
 
+const MAX_UPLOAD_BATCH_FILES = 50;
+
 export function DocumentChecklist({
   loanId,
   isRepeatEntity,
 }: DocumentChecklistProps) {
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId });
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
-  const saveDocument = useMutation(api.documents.saveDocument);
+  const saveDocuments = useMutation(api.documents.saveDocuments);
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [uploadingRow, setUploadingRow] = useState<string | null>(null);
@@ -125,10 +127,29 @@ export function DocumentChecklist({
     setUploadingRow(row.label);
 
     const fileArray = Array.from(files);
+    if (fileArray.length > MAX_UPLOAD_BATCH_FILES) {
+      setError(`Select up to ${MAX_UPLOAD_BATCH_FILES} files at a time.`);
+      setUploadingRow(null);
+      const input = fileInputRefs.current[row.label];
+      if (input) input.value = "";
+      return;
+    }
+
     const skipped: string[] = [];
+    const documentsToSave: Array<{
+      fileId: Id<"_storage">;
+      fileName: string;
+      fileSize: number;
+      type: DocType;
+    }> = [];
     setUploadProgress({ current: 0, total: fileArray.length });
 
     try {
+      let docType: DocType = row.types[0];
+      if (row.types.length > 1 && row.types.includes("articles")) {
+        docType = articleSubType;
+      }
+
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
         if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -146,22 +167,20 @@ export function DocumentChecklist({
         if (!result.ok) throw new Error("Upload failed: " + result.statusText);
         const { storageId } = await result.json();
 
-        // Determine doc type
-        let docType: DocType = row.types[0];
-        if (row.types.length > 1 && row.types.includes("articles")) {
-          docType = articleSubType;
-        }
-
-        await saveDocument({
+        documentsToSave.push({
           fileId: storageId,
           fileName: file.name,
           fileSize: file.size,
           type: docType,
-          loanId,
         });
 
         setUploadProgress({ current: i + 1, total: fileArray.length });
       }
+
+      if (documentsToSave.length > 0) {
+        await saveDocuments({ documents: documentsToSave, loanId });
+      }
+
       if (skipped.length > 0) {
         setError(
           `${skipped.length} file${skipped.length > 1 ? "s" : ""} skipped (exceeds ${formatFileSize(MAX_FILE_SIZE_BYTES)}): ${skipped.join(", ")}`

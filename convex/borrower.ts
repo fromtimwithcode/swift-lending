@@ -5,16 +5,24 @@ import { internal } from "./_generated/api";
 import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoanStatus } from "./lib/constants";
 import { getDefaultInterestRate } from "./lib/settings";
 
-function getTotalLoanAmount(purchasePrice: number, rehabBudgetTotal: number | undefined) {
-  return purchasePrice + (rehabBudgetTotal ?? 0);
-}
-
 function getMonthlyPayment(loanAmount: number, interestRate: number) {
   return Math.round((interestRate / 100 / 12) * loanAmount * 100) / 100;
 }
 
 function getPointsEarned(loanAmount: number) {
   return Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * loanAmount * 100) / 100;
+}
+
+function optionalString(value: string | undefined) {
+  return value?.trim() || undefined;
+}
+
+function optionalEmail(value: string | undefined, label: string) {
+  const email = optionalString(value)?.toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ConvexError(`${label} must be a valid email address`);
+  }
+  return email;
 }
 
 export const getMyLoans = query({
@@ -51,6 +59,9 @@ export const submitApplication = mutation({
     notes: v.optional(v.string()),
     isTitleOpen: v.optional(v.boolean()),
     titleCompanyName: v.optional(v.string()),
+    titleCompanyContact: v.optional(v.string()),
+    titleCompanyContactEmail: v.optional(v.string()),
+    titleCompanyContactPhone: v.optional(v.string()),
     titlePreference: v.optional(v.string()),
     isUnderContract: v.optional(v.boolean()),
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
@@ -73,16 +84,21 @@ export const submitApplication = mutation({
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
     const terms = args.terms.trim();
-    const notes = args.notes?.trim() || undefined;
-    const titleCompanyName = args.titleCompanyName?.trim() || undefined;
-    const titlePreference = args.titlePreference?.trim() || undefined;
-    const desiredCloseDate = args.desiredCloseDate?.trim() || undefined;
+    const notes = optionalString(args.notes);
+    const titleCompanyName = args.isTitleOpen ? optionalString(args.titleCompanyName) : undefined;
+    const titleCompanyContact = args.isTitleOpen ? optionalString(args.titleCompanyContact) : undefined;
+    const titleCompanyContactEmail = args.isTitleOpen
+      ? optionalEmail(args.titleCompanyContactEmail, "Title contact email")
+      : undefined;
+    const titleCompanyContactPhone = args.isTitleOpen ? optionalString(args.titleCompanyContactPhone) : undefined;
+    const titlePreference = args.isTitleOpen === false ? optionalString(args.titlePreference) : undefined;
+    const desiredCloseDate = optionalString(args.desiredCloseDate);
 
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
 
-    const totalLoanAmount = getTotalLoanAmount(args.purchasePrice, args.rehabBudgetTotal);
+    const totalLoanAmount = args.loanAmount;
 
     if (totalLoanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
@@ -130,6 +146,10 @@ export const submitApplication = mutation({
       paymentType: "monthly",
       status: "submitted",
       notes,
+      titleCompany: titleCompanyName,
+      titleCompanyContact,
+      titleCompanyContactEmail,
+      titleCompanyContactPhone,
       isTitleOpen: args.isTitleOpen,
       titleCompanyName,
       titlePreference,
@@ -172,6 +192,15 @@ export const submitApplication = mutation({
         loanId: id,
       });
     }
+
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: profile._id,
+      type: "application_submitted",
+      title: "Loan Application Received",
+      body: `We received your loan application for ${propertyAddress}. We'll review it and email you when the status changes.`,
+      loanId: id,
+      dedupeKey: `application_received:${id}`,
+    });
 
     // Send alert email to external recipients
     await ctx.scheduler.runAfter(0, internal.email.sendLoanApplicationAlert, {

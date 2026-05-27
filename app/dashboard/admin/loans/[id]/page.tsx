@@ -70,6 +70,8 @@ function canChangeLoanStatus(
 type TitleContactOption = {
   titleCompany: string;
   titleCompanyContact?: string;
+  titleCompanyContactEmail?: string;
+  titleCompanyContactPhone?: string;
 };
 
 function getLoanAmountFromPurchaseAndRehab(purchasePrice: string, rehabBudgetTotal: string) {
@@ -125,6 +127,7 @@ export default function LoanDetailPage() {
   const [removingClosing, setRemovingClosing] = useState(false);
   const [returnFormOpen, setReturnFormOpen] = useState(false);
   const [returnSaving, setReturnSaving] = useState(false);
+  const [returnAmountManuallyEdited, setReturnAmountManuallyEdited] = useState(false);
   const [returnData, setReturnData] = useState({
     returnedDate: formatUsDate(new Date()),
     returnedAmount: "",
@@ -161,20 +164,37 @@ export default function LoanDetailPage() {
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
   const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
-  const totalPaymentsReceived = payments
-    ? payments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
-    : 0;
-  const payoffEstimate = ["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate
-    ? calculatePayoffEstimate(
-        currentPrincipalOut,
-        loan.interestRate,
-        loan.closeDate,
-        new Date(),
-        (loan.paymentType as "balloon" | "monthly") ?? "monthly",
-        totalPaymentsReceived
-      )
+  const canEstimatePayoff = Boolean(["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate);
+  const getTotalPaymentsReceivedThrough = (asOfDate: Date) =>
+    (payments ?? []).reduce((sum, payment) => {
+      if (payment.status === "missed") return sum;
+      const paymentDate = parseUsDate(payment.paymentDate);
+      if (!paymentDate || paymentDate > asOfDate) return sum;
+      return sum + payment.amount;
+    }, 0);
+  const getPayoffEstimateForDate = (asOfDate: Date) =>
+    canEstimatePayoff
+      ? calculatePayoffEstimate(
+          currentPrincipalOut,
+          loan.interestRate,
+          loan.closeDate,
+          asOfDate,
+          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
+          getTotalPaymentsReceivedThrough(asOfDate)
+        )
+      : null;
+  const payoffEstimate = getPayoffEstimateForDate(new Date());
+  const parsedReturnDate = parseUsDate(returnData.returnedDate);
+  const returnDateForInterest = parsedReturnDate ?? new Date();
+  const selectedReturnPayoffEstimate = parsedReturnDate
+    ? getPayoffEstimateForDate(parsedReturnDate)
     : null;
-  const returnDateForInterest = parseUsDate(returnData.returnedDate) ?? new Date();
+  const selectedReturnPayoffAmount = selectedReturnPayoffEstimate
+    ? String(selectedReturnPayoffEstimate.totalPayoff)
+    : "";
+  const effectiveReturnedAmount = returnAmountManuallyEdited
+    ? returnData.returnedAmount
+    : selectedReturnPayoffAmount;
   const returnMonthDailyInterest = calculateMonthlyPerDiem(
     currentPrincipalOut,
     loan.interestRate,
@@ -185,13 +205,31 @@ export default function LoanDetailPage() {
     month: "long",
     year: "numeric",
   });
-  const returnedAmountValue = Number(returnData.returnedAmount);
+  const returnedAmountValue = Number(effectiveReturnedAmount);
   const canSaveReturn = Boolean(
     returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
   );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
+  const getChargePaidAmount = (charge: { _id: Id<"loanCharges">; dueDate: string }) => {
+    const sameDueDateCharges = (charges ?? []).filter(
+      (item) => item.status !== "waived" && item.dueDate === charge.dueDate
+    );
+    const canCountUnlinkedDueDatePayments = sameDueDateCharges.length === 1;
+
+    return (payments ?? []).reduce((sum, payment) => {
+      if (payment.status === "missed") return sum;
+      if (payment.chargeId === charge._id) return sum + payment.amount;
+      if (canCountUnlinkedDueDatePayments && !payment.chargeId && payment.dueDate === charge.dueDate) {
+        return sum + payment.amount;
+      }
+      return sum;
+    }, 0);
+  };
+  const getChargeRemainingAmount = (charge: { _id: Id<"loanCharges">; dueDate: string; amount: number }) =>
+    Math.max(0, Math.round((charge.amount - getChargePaidAmount(charge)) * 100) / 100);
   const scheduledCharges = [...(charges ?? [])]
     .filter((charge) => charge.status === "scheduled")
+    .filter((charge) => getChargeRemainingAmount(charge) > 0.01)
     .sort((a, b) => {
       const aTime = parseUsDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
       const bTime = parseUsDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
@@ -225,7 +263,7 @@ export default function LoanDetailPage() {
       chargeId,
       ...(charge
         ? {
-            amount: String(charge.amount),
+            amount: String(getChargeRemainingAmount(charge)),
             dueDate: charge.dueDate,
             status: getDefaultPaymentStatus(charge.dueDate),
           }
@@ -246,16 +284,43 @@ export default function LoanDetailPage() {
   };
 
   const openReturnForm = () => {
+    const today = new Date();
+    const todayPayoffEstimate = getPayoffEstimateForDate(today);
+    setReturnAmountManuallyEdited(false);
     setReturnData({
-      returnedDate: formatUsDate(new Date()),
-      returnedAmount: payoffEstimate ? String(payoffEstimate.totalPayoff) : "",
+      returnedDate: formatUsDate(today),
+      returnedAmount: todayPayoffEstimate ? String(todayPayoffEstimate.totalPayoff) : "",
       notes: "",
     });
     setReturnFormOpen(true);
   };
 
+  const handleReturnDateChange = (returnedDate: string) => {
+    const selectedDate = parseUsDate(returnedDate);
+    const estimate = selectedDate ? getPayoffEstimateForDate(selectedDate) : null;
+
+    setReturnData((prev) => ({
+      ...prev,
+      returnedDate,
+      returnedAmount: returnAmountManuallyEdited
+        ? prev.returnedAmount
+        : estimate
+          ? String(estimate.totalPayoff)
+          : "",
+    }));
+  };
+
+  const applySelectedReturnPayoffEstimate = () => {
+    if (!selectedReturnPayoffEstimate) return;
+    setReturnAmountManuallyEdited(false);
+    setReturnData((prev) => ({
+      ...prev,
+      returnedAmount: selectedReturnPayoffAmount,
+    }));
+  };
+
   const handleRecordLoanReturned = async () => {
-    const returnedAmount = Number(returnData.returnedAmount);
+    const returnedAmount = Number(effectiveReturnedAmount);
     if (!returnData.returnedDate) return;
     if (!Number.isFinite(returnedAmount) || returnedAmount <= 0) {
       toast.error("Enter a valid amount returned");
@@ -271,6 +336,7 @@ export default function LoanDetailPage() {
       });
       setReturnFormOpen(false);
       setReturnData({ returnedDate: formatUsDate(new Date()), returnedAmount: "", notes: "" });
+      setReturnAmountManuallyEdited(false);
       toast.success("Funds returned recorded. Loan removed from monthly payment reminders.");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to record returned funds"));
@@ -299,8 +365,10 @@ export default function LoanDetailPage() {
       drawFundsUsed: loan.drawFundsUsed ? String(loan.drawFundsUsed) : "",
       closeDate: loan.closeDate ?? "",
       maturityDate: loan.maturityDate ?? "",
-      titleCompany: loan.titleCompany ?? "",
+      titleCompany: loan.titleCompany ?? loan.titleCompanyName ?? "",
       titleCompanyContact: loan.titleCompanyContact ?? "",
+      titleCompanyContactEmail: loan.titleCompanyContactEmail ?? "",
+      titleCompanyContactPhone: loan.titleCompanyContactPhone ?? "",
       strategy: loan.strategy ?? "",
       notes: loan.notes ?? "",
     });
@@ -309,11 +377,16 @@ export default function LoanDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const totalLoanAmount = getLoanAmountFromPurchaseAndRehab(
-        editData.purchasePrice,
-        editData.rehabBudgetTotal
-      );
-      const pointsEarned = calculatePoints(totalLoanAmount, DEFAULT_POINTS_PERCENTAGE);
+      const loanAmount = Number(editData.loanAmount);
+      if (!loanAmount || loanAmount <= 0) {
+        toast.error("Valid total loan amount is required");
+        return;
+      }
+      if (editData.drawFundsTotal && Number(editData.drawFundsTotal) > loanAmount) {
+        toast.error("Construction holdback cannot exceed total loan amount");
+        return;
+      }
+      const pointsEarned = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
 
       await updateLoan({
         id,
@@ -321,7 +394,7 @@ export default function LoanDetailPage() {
         entityName: editData.entityName,
         propertyAddress: editData.propertyAddress,
         purchasePrice: Number(editData.purchasePrice),
-        loanAmount: totalLoanAmount,
+        loanAmount,
         afterRepairValue: editData.afterRepairValue ? Number(editData.afterRepairValue) : undefined,
         rehabBudgetTotal: editData.rehabBudgetTotal ? Number(editData.rehabBudgetTotal) : undefined,
         terms: editData.terms,
@@ -334,8 +407,10 @@ export default function LoanDetailPage() {
         drawFundsUsed: editData.drawFundsUsed ? Number(editData.drawFundsUsed) : undefined,
         closeDate: editData.closeDate || undefined,
         maturityDate: editData.maturityDate || undefined,
-        titleCompany: editData.titleCompany || undefined,
-        titleCompanyContact: editData.titleCompanyContact || undefined,
+        titleCompany: editData.titleCompany,
+        titleCompanyContact: editData.titleCompanyContact,
+        titleCompanyContactEmail: editData.titleCompanyContactEmail,
+        titleCompanyContactPhone: editData.titleCompanyContactPhone,
         strategy: (editData.strategy || undefined) as "flip_and_resell" | "brrrr" | undefined,
         notes: editData.notes || undefined,
       });
@@ -368,6 +443,8 @@ export default function LoanDetailPage() {
         ...prev,
         titleCompany: "",
         titleCompanyContact: "",
+        titleCompanyContactEmail: "",
+        titleCompanyContactPhone: "",
       }));
       return;
     }
@@ -379,16 +456,15 @@ export default function LoanDetailPage() {
       ...prev,
       titleCompany: contact.titleCompany,
       titleCompanyContact: contact.titleCompanyContact ?? "",
+      titleCompanyContactEmail: contact.titleCompanyContactEmail ?? "",
+      titleCompanyContactPhone: contact.titleCompanyContactPhone ?? "",
     }));
   };
 
-  const updateLoanAmountParts = (updates: Partial<Record<string, string>>) => {
+  const updateLoanTermFields = (updates: Partial<Record<string, string>>) => {
     setEditData((prev) => {
       const next = { ...prev, ...updates };
-      const loanAmount = getLoanAmountFromPurchaseAndRehab(
-        next.purchasePrice ?? "",
-        next.rehabBudgetTotal ?? ""
-      );
+      const loanAmount = Number(next.loanAmount) || 0;
       const rate = Number(next.interestRate) || 0;
       const principalOut = getCurrentPrincipalOut({
         loanAmount,
@@ -400,7 +476,30 @@ export default function LoanDetailPage() {
 
       return {
         ...next,
-        loanAmount: loanAmount ? String(loanAmount) : "",
+        monthlyPayment: monthly ? String(monthly) : "",
+        pointsEarned: points ? String(points) : "",
+      };
+    });
+  };
+
+  const resetLoanAmountToProjectCost = () => {
+    setEditData((prev) => {
+      const loanAmount = getLoanAmountFromPurchaseAndRehab(
+        prev.purchasePrice ?? "",
+        prev.rehabBudgetTotal ?? ""
+      );
+      const next: Record<string, string> = { ...prev, loanAmount: loanAmount ? String(loanAmount) : "" };
+      const rate = Number(next.interestRate) || 0;
+      const principalOut = getCurrentPrincipalOut({
+        loanAmount,
+        drawFundsTotal: Number(next.drawFundsTotal) || undefined,
+        drawFundsUsed: Number(next.drawFundsUsed) || undefined,
+      });
+      const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
+      const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+
+      return {
+        ...next,
         monthlyPayment: monthly ? String(monthly) : "",
         pointsEarned: points ? String(points) : "",
       };
@@ -555,15 +654,23 @@ export default function LoanDetailPage() {
     {
       key: "_id",
       header: "",
-      render: (row) =>
-        row.status === "scheduled" ? (
+      render: (row) => {
+        if (row.status !== "scheduled") return null;
+        const remainingAmount = getChargeRemainingAmount({
+          _id: row._id as Id<"loanCharges">,
+          amount: row.amount as number,
+          dueDate: row.dueDate as string,
+        });
+        if (remainingAmount <= 0.01) return null;
+
+        return (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               openPaymentFormForCharge({
                 _id: row._id as Id<"loanCharges">,
-                amount: row.amount as number,
+                amount: remainingAmount,
                 dueDate: row.dueDate as string,
               });
             }}
@@ -571,7 +678,8 @@ export default function LoanDetailPage() {
           >
             Record
           </button>
-        ) : null,
+        );
+      },
     },
   ];
 
@@ -779,7 +887,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("purchasePrice")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ purchasePrice: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ purchasePrice: e.target.value })}
                   />
                 </div>
                 <div>
@@ -787,7 +895,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("rehabBudgetTotal")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ rehabBudgetTotal: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ rehabBudgetTotal: e.target.value })}
                   />
                 </div>
                 <div>
@@ -795,9 +903,19 @@ export default function LoanDetailPage() {
                   <input
                     {...field("loanAmount")}
                     type="number"
-                    readOnly
-                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    onChange={(e) => updateLoanTermFields({ loanAmount: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
+                  <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>Adjust if borrower brings cash to close.</span>
+                    <button
+                      type="button"
+                      onClick={resetLoanAmountToProjectCost}
+                      className="shrink-0 font-medium text-primary hover:text-primary/80"
+                    >
+                      Reset to purchase + rehab
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Terms</label>
@@ -810,7 +928,7 @@ export default function LoanDetailPage() {
                     type="number"
                     step="0.01"
                     onChange={(e) =>
-                      updateLoanAmountParts({ interestRate: e.target.value })
+                      updateLoanTermFields({ interestRate: e.target.value })
                     }
                   />
                 </div>
@@ -841,7 +959,7 @@ export default function LoanDetailPage() {
                   <select
                     value={editData.paymentType ?? "monthly"}
                     onChange={(e) =>
-                      updateLoanAmountParts({ paymentType: e.target.value })
+                      updateLoanTermFields({ paymentType: e.target.value })
                     }
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
@@ -933,13 +1051,23 @@ export default function LoanDetailPage() {
                   <label className="text-sm text-muted-foreground">Title Contact</label>
                   <input {...field("titleCompanyContact")} />
                 </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Title Contact Email</label>
+                  <input {...field("titleCompanyContactEmail")} type="email" />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Title Contact Phone</label>
+                  <input {...field("titleCompanyContactPhone")} type="tel" />
+                </div>
               </>
             ) : (
               <>
                 <DetailRow label="Close Date" value={loan.closeDate} />
                 <DetailRow label="Maturity Date" value={loan.maturityDate} />
-                <DetailRow label="Title Company" value={loan.titleCompany} />
+                <DetailRow label="Title Company" value={loan.titleCompany ?? loan.titleCompanyName} />
                 <DetailRow label="Title Contact" value={loan.titleCompanyContact} />
+                <DetailRow label="Title Contact Email" value={loan.titleCompanyContactEmail} />
+                <DetailRow label="Title Contact Phone" value={loan.titleCompanyContactPhone} />
               </>
             )}
           </div>
@@ -960,7 +1088,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("drawFundsTotal")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ drawFundsTotal: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ drawFundsTotal: e.target.value })}
                   />
                 </div>
                 <div>
@@ -968,7 +1096,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("drawFundsUsed")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ drawFundsUsed: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ drawFundsUsed: e.target.value })}
                   />
                 </div>
                 <DetailRow
@@ -1202,7 +1330,7 @@ export default function LoanDetailPage() {
                     <option value="">No scheduled charge</option>
                     {scheduledCharges.map((charge) => (
                       <option key={charge._id} value={charge._id}>
-                        {charge.dueDate} - {formatCurrency(charge.amount)}
+                        {charge.dueDate} - {formatCurrency(getChargeRemainingAmount(charge))}
                       </option>
                     ))}
                   </select>
@@ -1386,7 +1514,7 @@ export default function LoanDetailPage() {
                 <label className="mb-1 block text-sm font-medium text-muted-foreground">Return Date</label>
                 <DatePickerField
                   value={returnData.returnedDate}
-                  onChange={(value) => setReturnData((prev) => ({ ...prev, returnedDate: value }))}
+                  onChange={handleReturnDateChange}
                   required
                   ariaLabel="Return Date"
                 />
@@ -1398,16 +1526,30 @@ export default function LoanDetailPage() {
                   min="0"
                   step="0.01"
                   inputMode="decimal"
-                  value={returnData.returnedAmount}
-                  onChange={(event) => setReturnData((prev) => ({ ...prev, returnedAmount: event.target.value }))}
+                  value={effectiveReturnedAmount}
+                  onChange={(event) => {
+                    setReturnAmountManuallyEdited(true);
+                    setReturnData((prev) => ({ ...prev, returnedAmount: event.target.value }));
+                  }}
                   className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   placeholder="0.00"
                   required
                 />
-                {payoffEstimate && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Current payoff estimate: <span className="tabular-nums">{formatCurrency(payoffEstimate.totalPayoff)}</span>
-                  </p>
+                {selectedReturnPayoffEstimate && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <p>
+                      Estimated payoff for selected date: <span className="tabular-nums">{formatCurrency(selectedReturnPayoffEstimate.totalPayoff)}</span>
+                    </p>
+                    {returnAmountManuallyEdited && (
+                      <button
+                        type="button"
+                        onClick={applySelectedReturnPayoffEstimate}
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        Use estimate
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="rounded-lg bg-muted/40 p-3">
