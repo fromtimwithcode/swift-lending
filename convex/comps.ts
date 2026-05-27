@@ -254,6 +254,19 @@ function getSimilarityScore(correlation: number | undefined) {
   return Math.max(0, Math.min(100, Math.round(correlation * 100)));
 }
 
+function getRentCastApiKey() {
+  const trimmed = process.env.RENTCAST_API_KEY?.trim();
+  if (!trimmed) return undefined;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+    return trimmed.slice(1, -1).trim() || undefined;
+  }
+
+  return trimmed;
+}
+
 function normalizeRentCastComps(
   loanId: Id<"loans">,
   response: Record<string, unknown> | null,
@@ -335,16 +348,29 @@ function normalizeRentCastSummary(
 
 function getRentCastErrorMessage(status: number, body: Record<string, unknown> | null) {
   const message = getString(body, "message");
+  const code = getString(body, "error");
   if (status === 400) return message ?? "RentCast could not parse or geocode this property address.";
-  if (status === 401) return "RentCast API key, billing, or subscription is not configured correctly.";
+  if (status === 401) {
+    return message
+      ? `RentCast authentication or billing error${code ? ` (${code})` : ""}: ${message}`
+      : "RentCast API key, billing, or subscription is not configured correctly.";
+  }
   if (status === 404) return "No RentCast market comps found for this address.";
   if (status === 429) return "RentCast rate limit reached. Try again shortly.";
   if (status === 500 || status === 504) return "RentCast is temporarily unavailable. Try again shortly.";
   return message ?? "RentCast request failed.";
 }
 
+function logRentCastError(status: number, body: Record<string, unknown> | null) {
+  console.warn("RentCast comps request failed", {
+    status,
+    error: getString(body, "error"),
+    message: getString(body, "message"),
+  });
+}
+
 async function fetchRentCastValueEstimate(address: string) {
-  const apiKey = process.env.RENTCAST_API_KEY;
+  const apiKey = getRentCastApiKey();
   if (!apiKey) {
     throw new ConvexError("RENTCAST_API_KEY is not configured");
   }
@@ -366,6 +392,7 @@ async function fetchRentCastValueEstimate(address: string) {
   const body = asRecord(await response.json().catch(() => null));
 
   if (!response.ok) {
+    logRentCastError(response.status, body);
     const message = getRentCastErrorMessage(response.status, body);
     if (response.status === 400 || response.status === 404) {
       return { warning: message, data: null };
