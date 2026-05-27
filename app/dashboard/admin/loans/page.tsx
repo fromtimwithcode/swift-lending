@@ -21,17 +21,16 @@ import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  getLoanDisplayStatus,
+  getLoanDisplayStatusLabel,
+  getLoanStatusLabel,
+  isActiveLoanDisplay,
+  isClosedLoanDisplay,
+  isFundsReturnedLoan,
+} from "@/lib/loan-display";
 
-type TabFilter = "all" | "pipeline" | "closed" | "returned";
-
-const PIPELINE_STATUSES = [
-  "submitted",
-  "under_review",
-  "additional_info_needed",
-  "approved",
-  "funded",
-  "sent_to_title",
-];
+type TabFilter = "all" | "active" | "closed" | "funds_returned";
 
 const LOAN_STATUSES = [
   "submitted",
@@ -67,12 +66,12 @@ export default function AdminLoansPage() {
 
     let filtered = [...loans];
 
-    if (activeTab === "pipeline") {
-      filtered = filtered.filter((l) => PIPELINE_STATUSES.includes(l.status) && !l.returnedDate);
+    if (activeTab === "active") {
+      filtered = filtered.filter(isActiveLoanDisplay);
     } else if (activeTab === "closed") {
-      filtered = filtered.filter((l) => l.status === "closed" && !l.returnedDate);
-    } else if (activeTab === "returned") {
-      filtered = filtered.filter((l) => Boolean(l.returnedDate));
+      filtered = filtered.filter(isClosedLoanDisplay);
+    } else if (activeTab === "funds_returned") {
+      filtered = filtered.filter(isFundsReturnedLoan);
     }
 
     if (search) {
@@ -103,19 +102,19 @@ export default function AdminLoansPage() {
   const tabs = [
     { label: "All", value: "all", count: loans.length },
     {
-      label: "Pipeline",
-      value: "pipeline",
-      count: loans.filter((l) => PIPELINE_STATUSES.includes(l.status) && !l.returnedDate).length,
+      label: "Active",
+      value: "active",
+      count: loans.filter(isActiveLoanDisplay).length,
     },
     {
       label: "Closed",
       value: "closed",
-      count: loans.filter((l) => l.status === "closed" && !l.returnedDate).length,
+      count: loans.filter(isClosedLoanDisplay).length,
     },
     {
-      label: "Loans Returned",
-      value: "returned",
-      count: loans.filter((l) => Boolean(l.returnedDate)).length,
+      label: "Funds Returned",
+      value: "funds_returned",
+      count: loans.filter(isFundsReturnedLoan).length,
     },
   ];
 
@@ -155,9 +154,19 @@ export default function AdminLoansPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Loan State",
       sortable: true,
-      render: (row) => <StatusBadge status={row.status} />,
+      render: (row) => (
+        <div className="space-y-1">
+          <StatusBadge status={getLoanDisplayStatus(row)} />
+          {isActiveLoanDisplay(row) && (
+            <p className="text-xs text-muted-foreground">{getLoanStatusLabel(row.status)}</p>
+          )}
+          {isFundsReturnedLoan(row) && row.returnedDate && (
+            <p className="text-xs text-muted-foreground tabular-nums">Returned {row.returnedDate}</p>
+          )}
+        </div>
+      ),
     },
     {
       key: "closeDate",
@@ -171,7 +180,7 @@ export default function AdminLoansPage() {
       header: "Returned",
       sortable: true,
       render: (row) => row.returnedDate ? <span className="tabular-nums">{row.returnedDate}</span> : "—",
-      className: activeTab === "returned" ? "" : "hidden xl:table-cell",
+      className: activeTab === "funds_returned" ? "" : "hidden xl:table-cell",
     },
   ];
 
@@ -182,17 +191,25 @@ export default function AdminLoansPage() {
     { header: "Loan Amount", key: "loanAmount" },
     { header: "Interest Rate", key: "interestRate" },
     { header: "Monthly Payment", key: "monthlyPayment" },
-    { header: "Status", key: "status" },
+    { header: "Loan State", key: "loanState" },
+    { header: "Workflow Status", key: "workflowStatus" },
     { header: "Close Date", key: "closeDate" },
     { header: "Returned Date", key: "returnedDate" },
+    { header: "Returned Amount", key: "returnedAmount" },
     { header: "Terms", key: "terms" },
     { header: "Points Earned", key: "pointsEarned" },
   ];
 
+  const addLoanExportFields = (loan: (typeof filteredLoans)[number]) => ({
+    ...loan,
+    loanState: getLoanDisplayStatusLabel(loan),
+    workflowStatus: getLoanStatusLabel(loan.status),
+  });
+
   const exportData =
     selectedIds.size > 0
-      ? filteredLoans.filter((l) => selectedIds.has(l._id))
-      : filteredLoans;
+      ? filteredLoans.filter((l) => selectedIds.has(l._id)).map(addLoanExportFields)
+      : filteredLoans.map(addLoanExportFields);
 
   const handleBulkStatusChange = (status: string) => {
     setConfirmAction({
@@ -341,7 +358,7 @@ export default function AdminLoansPage() {
                 exportToCsv(
                   "selected-loans",
                   exportColumns,
-                  selected as unknown as Record<string, unknown>[]
+                  selected.map(addLoanExportFields) as unknown as Record<string, unknown>[]
                 );
               } catch {
                 toast.error("Export failed. Please try again.");

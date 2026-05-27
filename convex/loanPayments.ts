@@ -72,20 +72,19 @@ function getEligiblePaymentAmount(payment: LoanPaymentDoc) {
   return payment.status === "missed" ? 0 : payment.amount;
 }
 
-function hasLoggedPayment(
-  payments: LoanPaymentDoc[],
-  dueDate: string,
-  expectedAmount: number,
-  chargeId?: Id<"loanCharges">
-) {
-  const paidAmount = payments.reduce((sum, payment) => {
-    if (chargeId && (payment.chargeId === chargeId || (!payment.chargeId && payment.dueDate === dueDate))) {
-      return sum + getEligiblePaymentAmount(payment);
-    }
-    if (!chargeId && payment.dueDate === dueDate) return sum + getEligiblePaymentAmount(payment);
-    return sum;
+function roundCents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getPaidAmountForDueDate(payments: LoanPaymentDoc[], dueDate: string) {
+  return payments.reduce((sum, payment) => {
+    if (payment.dueDate !== dueDate) return sum;
+    return sum + getEligiblePaymentAmount(payment);
   }, 0);
-  return paidAmount + 0.01 >= expectedAmount;
+}
+
+function getRemainingAmount(expectedAmount: number, paidAmount: number) {
+  return Math.max(0, roundCents(expectedAmount - paidAmount));
 }
 
 function shouldTrackMonthlyPayments(loan: LoanDoc, today: Date) {
@@ -100,6 +99,13 @@ function shouldTrackMonthlyPayments(loan: LoanDoc, today: Date) {
   }
 
   return false;
+}
+
+function isPayoffOnlyInterestCharge(loan: LoanDoc, charge: LoanChargeDoc) {
+  return (
+    (loan.paymentType ?? "monthly") === "balloon" &&
+    (charge.type === "monthly_interest" || charge.type === "draw_proration")
+  );
 }
 
 function getMonthlyDueDates(loan: LoanDoc, windowEnd: Date) {
@@ -210,19 +216,30 @@ async function getReminderData(
           .query("loanCharges")
           .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
           .collect();
+    const chargesByDueDate = new Map<string, LoanChargeDoc[]>();
+    for (const charge of charges) {
+      const existing = chargesByDueDate.get(charge.dueDate);
+      if (existing) existing.push(charge);
+      else chargesByDueDate.set(charge.dueDate, [charge]);
+    }
     const chargeDueDates = new Set(charges.map((charge) => charge.dueDate));
 
     for (const charge of charges) {
+      if (isPayoffOnlyInterestCharge(loan, charge)) continue;
       if (charge.status !== "scheduled") continue;
       const dueDate = parseUsDate(charge.dueDate);
       if (!dueDate) continue;
       const dueInDays = daysUntil(dueDate, today);
       if (dueInDays > REMINDER_WINDOW_DAYS) continue;
-      if (hasLoggedPayment(payments, charge.dueDate, charge.amount, charge._id)) continue;
+      const remainingAmount = getRemainingAmount(
+        charge.amount,
+        getPaidAmountForCharge(payments, charge, chargesByDueDate.get(charge.dueDate))
+      );
+      if (remainingAmount <= 0.01) continue;
 
       addReminder(reminders, {
         loan,
-        amount: charge.amount,
+        amount: remainingAmount,
         dueDate: charge.dueDate,
         daysUntilDue: dueInDays,
         source: "scheduled_charge",
@@ -233,20 +250,20 @@ async function getReminderData(
 
     if (!shouldTrackMonthlyPayments(loan, today)) continue;
     const monthlyDueDates = getMonthlyDueDates(loan, windowEnd);
-    const shouldShowMonthlyDueDate = (monthlyDueDate: Date) => {
+    const getRemainingMonthlyAmount = (monthlyDueDate: Date) => {
       const dueDate = formatUsDate(monthlyDueDate);
-      if (chargeDueDates.has(dueDate)) return false;
-      if (daysUntil(monthlyDueDate, today) > REMINDER_WINDOW_DAYS) return false;
-      return !hasLoggedPayment(payments, dueDate, loan.monthlyPayment);
+      if (chargeDueDates.has(dueDate)) return 0;
+      if (daysUntil(monthlyDueDate, today) > REMINDER_WINDOW_DAYS) return 0;
+      return getRemainingAmount(loan.monthlyPayment, getPaidAmountForDueDate(payments, dueDate));
     };
 
     const latestUnpaidDueDate = [...monthlyDueDates]
       .filter((monthlyDueDate) => monthlyDueDate <= today)
       .reverse()
-      .find(shouldShowMonthlyDueDate);
+      .find((monthlyDueDate) => getRemainingMonthlyAmount(monthlyDueDate) > 0.01);
     const nextUnpaidDueDate = monthlyDueDates
       .filter((monthlyDueDate) => monthlyDueDate > today)
-      .find(shouldShowMonthlyDueDate);
+      .find((monthlyDueDate) => getRemainingMonthlyAmount(monthlyDueDate) > 0.01);
 
     for (const monthlyDueDate of [latestUnpaidDueDate, nextUnpaidDueDate].filter(
       (dueDate): dueDate is Date => dueDate !== undefined
@@ -256,7 +273,7 @@ async function getReminderData(
 
       addReminder(reminders, {
         loan,
-        amount: loan.monthlyPayment,
+        amount: getRemainingMonthlyAmount(monthlyDueDate),
         dueDate,
         daysUntilDue: dueInDays,
         source: "monthly_payment",
@@ -301,23 +318,35 @@ async function findChargeForPayment(
     .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
     .collect();
 
-  return charges.find(
+  const matchingCharges = charges.filter(
     (charge) =>
       charge.status === "scheduled" &&
-      charge.dueDate === args.dueDate &&
-      Math.abs(charge.amount - args.amount) < 0.01
+      charge.dueDate === args.dueDate
   );
+
+  const exactAmountMatch = matchingCharges.find((charge) => Math.abs(charge.amount - args.amount) < 0.01);
+  if (exactAmountMatch) return exactAmountMatch;
+  return matchingCharges.length === 1 ? matchingCharges[0] : undefined;
 }
 
 function isPaidPaymentStatus(status: LoanPaymentDoc["status"]) {
-  return status === "on_time" || status === "late";
+  return status !== "missed";
 }
 
-function getPaidAmountForCharge(payments: LoanPaymentDoc[], charge: LoanChargeDoc) {
+function getPaidAmountForCharge(
+  payments: LoanPaymentDoc[],
+  charge: LoanChargeDoc,
+  sameDueDateCharges?: LoanChargeDoc[]
+) {
+  const canCountUnlinkedDueDatePayments =
+    sameDueDateCharges === undefined || sameDueDateCharges.filter((item) => item.status !== "waived").length === 1;
+
   return payments.reduce((sum, payment) => {
     if (payment.status === "missed") return sum;
     if (payment.chargeId === charge._id) return sum + payment.amount;
-    if (!payment.chargeId && payment.dueDate === charge.dueDate) return sum + payment.amount;
+    if (canCountUnlinkedDueDatePayments && !payment.chargeId && payment.dueDate === charge.dueDate) {
+      return sum + payment.amount;
+    }
     return sum;
   }, 0);
 }
@@ -462,6 +491,11 @@ export const recordPayment = mutation({
     if (paymentDate > new Date()) {
       throw new ConvexError("Payment date cannot be in the future");
     }
+
+    await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+      loanId: args.loanId,
+      createdBy: admin._id,
+    });
 
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");

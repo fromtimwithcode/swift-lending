@@ -254,6 +254,7 @@ const schema = defineSchema({
     .index("by_loanId", ["loanId"])
     .index("by_borrowerId", ["borrowerId"])
     .index("by_loanId_and_type", ["loanId", "type"])
+    .index("by_loanId_and_type_and_dueDate", ["loanId", "type", "dueDate"])
     .index("by_drawRequestId", ["drawRequestId"])
     .index("by_status", ["status"]),
 

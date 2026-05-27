@@ -1,6 +1,16 @@
 import { cn } from "@/lib/utils";
 
 const statusConfig: Record<string, { label: string; className: string; dot: string }> = {
+  active: {
+    label: "Active",
+    className: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/10 dark:bg-sky-900/30 dark:text-sky-300 dark:ring-sky-400/10",
+    dot: "bg-sky-500",
+  },
+  funds_returned: {
+    label: "Funds Returned",
+    className: "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-600/10 dark:bg-teal-900/30 dark:text-teal-300 dark:ring-teal-400/10",
+    dot: "bg-teal-500",
+  },
   pending: {
     label: "Pending",
     className: "bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/10 dark:bg-yellow-900/30 dark:text-yellow-300 dark:ring-yellow-400/10",

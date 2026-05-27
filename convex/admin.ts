@@ -15,7 +15,7 @@ import {
   isPreFundingLoanStatus,
 } from "./lib/constants";
 import { parseUsDate, validateUsDate } from "./lib/dates";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
+import { calculateMonthlyInterest, calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { getDefaultInterestRate } from "./lib/settings";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
@@ -114,7 +114,6 @@ export const getOverviewStats = query({
     const defaultInterestRate = await getDefaultInterestRate(ctx);
     const activeLoans = allLoans.filter((loan) => {
       if (loan.returnedDate) return false;
-      if ((loan.paymentType ?? "monthly") === "balloon") return false;
       if (loan.status === "funded" || loan.status === "sent_to_title") return true;
 
       if (loan.status === "closed") {
@@ -145,7 +144,8 @@ export const getOverviewStats = query({
     // Status distribution for charts (eliminates need for separate getLoans call)
     const statusCounts: Record<string, number> = {};
     for (const loan of allLoans) {
-      statusCounts[loan.status] = (statusCounts[loan.status] || 0) + 1;
+      const status = loan.returnedDate ? "funds_returned" : loan.status;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
 
     // Monthly volume by close date
@@ -379,14 +379,17 @@ export const createLoan = mutation({
     }
 
     const { rehabBudgetItems, ...loanFields } = args;
-    const monthlyPayment = calculateMonthlyInterest(
-      getCurrentPrincipalOut({
-        loanAmount: canonicalLoanAmount,
-        drawFundsTotal: args.drawFundsTotal,
-        drawFundsUsed: args.drawFundsUsed,
-      }),
-      args.interestRate
-    );
+    const paymentType = args.paymentType ?? "monthly";
+    const principalOut = getCurrentPrincipalOut({
+      loanAmount: canonicalLoanAmount,
+      drawFundsTotal: args.drawFundsTotal,
+      drawFundsUsed: args.drawFundsUsed,
+    });
+    const monthlyPayment = calculateMonthlyPaymentDue({
+      principalOut,
+      annualRate: args.interestRate,
+      paymentType,
+    });
 
     const id = await ctx.db.insert("loans", {
       ...loanFields,
@@ -402,7 +405,7 @@ export const createLoan = mutation({
       notes,
       closeDate,
       maturityDate,
-      paymentType: args.paymentType ?? "monthly",
+      paymentType,
       createdBy: admin._id,
     });
 
@@ -506,6 +509,7 @@ export const updateLoan = mutation({
     const effectiveDrawFundsTotal = fields.drawFundsTotal ?? existing.drawFundsTotal;
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
     const effectiveInterestRate = fields.interestRate ?? existing.interestRate;
+    const effectivePaymentType = fields.paymentType ?? existing.paymentType ?? "monthly";
 
     if (effectiveLoanAmount <= 0) {
       throw new ConvexError("Total loan amount must be greater than 0");
@@ -564,16 +568,18 @@ export const updateLoan = mutation({
       fields.drawFundsTotal !== undefined ||
       fields.drawFundsUsed !== undefined ||
       fields.interestRate !== undefined ||
+      fields.paymentType !== undefined ||
       fields.monthlyPayment !== undefined
     ) {
-      updates.monthlyPayment = calculateMonthlyInterest(
-        getCurrentPrincipalOut({
+      updates.monthlyPayment = calculateMonthlyPaymentDue({
+        principalOut: getCurrentPrincipalOut({
           loanAmount: effectiveLoanAmount,
           drawFundsTotal: effectiveDrawFundsTotal,
           drawFundsUsed: effectiveDrawFundsUsed,
         }),
-        effectiveInterestRate
-      );
+        annualRate: effectiveInterestRate,
+        paymentType: effectivePaymentType,
+      });
     }
 
     if (Object.keys(updates).length > 0) {
@@ -595,7 +601,8 @@ export const updateLoan = mutation({
       fields.rehabBudgetTotal !== undefined ||
       fields.drawFundsTotal !== undefined ||
       fields.drawFundsUsed !== undefined ||
-      fields.interestRate !== undefined
+      fields.interestRate !== undefined ||
+      fields.paymentType !== undefined
     ) {
       await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
         loanId: id,

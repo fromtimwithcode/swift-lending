@@ -4,7 +4,7 @@ import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "./lib/loanCalculations";
+import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
 export const getAllDrawRequests = query({
   args: {
@@ -162,10 +162,11 @@ export const bulkReviewDrawRequests = mutation({
         }
         await ctx.db.patch(draw.loanId, {
           drawFundsUsed: newUsed,
-          monthlyPayment: calculateMonthlyInterest(
-            getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
-            loan.interestRate
-          ),
+          monthlyPayment: calculateMonthlyPaymentDue({
+            principalOut: getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
+            annualRate: loan.interestRate,
+            paymentType: loan.paymentType,
+          }),
         });
         if (wireDate) {
           await ctx.runMutation(internal.loanCharges.recordDrawProration, {
@@ -245,10 +246,11 @@ export const reviewDrawRequest = mutation({
         }
         await ctx.db.patch(draw.loanId, {
           drawFundsUsed: newUsed,
-          monthlyPayment: calculateMonthlyInterest(
-            getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
-            loan.interestRate
-          ),
+          monthlyPayment: calculateMonthlyPaymentDue({
+            principalOut: getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
+            annualRate: loan.interestRate,
+            paymentType: loan.paymentType,
+          }),
         });
         if (wireDate) {
           await ctx.runMutation(internal.loanCharges.recordDrawProration, {

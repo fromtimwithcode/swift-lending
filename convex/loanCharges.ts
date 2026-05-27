@@ -1,22 +1,56 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
+import { internal } from "./_generated/api";
 import { requireAdmin, requireRole } from "./lib/auth";
-import { validateUsDate } from "./lib/dates";
+import { parseUsDate, validateUsDate } from "./lib/dates";
 import {
   calculateDrawProration,
   calculateMonthlyInterest,
+  calculateMonthlyPaymentDue,
   calculatePrepaidInterest,
   getCurrentPrincipalOut,
-  getFirstMonthlyInterestPeriod,
+  getMonthlyInterestPeriods,
 } from "./lib/loanCalculations";
+
+const MONTHLY_CHARGE_WINDOW_DAYS = 14;
+const MAX_MONTHLY_INTEREST_CHARGES = 120;
+const SYNC_BATCH_SIZE = 25;
 
 const chargeStatusValidator = v.union(
   v.literal("scheduled"),
   v.literal("paid"),
   v.literal("waived")
 );
+
+function getChargeWindowEnd() {
+  const windowEnd = new Date();
+  windowEnd.setHours(0, 0, 0, 0);
+  windowEnd.setDate(windowEnd.getDate() + MONTHLY_CHARGE_WINDOW_DAYS);
+  return windowEnd;
+}
+
+function getPrincipalOutForPeriodStart(
+  loan: Doc<"loans">,
+  drawRequests: Doc<"drawRequests">[],
+  periodStart: Date
+) {
+  const datedApprovedDraws = drawRequests.filter((draw) => draw.status === "approved" && draw.wireDate);
+  if (datedApprovedDraws.length === 0) return getCurrentPrincipalOut(loan);
+
+  const drawFundsUsed = datedApprovedDraws.reduce((sum, draw) => {
+    const wireDate = parseUsDate(draw.wireDate ?? "");
+    if (!wireDate || wireDate >= periodStart) return sum;
+    return sum + draw.amountRequested;
+  }, 0);
+
+  return getCurrentPrincipalOut({
+    loanAmount: loan.loanAmount,
+    drawFundsTotal: loan.drawFundsTotal,
+    drawFundsUsed,
+  });
+}
 
 async function upsertSingleLoanCharge(
   ctx: MutationCtx,
@@ -39,8 +73,8 @@ async function upsertSingleLoanCharge(
 ) {
   const existing = await ctx.db
     .query("loanCharges")
-    .withIndex("by_loanId_and_type", (q) =>
-      q.eq("loanId", args.loanId).eq("type", args.type)
+    .withIndex("by_loanId_and_type_and_dueDate", (q) =>
+      q.eq("loanId", args.loanId).eq("type", args.type).eq("dueDate", args.dueDate)
     )
     .first();
 
@@ -83,16 +117,35 @@ export const syncInitialInterestCharges = internalMutation({
     const loan = await ctx.db.get(args.loanId);
     if (!loan || !loan.closeDate) return null;
 
-    const principalOut = getCurrentPrincipalOut(loan);
-    const monthlyInterest = calculateMonthlyInterest(principalOut, loan.interestRate);
+    const currentPrincipalOut = getCurrentPrincipalOut(loan);
+    const monthlyInterest = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+    const monthlyPayment = calculateMonthlyPaymentDue({
+      principalOut: currentPrincipalOut,
+      annualRate: loan.interestRate,
+      paymentType: loan.paymentType,
+    });
+    const drawRequests = await ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+      .collect();
+    const closeDate = parseUsDate(loan.closeDate);
+    const prepaidPrincipalOut = closeDate
+      ? getPrincipalOutForPeriodStart(loan, drawRequests, closeDate)
+      : currentPrincipalOut;
     const prepaid = calculatePrepaidInterest({
-      principalOut,
+      principalOut: prepaidPrincipalOut,
       annualRate: loan.interestRate,
       closeDate: loan.closeDate,
     });
-    const firstMonthlyPeriod = getFirstMonthlyInterestPeriod(loan.closeDate);
+    const monthlyPeriods = getMonthlyInterestPeriods({
+      closeDate: loan.closeDate,
+      maturityDate: loan.maturityDate,
+      paymentDueDay: loan.paymentDueDay,
+      windowEnd: getChargeWindowEnd(),
+      maxPeriods: MAX_MONTHLY_INTEREST_CHARGES,
+    });
 
-    await ctx.db.patch(loan._id, { monthlyPayment: monthlyInterest });
+    await ctx.db.patch(loan._id, { monthlyPayment });
 
     if (prepaid) {
       await upsertSingleLoanCharge(ctx, {
@@ -100,7 +153,7 @@ export const syncInitialInterestCharges = internalMutation({
         borrowerId: loan.borrowerId,
         type: "prepaid_interest",
         amount: prepaid.amount,
-        principalBasis: principalOut,
+        principalBasis: prepaidPrincipalOut,
         interestRate: loan.interestRate,
         periodStart: prepaid.periodStart,
         periodEnd: prepaid.periodEnd,
@@ -113,23 +166,61 @@ export const syncInitialInterestCharges = internalMutation({
       });
     }
 
-    if (firstMonthlyPeriod) {
-      await upsertSingleLoanCharge(ctx, {
-        loanId: loan._id,
-        borrowerId: loan.borrowerId,
-        type: "monthly_interest",
-        amount: monthlyInterest,
-        principalBasis: principalOut,
-        interestRate: loan.interestRate,
-        periodStart: firstMonthlyPeriod.periodStart,
-        periodEnd: firstMonthlyPeriod.periodEnd,
-        dueDate: firstMonthlyPeriod.dueDate,
-        notes: "First monthly interest payment after closing.",
-        createdBy: args.createdBy,
-      });
+    if ((loan.paymentType ?? "monthly") !== "balloon") {
+      for (const period of monthlyPeriods) {
+        const periodPrincipalOut = getPrincipalOutForPeriodStart(loan, drawRequests, period.periodStartDate);
+        const periodMonthlyInterest = calculateMonthlyInterest(periodPrincipalOut, loan.interestRate);
+        if (periodMonthlyInterest <= 0) continue;
+
+        await upsertSingleLoanCharge(ctx, {
+          loanId: loan._id,
+          borrowerId: loan.borrowerId,
+          type: "monthly_interest",
+          amount: periodMonthlyInterest,
+          principalBasis: periodPrincipalOut,
+          interestRate: loan.interestRate,
+          periodStart: period.periodStart,
+          periodEnd: period.periodEnd,
+          dueDate: period.dueDate,
+          notes: "Monthly interest payment after closing.",
+          createdBy: args.createdBy,
+        });
+      }
     }
 
-    return { principalOut, monthlyInterest };
+    return { principalOut: currentPrincipalOut, monthlyInterest, monthlyChargesSynced: monthlyPeriods.length };
+  },
+});
+
+export const syncInterestChargesForActiveLoans = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("loans")
+      .paginate({ numItems: SYNC_BATCH_SIZE, cursor: args.cursor ?? null });
+
+    let queued = 0;
+    for (const loan of results.page) {
+      if (!loan.closeDate || loan.returnedDate) continue;
+
+      await ctx.scheduler.runAfter(0, internal.loanCharges.syncInitialInterestCharges, {
+        loanId: loan._id,
+        createdBy: loan.createdBy,
+      });
+      queued++;
+    }
+
+    if (!results.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.loanCharges.syncInterestChargesForActiveLoans,
+        { cursor: results.continueCursor }
+      );
+    }
+
+    return { queued, isDone: results.isDone };
   },
 });
 
@@ -150,8 +241,14 @@ export const recordDrawProration = internalMutation({
     if (draw.loanId !== loan._id) throw new ConvexError("Draw does not belong to loan");
 
     const principalOut = getCurrentPrincipalOut(loan);
-    const monthlyInterest = calculateMonthlyInterest(principalOut, loan.interestRate);
-    await ctx.db.patch(loan._id, { monthlyPayment: monthlyInterest });
+    const monthlyPayment = calculateMonthlyPaymentDue({
+      principalOut,
+      annualRate: loan.interestRate,
+      paymentType: loan.paymentType,
+    });
+    await ctx.db.patch(loan._id, { monthlyPayment });
+
+    if ((loan.paymentType ?? "monthly") === "balloon") return null;
 
     const existing = await ctx.db
       .query("loanCharges")
