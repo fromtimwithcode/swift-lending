@@ -70,6 +70,8 @@ function canChangeLoanStatus(
 type TitleContactOption = {
   titleCompany: string;
   titleCompanyContact?: string;
+  titleCompanyContactEmail?: string;
+  titleCompanyContactPhone?: string;
 };
 
 function getLoanAmountFromPurchaseAndRehab(purchasePrice: string, rehabBudgetTotal: string) {
@@ -363,8 +365,10 @@ export default function LoanDetailPage() {
       drawFundsUsed: loan.drawFundsUsed ? String(loan.drawFundsUsed) : "",
       closeDate: loan.closeDate ?? "",
       maturityDate: loan.maturityDate ?? "",
-      titleCompany: loan.titleCompany ?? "",
+      titleCompany: loan.titleCompany ?? loan.titleCompanyName ?? "",
       titleCompanyContact: loan.titleCompanyContact ?? "",
+      titleCompanyContactEmail: loan.titleCompanyContactEmail ?? "",
+      titleCompanyContactPhone: loan.titleCompanyContactPhone ?? "",
       strategy: loan.strategy ?? "",
       notes: loan.notes ?? "",
     });
@@ -373,11 +377,16 @@ export default function LoanDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const totalLoanAmount = getLoanAmountFromPurchaseAndRehab(
-        editData.purchasePrice,
-        editData.rehabBudgetTotal
-      );
-      const pointsEarned = calculatePoints(totalLoanAmount, DEFAULT_POINTS_PERCENTAGE);
+      const loanAmount = Number(editData.loanAmount);
+      if (!loanAmount || loanAmount <= 0) {
+        toast.error("Valid total loan amount is required");
+        return;
+      }
+      if (editData.drawFundsTotal && Number(editData.drawFundsTotal) > loanAmount) {
+        toast.error("Construction holdback cannot exceed total loan amount");
+        return;
+      }
+      const pointsEarned = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
 
       await updateLoan({
         id,
@@ -385,7 +394,7 @@ export default function LoanDetailPage() {
         entityName: editData.entityName,
         propertyAddress: editData.propertyAddress,
         purchasePrice: Number(editData.purchasePrice),
-        loanAmount: totalLoanAmount,
+        loanAmount,
         afterRepairValue: editData.afterRepairValue ? Number(editData.afterRepairValue) : undefined,
         rehabBudgetTotal: editData.rehabBudgetTotal ? Number(editData.rehabBudgetTotal) : undefined,
         terms: editData.terms,
@@ -398,8 +407,10 @@ export default function LoanDetailPage() {
         drawFundsUsed: editData.drawFundsUsed ? Number(editData.drawFundsUsed) : undefined,
         closeDate: editData.closeDate || undefined,
         maturityDate: editData.maturityDate || undefined,
-        titleCompany: editData.titleCompany || undefined,
-        titleCompanyContact: editData.titleCompanyContact || undefined,
+        titleCompany: editData.titleCompany,
+        titleCompanyContact: editData.titleCompanyContact,
+        titleCompanyContactEmail: editData.titleCompanyContactEmail,
+        titleCompanyContactPhone: editData.titleCompanyContactPhone,
         strategy: (editData.strategy || undefined) as "flip_and_resell" | "brrrr" | undefined,
         notes: editData.notes || undefined,
       });
@@ -432,6 +443,8 @@ export default function LoanDetailPage() {
         ...prev,
         titleCompany: "",
         titleCompanyContact: "",
+        titleCompanyContactEmail: "",
+        titleCompanyContactPhone: "",
       }));
       return;
     }
@@ -443,16 +456,15 @@ export default function LoanDetailPage() {
       ...prev,
       titleCompany: contact.titleCompany,
       titleCompanyContact: contact.titleCompanyContact ?? "",
+      titleCompanyContactEmail: contact.titleCompanyContactEmail ?? "",
+      titleCompanyContactPhone: contact.titleCompanyContactPhone ?? "",
     }));
   };
 
-  const updateLoanAmountParts = (updates: Partial<Record<string, string>>) => {
+  const updateLoanTermFields = (updates: Partial<Record<string, string>>) => {
     setEditData((prev) => {
       const next = { ...prev, ...updates };
-      const loanAmount = getLoanAmountFromPurchaseAndRehab(
-        next.purchasePrice ?? "",
-        next.rehabBudgetTotal ?? ""
-      );
+      const loanAmount = Number(next.loanAmount) || 0;
       const rate = Number(next.interestRate) || 0;
       const principalOut = getCurrentPrincipalOut({
         loanAmount,
@@ -464,7 +476,30 @@ export default function LoanDetailPage() {
 
       return {
         ...next,
-        loanAmount: loanAmount ? String(loanAmount) : "",
+        monthlyPayment: monthly ? String(monthly) : "",
+        pointsEarned: points ? String(points) : "",
+      };
+    });
+  };
+
+  const resetLoanAmountToProjectCost = () => {
+    setEditData((prev) => {
+      const loanAmount = getLoanAmountFromPurchaseAndRehab(
+        prev.purchasePrice ?? "",
+        prev.rehabBudgetTotal ?? ""
+      );
+      const next: Record<string, string> = { ...prev, loanAmount: loanAmount ? String(loanAmount) : "" };
+      const rate = Number(next.interestRate) || 0;
+      const principalOut = getCurrentPrincipalOut({
+        loanAmount,
+        drawFundsTotal: Number(next.drawFundsTotal) || undefined,
+        drawFundsUsed: Number(next.drawFundsUsed) || undefined,
+      });
+      const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
+      const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+
+      return {
+        ...next,
         monthlyPayment: monthly ? String(monthly) : "",
         pointsEarned: points ? String(points) : "",
       };
@@ -852,7 +887,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("purchasePrice")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ purchasePrice: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ purchasePrice: e.target.value })}
                   />
                 </div>
                 <div>
@@ -860,7 +895,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("rehabBudgetTotal")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ rehabBudgetTotal: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ rehabBudgetTotal: e.target.value })}
                   />
                 </div>
                 <div>
@@ -868,9 +903,19 @@ export default function LoanDetailPage() {
                   <input
                     {...field("loanAmount")}
                     type="number"
-                    readOnly
-                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    onChange={(e) => updateLoanTermFields({ loanAmount: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
+                  <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>Adjust if borrower brings cash to close.</span>
+                    <button
+                      type="button"
+                      onClick={resetLoanAmountToProjectCost}
+                      className="shrink-0 font-medium text-primary hover:text-primary/80"
+                    >
+                      Reset to purchase + rehab
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Terms</label>
@@ -883,7 +928,7 @@ export default function LoanDetailPage() {
                     type="number"
                     step="0.01"
                     onChange={(e) =>
-                      updateLoanAmountParts({ interestRate: e.target.value })
+                      updateLoanTermFields({ interestRate: e.target.value })
                     }
                   />
                 </div>
@@ -914,7 +959,7 @@ export default function LoanDetailPage() {
                   <select
                     value={editData.paymentType ?? "monthly"}
                     onChange={(e) =>
-                      updateLoanAmountParts({ paymentType: e.target.value })
+                      updateLoanTermFields({ paymentType: e.target.value })
                     }
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
@@ -1006,13 +1051,23 @@ export default function LoanDetailPage() {
                   <label className="text-sm text-muted-foreground">Title Contact</label>
                   <input {...field("titleCompanyContact")} />
                 </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Title Contact Email</label>
+                  <input {...field("titleCompanyContactEmail")} type="email" />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Title Contact Phone</label>
+                  <input {...field("titleCompanyContactPhone")} type="tel" />
+                </div>
               </>
             ) : (
               <>
                 <DetailRow label="Close Date" value={loan.closeDate} />
                 <DetailRow label="Maturity Date" value={loan.maturityDate} />
-                <DetailRow label="Title Company" value={loan.titleCompany} />
+                <DetailRow label="Title Company" value={loan.titleCompany ?? loan.titleCompanyName} />
                 <DetailRow label="Title Contact" value={loan.titleCompanyContact} />
+                <DetailRow label="Title Contact Email" value={loan.titleCompanyContactEmail} />
+                <DetailRow label="Title Contact Phone" value={loan.titleCompanyContactPhone} />
               </>
             )}
           </div>
@@ -1033,7 +1088,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("drawFundsTotal")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ drawFundsTotal: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ drawFundsTotal: e.target.value })}
                   />
                 </div>
                 <div>
@@ -1041,7 +1096,7 @@ export default function LoanDetailPage() {
                   <input
                     {...field("drawFundsUsed")}
                     type="number"
-                    onChange={(e) => updateLoanAmountParts({ drawFundsUsed: e.target.value })}
+                    onChange={(e) => updateLoanTermFields({ drawFundsUsed: e.target.value })}
                   />
                 </div>
                 <DetailRow

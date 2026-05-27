@@ -58,6 +58,8 @@ const schema = defineSchema({
     ),
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
+    titleCompanyContactEmail: v.optional(v.string()),
+    titleCompanyContactPhone: v.optional(v.string()),
     isTitleOpen: v.optional(v.boolean()),
     titleCompanyName: v.optional(v.string()),
     titlePreference: v.optional(v.string()),
@@ -96,6 +98,8 @@ const schema = defineSchema({
     borrowerId: v.id("userProfiles"),
     titleCompany: v.string(),
     titleCompanyContact: v.optional(v.string()),
+    titleCompanyContactEmail: v.optional(v.string()),
+    titleCompanyContactPhone: v.optional(v.string()),
     normalizedKey: v.string(),
     updatedAt: v.number(),
   })

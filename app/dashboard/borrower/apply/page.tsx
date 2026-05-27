@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Local object URLs are used for pre-submit upload previews. */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
@@ -46,15 +46,20 @@ export default function LoanApplicationPage() {
     purchasePrice: "",
     afterRepairValue: "",
     rehabBudgetTotal: "",
+    loanAmount: "",
     terms: "12 months",
     notes: "",
     isTitleOpen: "" as "" | "yes" | "no",
     titleCompanyName: "",
+    titleCompanyContact: "",
+    titleCompanyContactEmail: "",
+    titleCompanyContactPhone: "",
     titlePreference: "",
     isUnderContract: "" as "" | "yes" | "no",
     acquisitionType: "" as "" | "wholesaler" | "direct_to_seller",
     desiredCloseDate: "",
   });
+  const [loanAmountEdited, setLoanAmountEdited] = useState(false);
 
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [uploadedEntityDocuments, setUploadedEntityDocuments] = useState<UploadedEntityDocument[]>([]);
@@ -66,11 +71,34 @@ export default function LoanApplicationPage() {
   });
   const purchasePrice = Number(form.purchasePrice) || 0;
   const rehabBudgetTotal = Number(form.rehabBudgetTotal) || 0;
-  const totalLoanAmount = purchasePrice + rehabBudgetTotal;
+  const defaultLoanAmount = purchasePrice + rehabBudgetTotal;
+  const totalLoanAmount = Number(form.loanAmount) || 0;
   const defaultInterestRate = loanDefaults?.defaultInterestRate ?? DEFAULT_INTEREST_RATE;
+
+  useEffect(() => {
+    if (loanAmountEdited) return;
+
+    const nextLoanAmount = defaultLoanAmount ? String(defaultLoanAmount) : "";
+    setForm((prev) => (
+      prev.loanAmount === nextLoanAmount ? prev : { ...prev, loanAmount: nextLoanAmount }
+    ));
+  }, [defaultLoanAmount, loanAmountEdited]);
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleLoanAmountChange = (value: string) => {
+    setLoanAmountEdited(true);
+    update("loanAmount", value);
+  };
+
+  const resetLoanAmount = () => {
+    setLoanAmountEdited(false);
+    setForm((prev) => ({
+      ...prev,
+      loanAmount: defaultLoanAmount ? String(defaultLoanAmount) : "",
+    }));
+  };
 
   const field = (key: string, opts?: { type?: string; placeholder?: string }) => ({
     value: form[key as keyof typeof form],
@@ -234,6 +262,9 @@ export default function LoanApplicationPage() {
         notes: form.notes || undefined,
         isTitleOpen: form.isTitleOpen === "yes" ? true : form.isTitleOpen === "no" ? false : undefined,
         titleCompanyName: form.isTitleOpen === "yes" ? form.titleCompanyName || undefined : undefined,
+        titleCompanyContact: form.isTitleOpen === "yes" ? form.titleCompanyContact || undefined : undefined,
+        titleCompanyContactEmail: form.isTitleOpen === "yes" ? form.titleCompanyContactEmail || undefined : undefined,
+        titleCompanyContactPhone: form.isTitleOpen === "yes" ? form.titleCompanyContactPhone || undefined : undefined,
         titlePreference: form.isTitleOpen === "no" ? form.titlePreference || undefined : undefined,
         isUnderContract: form.isUnderContract === "yes" ? true : form.isUnderContract === "no" ? false : undefined,
         acquisitionType:
@@ -408,15 +439,27 @@ export default function LoanApplicationPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Total Loan Amount
+                Requested Loan Amount
               </label>
               <input
-                value={totalLoanAmount ? String(totalLoanAmount) : ""}
+                value={form.loanAmount}
+                onChange={(e) => handleLoanAmountChange(e.target.value)}
                 type="number"
                 placeholder="0"
-                readOnly
-                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
+              <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>Defaults to purchase + rehab. Adjust if you will bring cash to close.</span>
+                {loanAmountEdited && (
+                  <button
+                    type="button"
+                    onClick={resetLoanAmount}
+                    className="shrink-0 font-medium text-primary hover:text-primary/80"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">
@@ -501,13 +544,39 @@ export default function LoanApplicationPage() {
             </div>
 
             {form.isTitleOpen === "yes" && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  What title company?
-                </label>
-                <input
-                  {...field("titleCompanyName", { placeholder: "Title company name" })}
-                />
+              <div className="grid gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Title Company
+                  </label>
+                  <input
+                    {...field("titleCompanyName", { placeholder: "Title company name" })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Title Contact
+                  </label>
+                  <input
+                    {...field("titleCompanyContact", { placeholder: "Contact name" })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Contact Email
+                  </label>
+                  <input
+                    {...field("titleCompanyContactEmail", { type: "email", placeholder: "name@example.com" })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Contact Phone
+                  </label>
+                  <input
+                    {...field("titleCompanyContactPhone", { type: "tel", placeholder: "(555) 555-5555" })}
+                  />
+                </div>
               </div>
             )}
 

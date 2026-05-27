@@ -20,6 +20,8 @@ const DOC_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
+const MAX_UPLOAD_BATCH_FILES = 50;
+
 type DocType = (typeof DOC_TYPES)[number]["value"];
 
 interface FileUploadDialogProps {
@@ -38,66 +40,109 @@ export function FileUploadDialog({
   onUploaded,
 }: FileUploadDialogProps) {
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
-  const saveDocument = useMutation(api.documents.saveDocument);
+  const saveDocuments = useMutation(api.documents.saveDocuments);
 
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [docType, setDocType] = useState<DocType>("other");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState("");
 
   if (!open) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
+    const selectedFiles = Array.from(e.target.files ?? []);
+    if (selectedFiles.length > MAX_UPLOAD_BATCH_FILES) {
+      setFiles([]);
+      setError(`Select up to ${MAX_UPLOAD_BATCH_FILES} files at a time.`);
+      e.target.value = "";
+      return;
+    }
+
+    setFiles(selectedFiles);
+    setError("");
+  };
+
+  const resetForm = () => {
+    setFiles([]);
+    setDocType("other");
+    setUploadProgress(null);
     setError("");
   };
 
   const handleClose = () => {
     if (uploading) return;
-    setFile(null);
-    setDocType("other");
-    setError("");
+    resetForm();
     onClose();
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      setError(`File is too large (${formatFileSize(file.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
+    const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+    if (oversizedFiles.length > 0) {
+      setError(
+        `${oversizedFiles.length} file${oversizedFiles.length === 1 ? " is" : "s are"} too large. Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)} per file.`
+      );
       return;
     }
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
     setError("");
 
     try {
-      const url = await generateUploadUrl();
-      const result = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!result.ok) throw new Error("Upload failed: " + result.statusText);
-      const { storageId } = await result.json();
+      const uploadedDocuments: Array<{
+        fileId: Id<"_storage">;
+        fileName: string;
+        fileSize: number;
+        type: DocType;
+      }> = [];
 
-      await saveDocument({
-        fileId: storageId,
-        fileName: file.name,
-        fileSize: file.size,
-        type: docType,
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        setUploadProgress({ current: index + 1, total: files.length });
+
+        const url = await generateUploadUrl();
+        const result = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!result.ok) throw new Error("Upload failed: " + result.statusText);
+        const { storageId } = await result.json();
+
+        uploadedDocuments.push({
+          fileId: storageId,
+          fileName: file.name,
+          fileSize: file.size,
+          type: docType,
+        });
+      }
+
+      await saveDocuments({
+        documents: uploadedDocuments,
         loanId,
         drawRequestId,
       });
 
       onUploaded?.();
-      handleClose();
+      resetForm();
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
+
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+  const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+  const canUpload = files.length > 0 && oversizedFiles.length === 0 && !uploading;
+  const uploadLabel = uploading && uploadProgress
+    ? `Uploading ${uploadProgress.current} of ${uploadProgress.total}`
+    : `Upload${files.length > 1 ? ` ${files.length} Files` : ""}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -116,7 +161,7 @@ export function FileUploadDialog({
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium">
-              Document Type
+              Document Type for All Files
             </label>
             <select
               value={docType}
@@ -132,19 +177,41 @@ export function FileUploadDialog({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">File</label>
+            <label className="mb-1.5 block text-sm font-medium">Files</label>
             <div className="relative">
               <input
                 type="file"
+                multiple
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
                 onChange={handleFileChange}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
             </div>
-            {file && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {file.name} ({formatFileSize(file.size)})
-              </p>
+            {files.length > 0 && (
+              <div className="mt-3 rounded-lg border border-border bg-muted/25 p-3">
+                <div className="flex items-center justify-between gap-3 text-xs font-medium">
+                  <span>
+                    {files.length} {files.length === 1 ? "file" : "files"} selected
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">{formatFileSize(totalSize)}</span>
+                </div>
+                <div className="mt-2 max-h-32 space-y-1 overflow-y-auto pr-1">
+                  {files.map((selectedFile) => {
+                    const isOversized = selectedFile.size > MAX_FILE_SIZE_BYTES;
+                    return (
+                      <div
+                        key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}`}
+                        className="flex items-center justify-between gap-3 rounded-md bg-background/70 px-2 py-1.5 text-xs"
+                      >
+                        <span className="min-w-0 truncate">{selectedFile.name}</span>
+                        <span className={isOversized ? "shrink-0 text-red-500" : "shrink-0 text-muted-foreground"}>
+                          {formatFileSize(selectedFile.size)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 
@@ -161,7 +228,7 @@ export function FileUploadDialog({
             </button>
             <button
               onClick={handleUpload}
-              disabled={!file || uploading}
+              disabled={!canUpload}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
             >
               {uploading ? (
@@ -169,7 +236,7 @@ export function FileUploadDialog({
               ) : (
                 <Upload className="size-4" />
               )}
-              Upload
+              {uploadLabel}
             </button>
           </div>
         </div>
