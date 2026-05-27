@@ -193,13 +193,15 @@ const schema = defineSchema({
     body: v.string(),
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
+    dedupeKey: v.optional(v.string()),
     isRead: v.boolean(),
     emailSent: v.boolean(),
   })
     .index("by_recipientId", ["recipientId"])
     .index("by_recipientId_and_isRead", ["recipientId", "isRead"])
     .index("by_loanId", ["loanId"])
-    .index("by_drawRequestId", ["drawRequestId"]),
+    .index("by_drawRequestId", ["drawRequestId"])
+    .index("by_dedupeKey", ["dedupeKey"]),
 
   loanPayments: defineTable({
     loanId: v.id("loans"),

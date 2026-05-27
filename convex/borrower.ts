@@ -173,6 +173,15 @@ export const submitApplication = mutation({
       });
     }
 
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: profile._id,
+      type: "application_submitted",
+      title: "Loan Application Received",
+      body: `We received your loan application for ${propertyAddress}. We'll review it and email you when the status changes.`,
+      loanId: id,
+      dedupeKey: `application_received:${id}`,
+    });
+
     // Send alert email to external recipients
     await ctx.scheduler.runAfter(0, internal.email.sendLoanApplicationAlert, {
       borrowerName: profile.displayName,

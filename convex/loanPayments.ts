@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import { DEFAULT_PAYMENT_DUE_DAY, MAX_BULK_OPERATION_SIZE, formatCurrencyPlain } from "./lib/constants";
 
 const REMINDER_WINDOW_DAYS = 14;
+const PAYMENT_REMINDER_BATCH_SIZE = 25;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const methodValidator = v.union(
@@ -129,6 +130,40 @@ function reminderStatus(days: number): "past_due" | "due_soon" {
   return days < 0 ? "past_due" : "due_soon";
 }
 
+function getNotificationCadence(daysUntilDue: number) {
+  if (daysUntilDue === 7) return "seven_days_before";
+  if (daysUntilDue === 0) return "due_today";
+  if (daysUntilDue === -1) return "one_day_past_due";
+  if (daysUntilDue < -1 && Math.abs(daysUntilDue) % 7 === 0) {
+    return `${Math.abs(daysUntilDue)}_days_past_due`;
+  }
+  return null;
+}
+
+function paymentReminderTitle(daysUntilDue: number) {
+  if (daysUntilDue < 0) return "Payment Past Due";
+  if (daysUntilDue === 0) return "Payment Due Today";
+  return "Payment Due Soon";
+}
+
+function paymentReminderBody(args: {
+  amount: number;
+  propertyAddress: string;
+  dueDate: string;
+  daysUntilDue: number;
+}) {
+  if (args.daysUntilDue < 0) {
+    const days = Math.abs(args.daysUntilDue);
+    return `${formatCurrencyPlain(args.amount)} is past due for ${args.propertyAddress}. It was due on ${args.dueDate} (${days} day${days === 1 ? "" : "s"} ago).`;
+  }
+
+  if (args.daysUntilDue === 0) {
+    return `${formatCurrencyPlain(args.amount)} is due today for ${args.propertyAddress}.`;
+  }
+
+  return `${formatCurrencyPlain(args.amount)} is due on ${args.dueDate} for ${args.propertyAddress}.`;
+}
+
 function addReminder(
   reminders: Array<{
     loanId: Id<"loans">;
@@ -177,7 +212,7 @@ function groupByLoan<T extends { loanId: Id<"loans"> }>(items: T[]) {
 }
 
 async function getReminderData(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   loans: LoanDoc[],
   preloaded?: {
     payments?: LoanPaymentDoc[];
@@ -204,6 +239,8 @@ async function getReminderData(
   const chargesByLoan = preloaded?.charges ? groupByLoan(preloaded.charges) : null;
 
   for (const loan of loans) {
+    if (loan.returnedDate) continue;
+
     const payments = paymentsByLoan
       ? paymentsByLoan.get(loan._id) ?? []
       : await ctx.db
@@ -414,6 +451,54 @@ export const getMyPaymentReminders = query({
       .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
       .collect();
     return await getReminderData(ctx, loans, { charges });
+  },
+});
+
+export const sendBorrowerPaymentReminderNotifications = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("loans")
+      .paginate({ numItems: PAYMENT_REMINDER_BATCH_SIZE, cursor: args.cursor ?? null });
+
+    let notificationsQueued = 0;
+    for (const loan of results.page) {
+      if (loan.returnedDate) continue;
+
+      const reminderData = await getReminderData(ctx, [loan]);
+      for (const reminder of reminderData.reminders) {
+        if (reminder.source !== "scheduled_charge") continue;
+        const cadence = getNotificationCadence(reminder.daysUntilDue);
+        if (!cadence) continue;
+
+        await ctx.runMutation(internal.notifications.createNotification, {
+          recipientId: loan.borrowerId,
+          type: "payment_overdue",
+          title: paymentReminderTitle(reminder.daysUntilDue),
+          body: paymentReminderBody({
+            amount: reminder.amount,
+            propertyAddress: loan.propertyAddress,
+            dueDate: reminder.dueDate,
+            daysUntilDue: reminder.daysUntilDue,
+          }),
+          loanId: loan._id,
+          dedupeKey: `payment_reminder:${loan.borrowerId}:${loan._id}:${reminder.chargeId ?? reminder.dueDate}:${cadence}`,
+        });
+        notificationsQueued++;
+      }
+    }
+
+    if (!results.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.loanPayments.sendBorrowerPaymentReminderNotifications,
+        { cursor: results.continueCursor }
+      );
+    }
+
+    return { notificationsQueued, isDone: results.isDone };
   },
 });
 

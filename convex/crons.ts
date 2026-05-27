@@ -10,4 +10,11 @@ crons.interval(
   {}
 );
 
+crons.interval(
+  "send borrower payment reminders",
+  { hours: 24 },
+  internal.loanPayments.sendBorrowerPaymentReminderNotifications,
+  {}
+);
+
 export default crons;

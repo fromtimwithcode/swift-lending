@@ -99,10 +99,19 @@ export const createNotification = internalMutation({
     body: v.string(),
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
+    dedupeKey: v.optional(v.string()),
     sendSms: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { sendSms, ...notificationFields } = args;
+    if (args.dedupeKey) {
+      const existing = await ctx.db
+        .query("notifications")
+        .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", args.dedupeKey))
+        .first();
+      if (existing) return existing._id;
+    }
+
     const id = await ctx.db.insert("notifications", {
       ...notificationFields,
       isRead: false,
@@ -112,7 +121,7 @@ export const createNotification = internalMutation({
     // Look up recipient email for email notification (skip deactivated users)
     const recipient = await ctx.db.get(args.recipientId);
     if (recipient && recipient.isActive) {
-      const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId);
+      const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId, recipient.role);
       await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
         notificationId: id,
         recipientEmail: recipient.email,
@@ -139,7 +148,8 @@ export const createNotification = internalMutation({
 function getNotificationActionPath(
   type: string,
   loanId: string | undefined,
-  drawRequestId: string | undefined
+  drawRequestId: string | undefined,
+  recipientRole?: string
 ) {
   if (drawRequestId && type === "draw_submitted") {
     return `/dashboard/admin/draws/${drawRequestId}`;
@@ -148,10 +158,15 @@ function getNotificationActionPath(
     return "/dashboard/borrower/draws";
   }
   if (!loanId) return undefined;
-  if (type === "application_submitted" || type === "document_uploaded") {
+  if (type === "application_submitted") {
+    return recipientRole === "borrower"
+      ? `/dashboard/borrower/loans/${loanId}`
+      : `/dashboard/admin/loans/${loanId}`;
+  }
+  if (type === "document_uploaded") {
     return `/dashboard/admin/loans/${loanId}`;
   }
-  if (type === "loan_status_changed") {
+  if (type === "loan_status_changed" || type === "payment_overdue") {
     return `/dashboard/borrower/loans/${loanId}`;
   }
   return undefined;

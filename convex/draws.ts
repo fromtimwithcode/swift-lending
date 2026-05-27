@@ -6,6 +6,22 @@ import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from
 import { validateUsDate } from "./lib/dates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
+function getDrawDecisionBody(args: {
+  amount: number;
+  status: "approved" | "denied";
+  propertyAddress?: string;
+  wireDate?: string;
+  adminNotes?: string;
+}) {
+  const statusLabel = DRAW_STATUS_LABELS[args.status]?.toLowerCase() ?? args.status;
+  const propertyText = args.propertyAddress ? ` for ${args.propertyAddress}` : "";
+  const wireText = args.status === "approved" && args.wireDate ? ` Wire date: ${args.wireDate}.` : "";
+  const note = args.adminNotes?.trim();
+  const noteText = note ? ` Note: ${note}` : "";
+
+  return `Your draw request for ${formatCurrencyPlain(args.amount)}${propertyText} has been ${statusLabel}.${wireText}${noteText}`;
+}
+
 export const getAllDrawRequests = query({
   args: {
     statusFilter: v.optional(
@@ -146,11 +162,12 @@ export const bulkReviewDrawRequests = mutation({
         continue;
       }
 
+      const loan = await ctx.db.get(draw.loanId);
+
       // Check fund limit before approving
       const wireDate = args.wireDate?.trim() || undefined;
       if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
       if (args.status === "approved") {
-        const loan = await ctx.db.get(draw.loanId);
         if (!loan) {
           results.push({ drawId, success: false, error: "Loan not found" });
           continue;
@@ -190,7 +207,13 @@ export const bulkReviewDrawRequests = mutation({
         recipientId: draw.borrowerId,
         type: "draw_reviewed",
         title: "Draw Request " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
-        body: `Your draw request for ${formatCurrencyPlain(draw.amountRequested)} has been ${DRAW_STATUS_LABELS[args.status]?.toLowerCase() ?? args.status}.`,
+        body: getDrawDecisionBody({
+          amount: draw.amountRequested,
+          status: args.status,
+          propertyAddress: loan?.propertyAddress,
+          wireDate,
+          adminNotes: args.adminNotes,
+        }),
         loanId: draw.loanId,
         drawRequestId: drawId,
       });
@@ -273,11 +296,18 @@ export const reviewDrawRequest = mutation({
 
     // Notify borrower only for final decisions (skip under_review — intermediate step, noisy)
     if (args.status !== "under_review") {
+      const loan = await ctx.db.get(draw.loanId);
       await ctx.runMutation(internal.notifications.createNotification, {
         recipientId: draw.borrowerId,
         type: "draw_reviewed",
         title: "Draw Request " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
-        body: `Your draw request for ${formatCurrencyPlain(draw.amountRequested)} has been ${DRAW_STATUS_LABELS[args.status]?.toLowerCase() ?? args.status}.`,
+        body: getDrawDecisionBody({
+          amount: draw.amountRequested,
+          status: args.status,
+          propertyAddress: loan?.propertyAddress,
+          wireDate,
+          adminNotes: args.adminNotes,
+        }),
         loanId: draw.loanId,
         drawRequestId: args.id,
       });
