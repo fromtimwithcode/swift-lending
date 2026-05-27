@@ -267,6 +267,7 @@ const schema = defineSchema({
   propertyComps: defineTable({
     loanId: v.id("loans"),
     sourceLoanId: v.optional(v.id("loans")),
+    externalId: v.optional(v.string()),
     address: v.string(),
     salePrice: v.number(),
     saleDate: v.string(),
@@ -275,6 +276,14 @@ const schema = defineSchema({
     bathrooms: v.optional(v.number()),
     distanceMiles: v.optional(v.number()),
     yearBuilt: v.optional(v.number()),
+    propertyType: v.optional(v.string()),
+    listingStatus: v.optional(v.string()),
+    listingType: v.optional(v.string()),
+    listedDate: v.optional(v.string()),
+    removedDate: v.optional(v.string()),
+    lastSeenDate: v.optional(v.string()),
+    daysOnMarket: v.optional(v.number()),
+    daysOld: v.optional(v.number()),
     afterRepairValue: v.optional(v.number()),
     rehabBudgetTotal: v.optional(v.number()),
     loanAmount: v.optional(v.number()),
@@ -284,6 +293,28 @@ const schema = defineSchema({
   })
     .index("by_loanId", ["loanId"])
     .index("by_sourceLoanId", ["sourceLoanId"]),
+
+  propertyCompSummaries: defineTable({
+    loanId: v.id("loans"),
+    source: v.string(),
+    estimatedValue: v.optional(v.number()),
+    priceRangeLow: v.optional(v.number()),
+    priceRangeHigh: v.optional(v.number()),
+    subjectAddress: v.optional(v.string()),
+    subjectPropertyType: v.optional(v.string()),
+    bedrooms: v.optional(v.number()),
+    bathrooms: v.optional(v.number()),
+    sqft: v.optional(v.number()),
+    lotSize: v.optional(v.number()),
+    yearBuilt: v.optional(v.number()),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+    lastSaleDate: v.optional(v.string()),
+    lastSalePrice: v.optional(v.number()),
+    fetchedAt: v.number(),
+  })
+    .index("by_loanId", ["loanId"])
+    .index("by_loanId_and_fetchedAt", ["loanId", "fetchedAt"]),
 
   activityLog: defineTable({
     userId: v.id("userProfiles"),
