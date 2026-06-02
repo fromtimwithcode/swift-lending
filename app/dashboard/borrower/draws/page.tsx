@@ -6,19 +6,24 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
+import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { HandCoins, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { type Id } from "@/convex/_generated/dataModel";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
 export default function BorrowerDrawsPage() {
   const draws = useQuery(api.borrower.getMyDrawRequests);
+  const documents = useQuery(api.documents.getMyDocuments);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
+  const [uploadDrawId, setUploadDrawId] = useState<Id<"drawRequests"> | undefined>();
 
-  if (draws === undefined) {
+  if (draws === undefined || documents === undefined) {
     return <PageSkeleton />;
   }
 
@@ -67,6 +72,7 @@ export default function BorrowerDrawsPage() {
       className: "hidden lg:table-cell",
     },
   ];
+  const openDrawUpload = (draw: DrawFolderDraw) => setUploadDrawId(draw._id);
 
   return (
     <div className="space-y-6">
@@ -128,6 +134,26 @@ export default function BorrowerDrawsPage() {
           }
         />
       )}
+
+      {draws.length > 0 && (
+        <DrawDocumentFolders
+          draws={draws}
+          documents={documents}
+          title="Draw Document Folders"
+          showProperty
+          onUploadToDraw={openDrawUpload}
+        />
+      )}
+
+      <FileUploadDialog
+        open={uploadDrawId !== undefined}
+        onClose={() => setUploadDrawId(undefined)}
+        drawRequestId={uploadDrawId}
+        drawOptions={draws}
+        defaultDocType="receipt"
+        title="Upload to Draw Folder"
+        description="Add receipts, lien waivers, photos, or supporting files to this draw."
+      />
     </div>
   );
 }

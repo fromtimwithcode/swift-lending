@@ -131,6 +131,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "draw.review": "Reviewed Draw Request",
   "draw.bulkReview": "Bulk Reviewed Draw Requests",
   "draw.submit": "Submitted Draw Request",
+  "draw.manualCreate": "Created Manual Draw Request",
   "user.createBorrower": "Created Borrower",
   "user.createInvestor": "Created Investor",
   "user.toggleActive": "Toggled User Active",

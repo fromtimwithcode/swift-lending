@@ -13,6 +13,7 @@ type PreviewDocument = {
   url?: string | null;
   propertyAddress?: string;
   entityName?: string;
+  drawWorkDescription?: string;
 };
 
 type DocumentPreviewRowProps = {
@@ -99,6 +100,11 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                   {[document.propertyAddress, document.entityName].filter(Boolean).join(" / ")}
                 </span>
               )}
+              {!compact && document.drawWorkDescription && (
+                <span className="truncate text-xs text-muted-foreground">
+                  Draw: {document.drawWorkDescription}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -146,11 +152,16 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                 <h2 id={titleId} className="truncate text-sm font-semibold sm:text-base">
                   {document.fileName}
                 </h2>
-                <div className="mt-1 flex items-center gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <StatusBadge status={document.type} />
                   {(document.propertyAddress || document.entityName) && (
                     <span className="truncate text-xs text-muted-foreground">
                       {[document.propertyAddress, document.entityName].filter(Boolean).join(" / ")}
+                    </span>
+                  )}
+                  {document.drawWorkDescription && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      Draw: {document.drawWorkDescription}
                     </span>
                   )}
                 </div>

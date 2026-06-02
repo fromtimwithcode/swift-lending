@@ -155,6 +155,7 @@ const schema = defineSchema({
     .index("by_ownerId", ["ownerId"])
     .index("by_loanId", ["loanId"])
     .index("by_type", ["type"])
+    .index("by_fileId", ["fileId"])
     .index("by_drawRequestId", ["drawRequestId"])
     .index("by_loanId_and_type", ["loanId", "type"]),
 

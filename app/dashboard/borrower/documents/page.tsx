@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
+import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { FileText, Upload, Trash2, Loader2 } from "lucide-react";
@@ -16,13 +17,15 @@ import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row"
 
 export default function BorrowerDocumentsPage() {
   const documents = useQuery(api.documents.getMyDocuments);
+  const draws = useQuery(api.borrower.getMyDrawRequests);
   const deleteDocument = useMutation(api.documents.deleteDocument);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadDrawId, setUploadDrawId] = useState<Id<"drawRequests"> | undefined>();
   const [typeFilter, setTypeFilter] = useState("all");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"documents"> | null>(null);
 
-  if (documents === undefined) {
+  if (documents === undefined || draws === undefined) {
     return <PageSkeleton />;
   }
 
@@ -49,6 +52,21 @@ export default function BorrowerDocumentsPage() {
     }
   };
 
+  const openGeneralUpload = () => {
+    setUploadDrawId(undefined);
+    setUploadOpen(true);
+  };
+
+  const openDrawUpload = (draw: DrawFolderDraw) => {
+    setUploadDrawId(draw._id);
+    setUploadOpen(true);
+  };
+
+  const closeUpload = () => {
+    setUploadOpen(false);
+    setUploadDrawId(undefined);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -63,13 +81,14 @@ export default function BorrowerDocumentsPage() {
                   { header: "File Name", key: "fileName" },
                   { header: "Type", key: "type" },
                   { header: "Property", key: "propertyAddress" },
+                  { header: "Draw", key: "drawWorkDescription" },
                 ]}
                 filename="my-documents"
                 title="My Documents"
               />
             )}
             <button
-              onClick={() => setUploadOpen(true)}
+              onClick={openGeneralUpload}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
             >
               <Upload className="size-4" />
@@ -77,6 +96,13 @@ export default function BorrowerDocumentsPage() {
             </button>
           </div>
         }
+      />
+
+      <DrawDocumentFolders
+        draws={draws}
+        documents={documents}
+        showProperty
+        onUploadToDraw={openDrawUpload}
       />
 
       {/* Type filter */}
@@ -107,17 +133,19 @@ export default function BorrowerDocumentsPage() {
               className="px-4 py-2"
             >
               <DocumentPreviewRow document={doc}>
-                <button
-                  onClick={() => setConfirmDeleteId(doc._id)}
-                  disabled={deleting === doc._id}
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 disabled:opacity-50"
-                >
-                  {deleting === doc._id ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-4" />
-                  )}
-                </button>
+                {doc.canDelete && (
+                  <button
+                    onClick={() => setConfirmDeleteId(doc._id)}
+                    disabled={deleting === doc._id}
+                    className="rounded-lg p-2 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 disabled:opacity-50"
+                  >
+                    {deleting === doc._id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </button>
+                )}
               </DocumentPreviewRow>
             </div>
           ))}
@@ -129,7 +157,7 @@ export default function BorrowerDocumentsPage() {
           description="Upload your first document to get started."
           action={
             <button
-              onClick={() => setUploadOpen(true)}
+              onClick={openGeneralUpload}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
             >
               <Upload className="size-4" />
@@ -141,7 +169,12 @@ export default function BorrowerDocumentsPage() {
 
       <FileUploadDialog
         open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+        onClose={closeUpload}
+        drawRequestId={uploadDrawId}
+        drawOptions={draws}
+        defaultDocType={uploadDrawId ? "receipt" : "other"}
+        title={uploadDrawId ? "Upload to Draw Folder" : "Upload Documents"}
+        description={uploadDrawId ? "Add receipts, lien waivers, photos, or supporting files to this draw." : "Upload general documents or choose a draw folder before uploading."}
       />
       <ConfirmDialog
         open={confirmDeleteId !== null}

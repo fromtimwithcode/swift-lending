@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Upload } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
+import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 
 function DetailRow({
   label,
@@ -43,6 +44,7 @@ export default function AdminDrawDetailPage() {
   const [notes, setNotes] = useState("");
   const [wireDate, setWireDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
@@ -214,9 +216,19 @@ export default function AdminDrawDetailPage() {
 
       {/* Documents */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Attached Documents
-        </h3>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Attached Documents
+          </h3>
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+          >
+            <Upload className="size-3" />
+            Upload
+          </button>
+        </div>
         {draw.documents && draw.documents.length > 0 ? (
           <div className="divide-y divide-border">
             {draw.documents.map((doc) => (
@@ -229,6 +241,17 @@ export default function AdminDrawDetailPage() {
           </p>
         )}
       </div>
+
+      <FileUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        loanId={draw.loanId}
+        drawRequestId={id}
+        drawOptions={[draw]}
+        defaultDocType="receipt"
+        title="Upload to Draw Folder"
+        description="Add receipts, lien waivers, photos, or supporting files to this draw."
+      />
     </div>
   );
 }
