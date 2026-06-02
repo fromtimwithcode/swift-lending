@@ -55,6 +55,7 @@ export function DocumentChecklist({
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId });
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const saveDocuments = useMutation(api.documents.saveDocuments);
+  const discardUnsavedUploads = useMutation(api.documents.discardUnsavedUploads);
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [uploadingRow, setUploadingRow] = useState<string | null>(null);
@@ -136,6 +137,8 @@ export function DocumentChecklist({
     }
 
     const skipped: string[] = [];
+    const uploadedFileIds: Id<"_storage">[] = [];
+    let metadataSaved = false;
     const documentsToSave: Array<{
       fileId: Id<"_storage">;
       fileName: string;
@@ -161,11 +164,12 @@ export function DocumentChecklist({
         const url = await generateUploadUrl();
         const result = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": file.type },
+          headers: { "Content-Type": file.type || "application/octet-stream" },
           body: file,
         });
         if (!result.ok) throw new Error("Upload failed: " + result.statusText);
         const { storageId } = await result.json();
+        uploadedFileIds.push(storageId);
 
         documentsToSave.push({
           fileId: storageId,
@@ -179,6 +183,7 @@ export function DocumentChecklist({
 
       if (documentsToSave.length > 0) {
         await saveDocuments({ documents: documentsToSave, loanId });
+        metadataSaved = true;
       }
 
       if (skipped.length > 0) {
@@ -187,6 +192,13 @@ export function DocumentChecklist({
         );
       }
     } catch (err) {
+      if (!metadataSaved && uploadedFileIds.length > 0) {
+        try {
+          await discardUnsavedUploads({ fileIds: uploadedFileIds });
+        } catch {
+          // Best-effort cleanup; keep the original upload error visible to the user.
+        }
+      }
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploadingRow(null);

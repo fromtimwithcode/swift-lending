@@ -7,6 +7,18 @@ import { internal } from "./_generated/api";
 import { MAX_FILE_SIZE_BYTES } from "./lib/constants";
 
 const MAX_DOCUMENT_BATCH_SIZE = 50;
+const ACCEPTED_CONTENT_TYPES_BY_EXTENSION: Record<string, string[]> = {
+  pdf: ["application/pdf"],
+  png: ["image/png"],
+  jpg: ["image/jpeg"],
+  jpeg: ["image/jpeg"],
+  webp: ["image/webp"],
+  doc: ["application/msword"],
+  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  xls: ["application/vnd.ms-excel"],
+  xlsx: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+};
+const ACCEPTED_FALLBACK_CONTENT_TYPES = new Set(["application/octet-stream"]);
 
 const documentTypeValidator = v.union(
   v.literal("articles"),
@@ -35,15 +47,43 @@ type DocumentInput = {
   type: DocumentType;
 };
 
+function getFileExtension(fileName: string) {
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  return extension && extension !== fileName.toLowerCase() ? extension : "";
+}
+
 function normalizeDocumentInput(doc: DocumentInput) {
   const fileName = doc.fileName.trim();
   if (!fileName) throw new ConvexError("Document file name cannot be empty");
+  const extension = getFileExtension(fileName);
+  if (!extension || !ACCEPTED_CONTENT_TYPES_BY_EXTENSION[extension]) {
+    throw new ConvexError("Unsupported document file type");
+  }
   if (doc.fileSize !== undefined) {
     if (doc.fileSize < 0) throw new ConvexError("Document file size cannot be negative");
     if (doc.fileSize > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
   }
 
   return { ...doc, fileName };
+}
+
+async function validateStoredDocument(ctx: MutationCtx, doc: DocumentInput) {
+  const metadata = await ctx.db.system.get("_storage", doc.fileId);
+  if (!metadata) throw new ConvexError("Uploaded file not found");
+  if (metadata.size > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
+
+  const extension = getFileExtension(doc.fileName);
+  const contentType = metadata.contentType?.toLowerCase();
+  const acceptedContentTypes = ACCEPTED_CONTENT_TYPES_BY_EXTENSION[extension];
+  if (
+    contentType &&
+    !acceptedContentTypes.includes(contentType) &&
+    !ACCEPTED_FALLBACK_CONTENT_TYPES.has(contentType)
+  ) {
+    throw new ConvexError("Uploaded file content type does not match the file name");
+  }
+
+  return { ...doc, fileSize: metadata.size };
 }
 
 async function verifyDocumentAccess(
@@ -158,7 +198,9 @@ async function saveDocumentBatch(
     throw new ConvexError(`Upload up to ${MAX_DOCUMENT_BATCH_SIZE} documents at a time`);
   }
 
-  const documents = args.documents.map(normalizeDocumentInput);
+  const documents = await Promise.all(
+    args.documents.map((doc) => validateStoredDocument(ctx, normalizeDocumentInput(doc)))
+  );
   const access = await verifyDocumentAccess(ctx, profile, args.loanId, args.drawRequestId);
   const ids: Id<"documents">[] = [];
 
