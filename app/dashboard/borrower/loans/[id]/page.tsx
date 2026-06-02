@@ -7,10 +7,13 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
 import { DocumentChecklist } from "@/components/dashboard/document-checklist";
+import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
+import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { calculatePayoffEstimate } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
@@ -39,9 +42,11 @@ export default function BorrowerLoanDetailPage() {
   const id = params.id as Id<"loans">;
   const loan = useQuery(api.borrower.getMyLoan, { id });
   const draws = useQuery(api.borrower.getDrawRequestsForLoan, { loanId: id });
+  const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
   const isRepeatEntity = useQuery(api.borrower.isRepeatEntity, { loanId: id });
   const loanPayments = useQuery(api.borrower.getMyLoanPayments, { loanId: id });
   const charges = useQuery(api.loanCharges.getMyChargesForLoan, { loanId: id });
+  const [uploadDrawId, setUploadDrawId] = useState<Id<"drawRequests"> | undefined>();
 
   if (loan === undefined) {
     return <DetailPageSkeleton />;
@@ -74,6 +79,7 @@ export default function BorrowerLoanDetailPage() {
   ];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
   const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const openDrawUpload = (draw: DrawFolderDraw) => setUploadDrawId(draw._id);
   const chargeColumns: Column<Record<string, unknown>>[] = [
     {
       key: "type",
@@ -405,9 +411,29 @@ export default function BorrowerLoanDetailPage() {
       </div>
 
       {/* Documents */}
+      {draws && documents && (
+        <DrawDocumentFolders
+          draws={draws}
+          documents={documents}
+          title="Draw Document Folders"
+          onUploadToDraw={openDrawUpload}
+        />
+      )}
+
       {isRepeatEntity !== undefined && (
         <DocumentChecklist loanId={id} isRepeatEntity={isRepeatEntity} />
       )}
+
+      <FileUploadDialog
+        open={uploadDrawId !== undefined}
+        onClose={() => setUploadDrawId(undefined)}
+        loanId={id}
+        drawRequestId={uploadDrawId}
+        drawOptions={draws ?? []}
+        defaultDocType="receipt"
+        title="Upload to Draw Folder"
+        description="Add receipts, lien waivers, photos, or supporting files to this draw."
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
+import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { RehabBudgetEditor } from "@/components/dashboard/rehab-budget-editor";
 import { PropertyComps } from "@/components/dashboard/property-comps";
@@ -30,7 +31,7 @@ import { formatCurrency, formatFileSize } from "@/lib/format";
 import { formatUsDate, getSixMonthMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, calculateMonthlyPerDiem, getCurrentPrincipalOut, getDaysInMonth } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE, isDrawEligibleLoanStatus } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -118,6 +119,7 @@ export default function LoanDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [drawUploadId, setDrawUploadId] = useState<Id<"drawRequests"> | undefined>();
   const [closingUploading, setClosingUploading] = useState(false);
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
@@ -210,6 +212,9 @@ export default function LoanDetailPage() {
     returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
   );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
+  const canAddDrawRequest = isDrawEligibleLoanStatus(loan.status);
+  const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
+  const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);
   const getChargePaidAmount = (charge: { _id: Id<"loanCharges">; dueDate: string }) => {
     const sameDueDateCharges = (charges ?? []).filter(
       (item) => item.status !== "waived" && item.dueDate === charge.dueDate
@@ -1444,21 +1449,32 @@ export default function LoanDetailPage() {
               Upload
             </button>
           </div>
-          {documents && documents.length > 0 ? (
+          {loanLevelDocuments.length > 0 ? (
             <div className="divide-y divide-border">
-              {documents.map((doc) => (
+              {loanLevelDocuments.map((doc) => (
                 <DocumentPreviewRow key={doc._id} document={doc} />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No documents yet</p>
+            <p className="text-sm text-muted-foreground">No loan-level documents yet</p>
           )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-            Draw Requests ({loanDraws.length})
-          </h3>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Draw Requests ({loanDraws.length})
+            </h3>
+            {canAddDrawRequest && (
+              <Link
+                href={`/dashboard/admin/draws/new?loanId=${id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+              >
+                <Plus className="size-3" />
+                Add
+              </Link>
+            )}
+          </div>
           {loanDraws.length > 0 ? (
             <div className="divide-y divide-border">
               {loanDraws.map((draw) => (
@@ -1484,6 +1500,16 @@ export default function LoanDetailPage() {
               No draw requests yet
             </p>
           )}
+          {documents && loanDraws.length > 0 && (
+            <DrawDocumentFolders
+              draws={loanDraws}
+              documents={documents}
+              title="Draw Document Folders"
+              description="Receipts, lien waivers, and supporting files attached to each draw request."
+              className="mt-5"
+              onUploadToDraw={openDrawUpload}
+            />
+          )}
         </div>
       </div>
 
@@ -1491,6 +1517,19 @@ export default function LoanDetailPage() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         loanId={id}
+        drawOptions={loanDraws}
+        title="Upload Documents"
+        description="Upload loan-level documents or choose a draw folder before uploading."
+      />
+      <FileUploadDialog
+        open={drawUploadId !== undefined}
+        onClose={() => setDrawUploadId(undefined)}
+        loanId={id}
+        drawRequestId={drawUploadId}
+        drawOptions={loanDraws}
+        defaultDocType="receipt"
+        title="Upload to Draw Folder"
+        description="Add receipts, lien waivers, photos, or supporting files to this draw."
       />
       {returnFormOpen && (
         <div

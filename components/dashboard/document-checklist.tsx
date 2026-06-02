@@ -110,7 +110,7 @@ export function DocumentChecklist({
 
   function getDocsForRow(row: DocRow) {
     if (!documents) return [];
-    return documents.filter((d) => row.types.includes(d.type as DocType));
+    return documents.filter((d) => !d.drawRequestId && row.types.includes(d.type as DocType));
   }
 
   function toggleExpanded(label: string) {

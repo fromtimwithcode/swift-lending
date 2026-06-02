@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain } from "./lib/constants";
+import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain, isDrawEligibleLoanStatus } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
@@ -129,6 +129,68 @@ export const getDrawRequest = query({
       drawFundsUsed: loan?.drawFundsUsed,
       documents: docsWithUrls,
     };
+  },
+});
+
+export const createManualDrawRequest = mutation({
+  args: {
+    loanId: v.id("loans"),
+    amountRequested: v.number(),
+    workDescription: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireRole(ctx, "admin");
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new ConvexError("Loan not found");
+    if (!isDrawEligibleLoanStatus(loan.status)) {
+      throw new ConvexError("Loan is not eligible for draw requests");
+    }
+    if (!Number.isFinite(args.amountRequested) || args.amountRequested <= 0) {
+      throw new ConvexError("Draw amount must be greater than 0");
+    }
+
+    const borrower = await ctx.db.get(loan.borrowerId);
+    if (!borrower) throw new ConvexError("Borrower not found");
+
+    const trimmedDescription = args.workDescription.trim();
+    if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
+
+    if (loan.drawFundsTotal !== undefined) {
+      let pendingTotal = 0;
+      for await (const existingDraw of ctx.db
+        .query("drawRequests")
+        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))) {
+        if (existingDraw.status === "pending" || existingDraw.status === "under_review") {
+          pendingTotal += existingDraw.amountRequested;
+        }
+      }
+
+      const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal;
+      if (args.amountRequested > available) {
+        throw new ConvexError(
+          `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`
+        );
+      }
+    }
+
+    const id = await ctx.db.insert("drawRequests", {
+      loanId: args.loanId,
+      borrowerId: loan.borrowerId,
+      amountRequested: args.amountRequested,
+      workDescription: trimmedDescription,
+      status: "pending",
+    });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "draw.manualCreate",
+      entityType: "draw",
+      entityId: id,
+      details: `Manually created draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}`,
+    });
+
+    return id;
   },
 });
 

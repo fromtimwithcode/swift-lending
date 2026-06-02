@@ -11,9 +11,10 @@ import { SearchInput } from "@/components/dashboard/search-input";
 import { StatusTabFilter } from "@/components/dashboard/status-tab-filter";
 import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
-import { HandCoins, Check, XCircle } from "lucide-react";
+import { HandCoins, Check, XCircle, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
@@ -140,12 +141,21 @@ export default function AdminDrawsPage() {
         title="Draw Requests"
         description={`${draws.length} total draw request${draws.length !== 1 ? "s" : ""}`}
         actions={
-          <ExportButton
-            data={filtered as unknown as Record<string, unknown>[]}
-            columns={exportColumns}
-            filename="draw-requests"
-            title="Draw Requests Report"
-          />
+          <div className="flex items-center gap-2">
+            <ExportButton
+              data={filtered as unknown as Record<string, unknown>[]}
+              columns={exportColumns}
+              filename="draw-requests"
+              title="Draw Requests Report"
+            />
+            <Link
+              href="/dashboard/admin/draws/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+            >
+              <Plus className="size-4" />
+              Add Draw Request
+            </Link>
+          </div>
         }
       />
 
@@ -178,7 +188,18 @@ export default function AdminDrawsPage() {
         <EmptyState
           icon={HandCoins}
           title={search || activeTab !== "all" ? "No matching draw requests" : "No draw requests"}
-          description={search || activeTab !== "all" ? "Try adjusting your search or filter." : "Draw requests from borrowers will appear here."}
+          description={search || activeTab !== "all" ? "Try adjusting your search or filter." : "Borrower-submitted and manually created draw requests will appear here."}
+          action={
+            !search && activeTab === "all" ? (
+              <Link
+                href="/dashboard/admin/draws/new"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              >
+                <Plus className="size-4" />
+                Add Draw Request
+              </Link>
+            ) : undefined
+          }
         />
       )}
 

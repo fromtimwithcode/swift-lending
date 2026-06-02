@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers } from "./lib/auth";
@@ -53,22 +53,67 @@ async function verifyDocumentAccess(
   drawRequestId: Id<"drawRequests"> | undefined
 ) {
   let loan = loanId ? await ctx.db.get(loanId) : null;
+  let resolvedLoanId = loanId;
 
-  if (profile.role === "borrower" && loanId && (!loan || loan.borrowerId !== profile._id)) {
+  if (loanId && !loan) {
+    throw new ConvexError("Loan not found");
+  }
+
+  if (profile.role === "borrower" && loan && loan.borrowerId !== profile._id) {
     throw new ConvexError("Not your loan");
   }
 
   if (drawRequestId) {
     const draw = await ctx.db.get(drawRequestId);
-    if (profile.role === "borrower" && (!draw || draw.borrowerId !== profile._id)) {
+    if (!draw) throw new ConvexError("Draw request not found");
+    if (loanId && draw.loanId !== loanId) {
+      throw new ConvexError("Draw request does not belong to this loan");
+    }
+    if (profile.role === "borrower" && draw.borrowerId !== profile._id) {
       throw new ConvexError("Not your draw request");
     }
-    if (!loan && draw?.loanId) {
+    resolvedLoanId = draw.loanId;
+    if (!loan || loan._id !== draw.loanId) {
       loan = await ctx.db.get(draw.loanId);
     }
+    if (!loan) throw new ConvexError("Loan not found");
   }
 
-  return loan;
+  return { loan, loanId: resolvedLoanId };
+}
+
+async function enrichDocuments(ctx: QueryCtx, docs: Doc<"documents">[]) {
+  const drawIds = [...new Set(docs.filter((doc) => doc.drawRequestId).map((doc) => doc.drawRequestId!))];
+  const drawMap = new Map(
+    (await Promise.all(drawIds.map((id) => ctx.db.get(id)))).map((draw, index) => [drawIds[index], draw])
+  );
+  const loanIds = [
+    ...new Set([
+      ...docs.filter((doc) => doc.loanId).map((doc) => doc.loanId!),
+      ...[...drawMap.values()].filter((draw) => draw?.loanId).map((draw) => draw!.loanId),
+    ]),
+  ];
+  const loanMap = new Map(
+    (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((loan, index) => [loanIds[index], loan])
+  );
+
+  return await Promise.all(
+    docs.map(async (doc) => {
+      const draw = doc.drawRequestId ? drawMap.get(doc.drawRequestId) : null;
+      const loan = doc.loanId ? loanMap.get(doc.loanId) : draw ? loanMap.get(draw.loanId) : null;
+
+      return {
+        ...doc,
+        url: await ctx.storage.getUrl(doc.fileId),
+        propertyAddress: loan?.propertyAddress,
+        entityName: loan?.entityName,
+        drawAmountRequested: draw?.amountRequested,
+        drawWorkDescription: draw?.workDescription,
+        drawStatus: draw?.status,
+        drawCreatedAt: draw?._creationTime,
+      };
+    })
+  );
 }
 
 async function notifyBorrowerDocumentUpload(
@@ -114,13 +159,13 @@ async function saveDocumentBatch(
   }
 
   const documents = args.documents.map(normalizeDocumentInput);
-  const loan = await verifyDocumentAccess(ctx, profile, args.loanId, args.drawRequestId);
+  const access = await verifyDocumentAccess(ctx, profile, args.loanId, args.drawRequestId);
   const ids: Id<"documents">[] = [];
 
   for (const doc of documents) {
     ids.push(await ctx.db.insert("documents", {
       ownerId: profile._id,
-      loanId: args.loanId,
+      loanId: access.loanId,
       drawRequestId: args.drawRequestId,
       type: doc.type,
       fileId: doc.fileId,
@@ -129,7 +174,7 @@ async function saveDocumentBatch(
     }));
   }
 
-  await notifyBorrowerDocumentUpload(ctx, profile, args.loanId, loan, documents);
+  await notifyBorrowerDocumentUpload(ctx, profile, access.loanId, access.loan, documents);
 
   return ids;
 }
@@ -180,6 +225,26 @@ export const saveDocuments = mutation({
   },
 });
 
+export const discardUnsavedUploads = mutation({
+  args: {
+    fileIds: v.array(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    await requireAnyRole(ctx, ["admin", "borrower"]);
+    if (args.fileIds.length > MAX_DOCUMENT_BATCH_SIZE) {
+      throw new ConvexError(`Discard up to ${MAX_DOCUMENT_BATCH_SIZE} uploaded files at a time`);
+    }
+
+    for (const fileId of [...new Set(args.fileIds)]) {
+      const savedDocument = await ctx.db
+        .query("documents")
+        .withIndex("by_fileId", (q) => q.eq("fileId", fileId))
+        .first();
+      if (!savedDocument) await ctx.storage.delete(fileId);
+    }
+  },
+});
+
 export const getDocumentsForLoan = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
@@ -198,12 +263,7 @@ export const getDocumentsForLoan = query({
       .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
       .collect();
 
-    return await Promise.all(
-      docs.map(async (doc) => ({
-        ...doc,
-        url: await ctx.storage.getUrl(doc.fileId),
-      }))
-    );
+    return await enrichDocuments(ctx, docs);
   },
 });
 
@@ -212,24 +272,30 @@ export const getMyDocuments = query({
   handler: async (ctx) => {
     const profile = await requireRole(ctx, "borrower");
 
-    const docs = await ctx.db
+    const ownedDocs = await ctx.db
       .query("documents")
       .withIndex("by_ownerId", (q) => q.eq("ownerId", profile._id))
       .collect();
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", profile._id))
+      .collect();
+    const loanDocs = (
+      await Promise.all(
+        loans.map((loan) =>
+          ctx.db
+            .query("documents")
+            .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+            .collect()
+        )
+      )
+    ).flat();
+    const docs = Array.from(new Map([...ownedDocs, ...loanDocs].map((doc) => [doc._id, doc])).values());
 
-    // Batch-load unique loans instead of N+1
-    const loanIds = [...new Set(docs.filter((d) => d.loanId).map((d) => d.loanId!))];
-    const loanMap = new Map(
-      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
-    );
-
-    return await Promise.all(
-      docs.map(async (doc) => ({
-        ...doc,
-        url: await ctx.storage.getUrl(doc.fileId),
-        propertyAddress: doc.loanId ? loanMap.get(doc.loanId)?.propertyAddress : undefined,
-      }))
-    );
+    return (await enrichDocuments(ctx, docs)).map((doc) => ({
+      ...doc,
+      canDelete: doc.ownerId === profile._id,
+    }));
   },
 });
 
