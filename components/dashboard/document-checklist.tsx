@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { DOC_TYPE_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize } from "@/lib/format";
 import {
   CheckCircle2,
@@ -199,7 +200,7 @@ export function DocumentChecklist({
           // Best-effort cleanup; keep the original upload error visible to the user.
         }
       }
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(getErrorMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploadingRow(null);
       setUploadProgress(null);

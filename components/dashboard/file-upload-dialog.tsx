@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { getErrorMessage } from "@/lib/errors";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -244,7 +245,7 @@ export function FileUploadDialog({
           // Best-effort cleanup; keep the original upload error visible to the user.
         }
       }
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(getErrorMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploading(false);
       setUploadProgress(null);
