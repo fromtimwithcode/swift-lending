@@ -19,6 +19,8 @@ import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { DatePickerField } from "@/components/dashboard/date-picker-field";
+import { getErrorMessage } from "@/lib/errors";
 
 type TabFilter = "all" | "pending" | "under_review" | "approved" | "denied";
 
@@ -30,7 +32,8 @@ export default function AdminDrawsPage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ title: string; action: () => Promise<void> } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; status: "approved" | "denied" } | null>(null);
+  const [bulkWireDate, setBulkWireDate] = useState("");
 
   const filtered = useMemo(() => {
     if (!draws) return [];
@@ -110,30 +113,49 @@ export default function AdminDrawsPage() {
     const label = status === "approved" ? "Approve" : "Deny";
     setConfirmAction({
       title: `${label} ${selectedIds.size} draw request(s)?`,
-      action: async () => {
-        const drawIds = [...selectedIds] as Id<"drawRequests">[];
-        setBulkLoading(true);
-        try {
-          const results = await bulkReview({ drawIds, status });
-          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-          if (failures.length > 0) {
-            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} failed`);
-          } else {
-            toast.success(`${results.length} draw request(s) ${status}`);
-          }
-          setSelectedIds(new Set());
-        } catch {
-          toast.error(`Bulk ${label.toLowerCase()} failed. Please try again.`);
-        } finally {
-          setBulkLoading(false);
-          setConfirmAction(null);
-        }
-      },
+      status,
     });
+    setBulkWireDate("");
+  };
+
+  const handleConfirmBulkAction = async () => {
+    if (!confirmAction) return;
+    if (bulkLoading) return;
+    if (confirmAction.status === "approved" && !bulkWireDate.trim()) {
+      toast.error("Wire date is required to approve draws");
+      return;
+    }
+
+    const drawIds = [...selectedIds] as Id<"drawRequests">[];
+    setBulkLoading(true);
+    try {
+      const results = await bulkReview({
+        drawIds,
+        status: confirmAction.status,
+        wireDate: confirmAction.status === "approved" ? bulkWireDate : undefined,
+      });
+      const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
+      if (failures.length > 0) {
+        toast.warning(`${results.length - failures.length} succeeded, ${failures.length} failed`);
+      } else {
+        toast.success(`${results.length} draw request(s) ${confirmAction.status}`);
+      }
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(getErrorMessage(err, `Bulk ${confirmAction.status} failed. Please try again.`));
+    } finally {
+      setBulkLoading(false);
+      setConfirmAction(null);
+      setBulkWireDate("");
+    }
   };
 
   const handleBulkApprove = () => handleBulkAction("approved");
   const handleBulkDeny = () => handleBulkAction("denied");
+  const handleCancelBulkAction = () => {
+    setConfirmAction(null);
+    setBulkWireDate("");
+  };
 
   return (
     <div className="space-y-6">
@@ -224,11 +246,27 @@ export default function AdminDrawsPage() {
       <ConfirmDialog
         open={confirmAction !== null}
         title={confirmAction?.title ?? ""}
-        confirmLabel="Confirm"
+        description={confirmAction?.status === "approved" ? "Approved draws will use this wire date for prorated interest." : undefined}
+        confirmLabel={confirmAction?.status === "approved" ? "Approve" : "Confirm"}
         loading={bulkLoading}
-        onConfirm={() => confirmAction?.action()}
-        onCancel={() => setConfirmAction(null)}
-      />
+        onConfirm={handleConfirmBulkAction}
+        onCancel={handleCancelBulkAction}
+      >
+        {confirmAction?.status === "approved" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Wire Date <span className="text-red-500">*</span>
+            </label>
+            <DatePickerField
+              value={bulkWireDate}
+              onChange={setBulkWireDate}
+              placeholder="Select wire date"
+              required
+              ariaLabel="Bulk approval wire date"
+            />
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

@@ -152,10 +152,14 @@ function getNotificationActionPath(
   recipientRole?: string
 ) {
   if (drawRequestId && type === "draw_submitted") {
-    return `/dashboard/admin/draws/${drawRequestId}`;
+    return recipientRole === "borrower"
+      ? "/dashboard/borrower/draws"
+      : `/dashboard/admin/draws/${drawRequestId}`;
   }
   if (type === "draw_reviewed") {
-    return "/dashboard/borrower/draws";
+    return recipientRole === "admin" || recipientRole === "developer"
+      ? drawRequestId ? `/dashboard/admin/draws/${drawRequestId}` : "/dashboard/admin/draws"
+      : "/dashboard/borrower/draws";
   }
   if (!loanId) return undefined;
   if (type === "application_submitted") {

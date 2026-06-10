@@ -112,6 +112,7 @@ export default function LoanDetailPage() {
   const attachClosingStatement = useMutation(api.admin.attachClosingStatement);
   const removeClosingStatement = useMutation(api.admin.removeClosingStatement);
   const recordLoanReturned = useMutation(api.admin.recordLoanReturned);
+  const createManualDraw = useMutation(api.draws.createManualDrawRequest);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const recordPayment = useMutation(api.loanPayments.recordPayment);
   const deletePayment = useMutation(api.loanPayments.deletePayment);
@@ -130,6 +131,10 @@ export default function LoanDetailPage() {
   const [returnFormOpen, setReturnFormOpen] = useState(false);
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnAmountManuallyEdited, setReturnAmountManuallyEdited] = useState(false);
+  const [drawFormOpen, setDrawFormOpen] = useState(false);
+  const [drawAmount, setDrawAmount] = useState("");
+  const [drawDescription, setDrawDescription] = useState("");
+  const [drawSaving, setDrawSaving] = useState(false);
   const [returnData, setReturnData] = useState({
     returnedDate: formatUsDate(new Date()),
     returnedAmount: "",
@@ -213,6 +218,13 @@ export default function LoanDetailPage() {
   );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
   const canAddDrawRequest = isDrawEligibleLoanStatus(loan.status);
+  const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && drawRequests === undefined;
+  const pendingDrawTotal = loanDraws
+    .filter((draw) => draw.status === "pending" || draw.status === "under_review")
+    .reduce((sum, draw) => sum + draw.amountRequested, 0);
+  const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
+    ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingDrawTotal
+    : undefined;
   const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
   const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);
   const getChargePaidAmount = (charge: { _id: Id<"loanCharges">; dueDate: string }) => {
@@ -351,6 +363,7 @@ export default function LoanDetailPage() {
   };
 
   const startEditing = () => {
+    setDrawFormOpen(false);
     setEditing(true);
     setEditData({
       borrowerName: loan.borrowerName,
@@ -425,6 +438,51 @@ export default function LoanDetailPage() {
       toast.error(getErrorMessage(err, "Failed to save loan"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateDraw = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (drawSaving) return;
+    if (!canAddDrawRequest) {
+      toast.error("Loan is not eligible for draw requests");
+      return;
+    }
+    if (drawAvailabilityLoading) {
+      toast.error("Draw availability is still loading");
+      return;
+    }
+    if (!drawAmount || !drawDescription.trim()) {
+      toast.error("Please fill in all draw request fields");
+      return;
+    }
+
+    const requestedAmount = Number(drawAmount);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      toast.error("Draw amount must be greater than 0");
+      return;
+    }
+    if (drawRequestAvailable !== undefined && requestedAmount > drawRequestAvailable) {
+      toast.error(`Amount exceeds available funds (${formatCurrency(Math.max(0, drawRequestAvailable))})`);
+      return;
+    }
+
+    setDrawSaving(true);
+    try {
+      const drawId = await createManualDraw({
+        loanId: id,
+        amountRequested: requestedAmount,
+        workDescription: drawDescription,
+      });
+      setDrawAmount("");
+      setDrawDescription("");
+      setDrawFormOpen(false);
+      toast.success("Draw request created. Opening review.");
+      router.push(`/dashboard/admin/draws/${drawId}`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create draw request"));
+    } finally {
+      setDrawSaving(false);
     }
   };
 
@@ -1079,12 +1137,28 @@ export default function LoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-1 text-sm font-medium text-muted-foreground">
-            Construction Holdback
-          </h3>
-          <p className="mb-4 text-xs text-muted-foreground">
-            Approved draws subtract from the holdback amount to calculate draw remaining.
-          </p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Construction Holdback
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Approved draws subtract from the holdback amount to calculate draw remaining.
+              </p>
+            </div>
+            {!editing && canAddDrawRequest && (
+              <button
+                type="button"
+                onClick={() => setDrawFormOpen((open) => !open)}
+                aria-expanded={drawFormOpen}
+                aria-controls="admin-inline-draw-form"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-transform hover:bg-primary/80 active:scale-[0.96]"
+              >
+                <Plus className="size-3" />
+                New Draw
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             {editing ? (
               <>
@@ -1115,7 +1189,7 @@ export default function LoanDetailPage() {
               <>
                 <DetailRow
                   label="Construction Holdback Amount"
-                  value={loan.drawFundsTotal ? formatCurrency(loan.drawFundsTotal) : undefined}
+                  value={loan.drawFundsTotal !== undefined ? formatCurrency(loan.drawFundsTotal) : undefined}
                 />
                 <DetailRow
                   label="Approved Draws Used"
@@ -1127,6 +1201,21 @@ export default function LoanDetailPage() {
                     ? formatCurrency(Math.max(0, loan.drawFundsTotal - (loan.drawFundsUsed ?? 0)))
                     : undefined}
                 />
+                {pendingDrawTotal > 0 && (
+                  <DetailRow
+                    label="Pending Draw Requests"
+                    value={formatCurrency(pendingDrawTotal)}
+                  />
+                )}
+                {drawRequestAvailable !== undefined && (
+                  <DetailRow
+                    label="Available to Request"
+                    value={formatCurrency(Math.max(0, drawRequestAvailable))}
+                  />
+                )}
+                {drawAvailabilityLoading && (
+                  <DetailRow label="Available to Request" value="Loading..." />
+                )}
                 <DetailRow
                   label="Current Principal Out"
                   value={formatCurrency(currentPrincipalOut)}
@@ -1134,6 +1223,89 @@ export default function LoanDetailPage() {
               </>
             )}
           </div>
+          {drawFormOpen && !editing && (
+            <form id="admin-inline-draw-form" onSubmit={handleCreateDraw} className="mt-5 rounded-lg bg-muted/50 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold">New Draw</h4>
+                  <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                    Creates a pending draw request and opens it for review.
+                  </p>
+                </div>
+                {drawRequestAvailable !== undefined && (
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                    <p className="text-muted-foreground">Available</p>
+                    <p className="font-semibold tabular-nums text-primary">
+                      {formatCurrency(Math.max(0, drawRequestAvailable))}
+                    </p>
+                  </div>
+                )}
+                {drawAvailabilityLoading && (
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                    <p className="text-muted-foreground">Available</p>
+                    <p className="font-semibold text-muted-foreground">Loading...</p>
+                  </div>
+                )}
+              </div>
+              {drawRequestAvailable !== undefined && drawRequestAvailable <= 0 && (
+                <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                  There are no available draw funds after approved and pending draws.
+                </p>
+              )}
+              <div className="grid gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Amount Requested <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    max={drawRequestAvailable !== undefined ? Math.max(0, drawRequestAvailable) : undefined}
+                    inputMode="decimal"
+                    required
+                    disabled={drawSaving}
+                    value={drawAmount}
+                    onChange={(event) => setDrawAmount(event.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Work Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={drawDescription}
+                    onChange={(event) => setDrawDescription(event.target.value)}
+                    rows={3}
+                    required
+                    disabled={drawSaving}
+                    placeholder="Describe the completed work or draw purpose..."
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDrawFormOpen(false)}
+                  disabled={drawSaving}
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={drawSaving || drawAvailabilityLoading || (drawRequestAvailable !== undefined && drawRequestAvailable <= 0)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                >
+                  {drawSaving && <Loader2 className="size-4 animate-spin" />}
+                  Create Draw
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
 

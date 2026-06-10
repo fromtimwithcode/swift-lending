@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useCallback, useId } from "react";
+import { useEffect, useCallback, useId, type ReactNode } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -14,6 +14,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   variant?: "default" | "destructive";
   loading?: boolean;
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   variant = "default",
   loading = false,
+  children,
 }: ConfirmDialogProps) {
   const titleId = useId();
   const handleEscape = useCallback(
@@ -75,6 +77,7 @@ export function ConfirmDialog({
                   {description}
                 </p>
               )}
+              {children && <div className="mt-5">{children}</div>}
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   onClick={onCancel}

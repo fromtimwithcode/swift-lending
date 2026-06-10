@@ -21,11 +21,6 @@ type AutocompleteResponse = {
   };
 };
 
-function getGoogleErrorMessage(data: AutocompleteResponse | null, fallback: string) {
-  if (!data?.error?.message) return fallback;
-  return data.error.status ? `${data.error.status}: ${data.error.message}` : data.error.message;
-}
-
 export async function GET(request: NextRequest) {
   const input = request.nextUrl.searchParams.get("input");
   if (!input || input.trim().length < 3 || input.length > 200) {
@@ -34,7 +29,8 @@ export async function GET(request: NextRequest) {
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ predictions: [], error: "API key not configured" });
+    console.warn("GOOGLE_MAPS_API_KEY is not configured");
+    return NextResponse.json({ predictions: [], error: "Address suggestions unavailable" });
   }
 
   const controller = new AbortController();
@@ -63,9 +59,13 @@ export async function GET(request: NextRequest) {
     const data = (await res.json().catch(() => null)) as AutocompleteResponse | null;
 
     if (!res.ok) {
+      console.warn("Places autocomplete request failed", {
+        status: res.status,
+        googleStatus: data?.error?.status,
+      });
       return NextResponse.json({
         predictions: [],
-        error: getGoogleErrorMessage(data, "Places autocomplete request failed"),
+        error: "Address suggestions unavailable",
       });
     }
 
