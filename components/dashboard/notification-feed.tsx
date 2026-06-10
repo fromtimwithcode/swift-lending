@@ -35,6 +35,11 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
   const getLink = (n: { type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     const base = `/dashboard/${rolePrefix}`;
     if (n.type === "message_received") return `${base}/messages`;
+    if (n.type === "draw_submitted" && n.drawRequestId) {
+      return rolePrefix === "admin"
+        ? `/dashboard/admin/draws/${n.drawRequestId}`
+        : `${base}/draws`;
+    }
     if (n.type === "draw_reviewed" && n.drawRequestId) {
       return rolePrefix === "admin"
         ? `/dashboard/admin/draws/${n.drawRequestId}`

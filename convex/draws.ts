@@ -181,6 +181,15 @@ export const createManualDrawRequest = mutation({
       status: "pending",
     });
 
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: loan.borrowerId,
+      type: "draw_submitted",
+      title: "Draw Request Created",
+      body: `${admin.displayName} created a draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}.`,
+      loanId: args.loanId,
+      drawRequestId: id,
+    });
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
@@ -211,6 +220,12 @@ export const bulkReviewDrawRequests = mutation({
       throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
 
+    const wireDate = args.wireDate?.trim() || undefined;
+    if (args.status === "approved" && !wireDate) {
+      throw new ConvexError("Wire date is required to approve draws");
+    }
+    if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
+
     const results: { drawId: string; success: boolean; error?: string }[] = [];
 
     for (const drawId of args.drawIds) {
@@ -227,11 +242,13 @@ export const bulkReviewDrawRequests = mutation({
       const loan = await ctx.db.get(draw.loanId);
 
       // Check fund limit before approving
-      const wireDate = args.wireDate?.trim() || undefined;
-      if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
       if (args.status === "approved") {
         if (!loan) {
           results.push({ drawId, success: false, error: "Loan not found" });
+          continue;
+        }
+        if (!isDrawEligibleLoanStatus(loan.status)) {
+          results.push({ drawId, success: false, error: "Loan is not eligible for draw requests" });
           continue;
         }
         const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
@@ -324,27 +341,29 @@ export const reviewDrawRequest = mutation({
     if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
-      if (loan) {
-        const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
-        if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
-          throw new ConvexError("Draw would exceed fund limit");
-        }
-        await ctx.db.patch(draw.loanId, {
-          drawFundsUsed: newUsed,
-          monthlyPayment: calculateMonthlyPaymentDue({
-            principalOut: getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
-            annualRate: loan.interestRate,
-            paymentType: loan.paymentType,
-          }),
+      if (!loan) throw new ConvexError("Loan not found");
+      if (!isDrawEligibleLoanStatus(loan.status)) {
+        throw new ConvexError("Loan is not eligible for draw requests");
+      }
+      const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+      if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
+        throw new ConvexError("Draw would exceed fund limit");
+      }
+      await ctx.db.patch(draw.loanId, {
+        drawFundsUsed: newUsed,
+        monthlyPayment: calculateMonthlyPaymentDue({
+          principalOut: getCurrentPrincipalOut({ ...loan, drawFundsUsed: newUsed }),
+          annualRate: loan.interestRate,
+          paymentType: loan.paymentType,
+        }),
+      });
+      if (wireDate) {
+        await ctx.runMutation(internal.loanCharges.recordDrawProration, {
+          loanId: draw.loanId,
+          drawRequestId: args.id,
+          wireDate,
+          createdBy: admin._id,
         });
-        if (wireDate) {
-          await ctx.runMutation(internal.loanCharges.recordDrawProration, {
-            loanId: draw.loanId,
-            drawRequestId: args.id,
-            wireDate,
-            createdBy: admin._id,
-          });
-        }
       }
     }
 

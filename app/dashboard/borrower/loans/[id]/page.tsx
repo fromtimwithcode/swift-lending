@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -10,7 +10,7 @@ import { DocumentChecklist } from "@/components/dashboard/document-checklist";
 import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -19,6 +19,8 @@ import { calculatePayoffEstimate } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, isDrawEligibleLoanStatus } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 function DetailRow({
   label,
@@ -46,7 +48,12 @@ export default function BorrowerLoanDetailPage() {
   const isRepeatEntity = useQuery(api.borrower.isRepeatEntity, { loanId: id });
   const loanPayments = useQuery(api.borrower.getMyLoanPayments, { loanId: id });
   const charges = useQuery(api.loanCharges.getMyChargesForLoan, { loanId: id });
+  const submitDraw = useMutation(api.borrower.submitDrawRequest);
   const [uploadDrawId, setUploadDrawId] = useState<Id<"drawRequests"> | undefined>();
+  const [drawFormOpen, setDrawFormOpen] = useState(false);
+  const [drawAmount, setDrawAmount] = useState("");
+  const [drawDescription, setDrawDescription] = useState("");
+  const [drawSaving, setDrawSaving] = useState(false);
 
   if (loan === undefined) {
     return <DetailPageSkeleton />;
@@ -79,7 +86,59 @@ export default function BorrowerLoanDetailPage() {
   ];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
   const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && draws === undefined;
+  const pendingDrawTotal = (draws ?? [])
+    .filter((draw) => draw.status === "pending" || draw.status === "under_review")
+    .reduce((sum, draw) => sum + draw.amountRequested, 0);
+  const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
+    ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingDrawTotal
+    : undefined;
   const openDrawUpload = (draw: DrawFolderDraw) => setUploadDrawId(draw._id);
+
+  const handleSubmitDraw = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (drawSaving) return;
+    if (!isDrawEligibleLoanStatus(loan.status)) {
+      toast.error("This loan is not eligible for draw requests");
+      return;
+    }
+    if (drawAvailabilityLoading) {
+      toast.error("Draw availability is still loading");
+      return;
+    }
+    if (!drawAmount || !drawDescription.trim()) {
+      toast.error("Please fill in all draw request fields");
+      return;
+    }
+
+    const requestedAmount = Number(drawAmount);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      toast.error("Draw amount must be greater than 0");
+      return;
+    }
+    if (drawRequestAvailable !== undefined && requestedAmount > drawRequestAvailable) {
+      toast.error(`Amount exceeds available funds (${formatCurrency(Math.max(0, drawRequestAvailable))})`);
+      return;
+    }
+
+    setDrawSaving(true);
+    try {
+      await submitDraw({
+        loanId: id,
+        amountRequested: requestedAmount,
+        workDescription: drawDescription,
+      });
+      setDrawAmount("");
+      setDrawDescription("");
+      setDrawFormOpen(false);
+      toast.success("Draw request submitted");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to submit draw request"));
+    } finally {
+      setDrawSaving(false);
+    }
+  };
+
   const chargeColumns: Column<Record<string, unknown>>[] = [
     {
       key: "type",
@@ -208,55 +267,143 @@ export default function BorrowerLoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-            Draw Funds
-          </h3>
-          {(() => {
-            const pendingTotal = (draws ?? [])
-              .filter((d) => (d.status as string) === "pending" || (d.status as string) === "under_review")
-              .reduce((sum, d) => sum + (d.amountRequested as number), 0);
-            const available = loan.drawFundsTotal !== undefined
-              ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal
-              : undefined;
-            return (
-              <div className="space-y-3">
-                <DetailRow
-                  label="Total Draw Funds"
-                  value={
-                    loan.drawFundsTotal !== undefined
-                      ? formatCurrency(loan.drawFundsTotal)
-                      : undefined
-                  }
-                />
-                <DetailRow
-                  label="Used"
-                  value={
-                    loan.drawFundsUsed !== undefined
-                      ? formatCurrency(loan.drawFundsUsed)
-                      : "$0"
-                  }
-                />
-                {pendingTotal > 0 && (
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-                    <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
-                      Pending
-                    </span>
-                    <span className="text-sm text-amber-600 font-medium">
-                      {formatCurrency(pendingTotal)}
-                    </span>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Draw Funds
+            </h3>
+            {isDrawEligibleLoanStatus(loan.status) && (
+              <button
+                type="button"
+                onClick={() => setDrawFormOpen((open) => !open)}
+                aria-expanded={drawFormOpen}
+                aria-controls="borrower-inline-draw-form"
+                className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-transform hover:bg-primary/80 active:scale-[0.96]"
+              >
+                Request Draw
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            <DetailRow
+              label="Total Draw Funds"
+              value={
+                loan.drawFundsTotal !== undefined
+                  ? formatCurrency(loan.drawFundsTotal)
+                  : undefined
+              }
+            />
+            <DetailRow
+              label="Used"
+              value={
+                loan.drawFundsUsed !== undefined
+                  ? formatCurrency(loan.drawFundsUsed)
+                  : "$0"
+              }
+            />
+            {pendingDrawTotal > 0 && (
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+                <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
+                  Pending
+                </span>
+                <span className="text-sm font-medium text-amber-600 tabular-nums">
+                  {formatCurrency(pendingDrawTotal)}
+                </span>
+              </div>
+            )}
+            {drawRequestAvailable !== undefined ? (
+              <DetailRow
+                label="Available"
+                value={formatCurrency(Math.max(0, drawRequestAvailable))}
+              />
+            ) : drawAvailabilityLoading ? (
+              <DetailRow label="Available" value="Loading..." />
+            ) : (
+              <DetailRow label="Available" value={undefined} />
+            )}
+          </div>
+          {drawFormOpen && (
+            <form id="borrower-inline-draw-form" onSubmit={handleSubmitDraw} className="mt-5 rounded-lg bg-muted/50 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold">Request Draw</h4>
+                  <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                    Submit a pending draw request for admin review.
+                  </p>
+                </div>
+                {drawRequestAvailable !== undefined && (
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                    <p className="text-muted-foreground">Available</p>
+                    <p className="font-semibold tabular-nums text-primary">
+                      {formatCurrency(Math.max(0, drawRequestAvailable))}
+                    </p>
                   </div>
                 )}
-                <DetailRow
-                  label="Available"
-                  value={
-                    available !== undefined
-                      ? formatCurrency(available)
-                      : undefined
-                  }
-                />
+                {drawAvailabilityLoading && (
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                    <p className="text-muted-foreground">Available</p>
+                    <p className="font-semibold text-muted-foreground">Loading...</p>
+                  </div>
+                )}
               </div>
-            );
-          })()}
+              {drawRequestAvailable !== undefined && drawRequestAvailable <= 0 && (
+                <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                  There are no available draw funds after approved and pending draws.
+                </p>
+              )}
+              <div className="grid gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Amount Requested <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    max={drawRequestAvailable !== undefined ? Math.max(0, drawRequestAvailable) : undefined}
+                    inputMode="decimal"
+                    required
+                    disabled={drawSaving}
+                    value={drawAmount}
+                    onChange={(event) => setDrawAmount(event.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Work Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={drawDescription}
+                    onChange={(event) => setDrawDescription(event.target.value)}
+                    rows={3}
+                    required
+                    disabled={drawSaving}
+                    placeholder="Describe the completed work..."
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDrawFormOpen(false)}
+                  disabled={drawSaving}
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={drawSaving || drawAvailabilityLoading || (drawRequestAvailable !== undefined && drawRequestAvailable <= 0)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                >
+                  {drawSaving && <Loader2 className="size-4 animate-spin" />}
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
 
