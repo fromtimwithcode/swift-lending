@@ -17,7 +17,7 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { calculatePayoffEstimate } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, isDrawEligibleLoanStatus } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -98,7 +98,7 @@ export default function BorrowerLoanDetailPage() {
   const handleSubmitDraw = async (event: React.FormEvent) => {
     event.preventDefault();
     if (drawSaving) return;
-    if (!isDrawEligibleLoanStatus(loan.status)) {
+    if (!isDrawEligibleLoan(loan)) {
       toast.error("This loan is not eligible for draw requests");
       return;
     }
@@ -271,7 +271,7 @@ export default function BorrowerLoanDetailPage() {
             <h3 className="text-sm font-medium text-muted-foreground">
               Draw Funds
             </h3>
-            {isDrawEligibleLoanStatus(loan.status) && (
+            {isDrawEligibleLoan(loan) && (
               <button
                 type="button"
                 onClick={() => setDrawFormOpen((open) => !open)}
@@ -538,7 +538,7 @@ export default function BorrowerLoanDetailPage() {
           <h3 className="text-sm font-medium text-muted-foreground">
             Draw Requests
           </h3>
-          {isDrawEligibleLoanStatus(loan.status) && (
+          {isDrawEligibleLoan(loan) && (
             <Link
               href={`/dashboard/borrower/draws/new?loanId=${id}`}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"

@@ -31,7 +31,7 @@ import { formatCurrency, formatFileSize } from "@/lib/format";
 import { formatUsDate, getSixMonthMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, calculateMonthlyPerDiem, getCurrentPrincipalOut, getDaysInMonth } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE, isDrawEligibleLoanStatus } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -217,7 +217,7 @@ export default function LoanDetailPage() {
     returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
   );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
-  const canAddDrawRequest = isDrawEligibleLoanStatus(loan.status);
+  const canAddDrawRequest = isDrawEligibleLoan(loan);
   const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && drawRequests === undefined;
   const pendingDrawTotal = loanDraws
     .filter((draw) => draw.status === "pending" || draw.status === "under_review")

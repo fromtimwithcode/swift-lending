@@ -52,11 +52,15 @@ export function isPipelineLoanStatus(status: string) {
   return (PIPELINE_LOAN_STATUSES as readonly string[]).includes(status);
 }
 
-/** Loan statuses that can submit borrower draw requests. */
-export const DRAW_ELIGIBLE_LOAN_STATUSES = ["funded", "sent_to_title"] as const;
+/** Loan statuses that can create draw requests while funds are still outstanding. */
+export const DRAW_ELIGIBLE_LOAN_STATUSES = ["approved", "funded", "sent_to_title", "closed"] as const;
 
 export function isDrawEligibleLoanStatus(status: string) {
   return (DRAW_ELIGIBLE_LOAN_STATUSES as readonly string[]).includes(status);
+}
+
+export function isDrawEligibleLoan(loan: { status: string; returnedDate?: string | null }) {
+  return !loan.returnedDate && isDrawEligibleLoanStatus(loan.status);
 }
 
 /** Draw request status labels for display */

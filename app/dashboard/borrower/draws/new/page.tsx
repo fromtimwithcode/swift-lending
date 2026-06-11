@@ -8,7 +8,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
-import { isDrawEligibleLoanStatus } from "@/convex/lib/constants";
+import { isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -24,7 +24,7 @@ export default function NewDrawRequestPage() {
   const [saving, setSaving] = useState(false);
 
   const loans = useQuery(api.borrower.getMyLoans);
-  const drawEligibleLoans = loans?.filter((l) => isDrawEligibleLoanStatus(l.status)) ?? [];
+  const drawEligibleLoans = loans?.filter(isDrawEligibleLoan) ?? [];
   const selectedLoan = drawEligibleLoans.find((l) => l._id === loanId);
   const draws = useQuery(
     api.borrower.getDrawRequestsForLoan,
@@ -92,7 +92,7 @@ export default function NewDrawRequestPage() {
       {drawEligibleLoans.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <p className="text-muted-foreground">
-            You don&apos;t have any loans eligible for draw requests.
+            Eligible loans must be approved, funded, sent to title, or closed with funds still outstanding.
           </p>
         </div>
       ) : (
