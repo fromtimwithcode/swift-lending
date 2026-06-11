@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole, getAdminLikeUsers } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoanStatus } from "./lib/constants";
+import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoan } from "./lib/constants";
 import { getDefaultInterestRate } from "./lib/settings";
 
 function getMonthlyPayment(loanAmount: number, interestRate: number) {
@@ -271,7 +271,7 @@ export const submitDrawRequest = mutation({
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
     if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
-    if (!isDrawEligibleLoanStatus(loan.status)) {
+    if (!isDrawEligibleLoan(loan)) {
       throw new ConvexError("Loan is not eligible for draw requests");
     }
     if (!Number.isFinite(args.amountRequested) || args.amountRequested <= 0) {

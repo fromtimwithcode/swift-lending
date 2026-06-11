@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain, isDrawEligibleLoanStatus } from "./lib/constants";
+import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain, isDrawEligibleLoan } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 
@@ -142,7 +142,7 @@ export const createManualDrawRequest = mutation({
     const admin = await requireRole(ctx, "admin");
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
-    if (!isDrawEligibleLoanStatus(loan.status)) {
+    if (!isDrawEligibleLoan(loan)) {
       throw new ConvexError("Loan is not eligible for draw requests");
     }
     if (!Number.isFinite(args.amountRequested) || args.amountRequested <= 0) {
@@ -247,7 +247,7 @@ export const bulkReviewDrawRequests = mutation({
           results.push({ drawId, success: false, error: "Loan not found" });
           continue;
         }
-        if (!isDrawEligibleLoanStatus(loan.status)) {
+        if (!isDrawEligibleLoan(loan)) {
           results.push({ drawId, success: false, error: "Loan is not eligible for draw requests" });
           continue;
         }
@@ -342,7 +342,7 @@ export const reviewDrawRequest = mutation({
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
       if (!loan) throw new ConvexError("Loan not found");
-      if (!isDrawEligibleLoanStatus(loan.status)) {
+      if (!isDrawEligibleLoan(loan)) {
         throw new ConvexError("Loan is not eligible for draw requests");
       }
       const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
