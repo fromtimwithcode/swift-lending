@@ -3,6 +3,7 @@
 import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 type PaymentReminder = {
   loanId: string;
@@ -60,7 +61,12 @@ export function PaymentRemindersCard({
   showBorrower = true,
   onLoanClick,
 }: PaymentRemindersCardProps) {
+  const [activeFilter, setActiveFilter] = useState<PaymentReminder["status"] | null>(null);
   const reminders = data?.reminders ?? [];
+  const filteredReminders = activeFilter
+    ? reminders.filter((reminder) => reminder.status === activeFilter)
+    : reminders;
+  const visibleReminders = activeFilter ? filteredReminders : reminders.slice(0, 6);
   const hasReminders = reminders.length > 0;
 
   return (
@@ -90,14 +96,32 @@ export function PaymentRemindersCard({
 
         {data && (
           <div className="grid grid-cols-3 gap-2 text-center sm:min-w-80">
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-red-700 dark:bg-red-950/30 dark:text-red-300">
+            <button
+              type="button"
+              onClick={() => setActiveFilter((current) => current === "past_due" ? null : "past_due")}
+              disabled={data.pastDueCount === 0}
+              aria-pressed={activeFilter === "past_due"}
+              className={cn(
+                "rounded-lg bg-red-50 px-3 py-2 text-red-700 transition-[box-shadow,opacity,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-950/30 dark:text-red-300",
+                activeFilter === "past_due" && "ring-2 ring-red-500/40 ring-offset-2 ring-offset-background"
+              )}
+            >
               <p className="text-[11px] font-medium uppercase tracking-wide">Past Due</p>
               <p className="text-lg font-bold tabular-nums">{data.pastDueCount}</p>
-            </div>
-            <div className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter((current) => current === "due_soon" ? null : "due_soon")}
+              disabled={data.dueSoonCount === 0}
+              aria-pressed={activeFilter === "due_soon"}
+              className={cn(
+                "rounded-lg bg-amber-50 px-3 py-2 text-amber-700 transition-[box-shadow,opacity,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-950/30 dark:text-amber-300",
+                activeFilter === "due_soon" && "ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background"
+              )}
+            >
               <p className="text-[11px] font-medium uppercase tracking-wide">Due Soon</p>
               <p className="text-lg font-bold tabular-nums">{data.dueSoonCount}</p>
-            </div>
+            </button>
             <div className="rounded-lg bg-muted/60 px-3 py-2">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total Due</p>
               <p className="text-lg font-bold tabular-nums">{formatCurrency(data.totalAmountDue)}</p>
@@ -111,49 +135,72 @@ export function PaymentRemindersCard({
           Loading payment reminders...
         </div>
       ) : hasReminders ? (
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/60">
-          {reminders.slice(0, 6).map((reminder) => (
-            <button
-              key={`${reminder.loanId}-${reminder.dueDate}-${reminder.type}-${reminder.chargeId ?? "monthly"}`}
-              type="button"
-              onClick={() => onLoanClick?.(reminder.loanId)}
-              disabled={!onLoanClick}
-              className={cn(
-                "flex min-h-16 w-full flex-col gap-3 p-4 text-left transition-[background-color,scale] duration-150 sm:flex-row sm:items-center sm:justify-between",
-                onLoanClick && "hover:bg-muted/40 active:scale-[0.96]"
-              )}
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
-                      reminder.status === "past_due"
-                        ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
-                    )}
-                  >
-                    {statusLabel(reminder.status)}
-                  </span>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {TYPE_LABELS[reminder.type] ?? reminder.type}
-                  </span>
-                </div>
-                <p className="mt-2 truncate text-sm font-semibold">
-                  {showBorrower ? `${reminder.borrowerName} - ` : ""}{reminder.propertyAddress}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {dueText(reminder.daysUntilDue)} on <span className="tabular-nums">{reminder.dueDate}</span>
-                </p>
-              </div>
+        <>
+          {activeFilter && (
+            <div className="mb-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground">
+                Showing {filteredReminders.length} {statusLabel(activeFilter).toLowerCase()} payment{filteredReminders.length === 1 ? "" : "s"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveFilter(null)}
+                className="self-start rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:self-auto"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
 
-              <div className="flex items-center gap-3 sm:shrink-0">
-                {reminder.status === "past_due" && <AlertTriangle className="size-4 text-red-500" />}
-                <span className="text-sm font-bold tabular-nums">{formatCurrency(reminder.amount)}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+          {visibleReminders.length > 0 ? (
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/60">
+              {visibleReminders.map((reminder) => (
+                <button
+                  key={`${reminder.loanId}-${reminder.dueDate}-${reminder.type}-${reminder.chargeId ?? "monthly"}`}
+                  type="button"
+                  onClick={() => onLoanClick?.(reminder.loanId)}
+                  disabled={!onLoanClick}
+                  className={cn(
+                    "flex min-h-16 w-full flex-col gap-3 p-4 text-left transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:flex-row sm:items-center sm:justify-between",
+                    onLoanClick && "hover:bg-muted/40 active:scale-[0.96]"
+                  )}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
+                          reminder.status === "past_due"
+                            ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                        )}
+                      >
+                        {statusLabel(reminder.status)}
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {TYPE_LABELS[reminder.type] ?? reminder.type}
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-sm font-semibold">
+                      {showBorrower ? `${reminder.borrowerName} - ` : ""}{reminder.propertyAddress}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {dueText(reminder.daysUntilDue)} on <span className="tabular-nums">{reminder.dueDate}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 sm:shrink-0">
+                    {reminder.status === "past_due" && <AlertTriangle className="size-4 text-red-500" />}
+                    <span className="text-sm font-bold tabular-nums">{formatCurrency(reminder.amount)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+              No {activeFilter ? statusLabel(activeFilter).toLowerCase() : "matching"} payments in this window.
+            </div>
+          )}
+        </>
       ) : (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
           No upcoming or past due payments need logging.

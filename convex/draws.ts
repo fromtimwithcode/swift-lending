@@ -5,10 +5,11 @@ import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain, isDrawEligibleLoan } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
+import { notifyTeam } from "./lib/notifications";
 
 function getDrawDecisionBody(args: {
   amount: number;
-  status: "approved" | "denied";
+  status: "under_review" | "approved" | "denied";
   propertyAddress?: string;
   wireDate?: string;
   adminNotes?: string;
@@ -18,6 +19,10 @@ function getDrawDecisionBody(args: {
   const wireText = args.status === "approved" && args.wireDate ? ` Wire date: ${args.wireDate}.` : "";
   const note = args.adminNotes?.trim();
   const noteText = note ? ` Note: ${note}` : "";
+
+  if (args.status === "under_review") {
+    return `Your draw request for ${formatCurrencyPlain(args.amount)}${propertyText} is now under review.${noteText}`;
+  }
 
   return `Your draw request for ${formatCurrencyPlain(args.amount)}${propertyText} has been ${statusLabel}.${wireText}${noteText}`;
 }
@@ -188,6 +193,25 @@ export const createManualDrawRequest = mutation({
       body: `${admin.displayName} created a draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}.`,
       loanId: args.loanId,
       drawRequestId: id,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "draw_submitted",
+      title: "Draw Request Created",
+      body: `${admin.displayName} created a draw request for ${borrower.displayName} for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}.`,
+      loanId: args.loanId,
+      drawRequestId: id,
+      details: [
+        { label: "Borrower", value: borrower.displayName },
+        { label: "Property address", value: loan.propertyAddress },
+        { label: "Amount requested", value: formatCurrencyPlain(args.amountRequested) },
+        { label: "Work description", value: trimmedDescription },
+        { label: "Created by", value: admin.displayName },
+      ],
+      actionPath: `/dashboard/admin/draws/${id}`,
+      actionLabel: "View Draw Request",
+      sendSms: true,
     });
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -295,12 +319,29 @@ export const bulkReviewDrawRequests = mutation({
         }),
         loanId: draw.loanId,
         drawRequestId: drawId,
+        sendSms: true,
       });
 
       results.push({ drawId, success: true });
     }
 
     const successCount = results.filter((r) => r.success).length;
+    if (successCount > 0) {
+      await notifyTeam(ctx, {
+        type: "draw_reviewed",
+        title: "Draw Requests " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
+        body: `${admin.displayName} bulk ${args.status} ${successCount}/${args.drawIds.length} draw requests.`,
+        details: [
+          { label: "Updated by", value: admin.displayName },
+          { label: "Status", value: DRAW_STATUS_LABELS[args.status] ?? args.status },
+          { label: "Successful updates", value: `${successCount}/${args.drawIds.length}` },
+        ],
+        actionPath: "/dashboard/admin/draws",
+        actionLabel: "View Draw Requests",
+        sendSms: true,
+      });
+    }
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
@@ -375,24 +416,47 @@ export const reviewDrawRequest = mutation({
       reviewedAt: Date.now(),
     });
 
-    // Notify borrower only for final decisions (skip under_review — intermediate step, noisy)
-    if (args.status !== "under_review") {
-      const loan = await ctx.db.get(draw.loanId);
-      await ctx.runMutation(internal.notifications.createNotification, {
-        recipientId: draw.borrowerId,
-        type: "draw_reviewed",
-        title: "Draw Request " + (DRAW_STATUS_LABELS[args.status] ?? args.status),
-        body: getDrawDecisionBody({
-          amount: draw.amountRequested,
-          status: args.status,
-          propertyAddress: loan?.propertyAddress,
-          wireDate,
-          adminNotes: args.adminNotes,
-        }),
-        loanId: draw.loanId,
-        drawRequestId: args.id,
-      });
-    }
+    const [loan, borrower] = await Promise.all([
+      ctx.db.get(draw.loanId),
+      ctx.db.get(draw.borrowerId),
+    ]);
+    const borrowerBody = getDrawDecisionBody({
+      amount: draw.amountRequested,
+      status: args.status,
+      propertyAddress: loan?.propertyAddress,
+      wireDate,
+      adminNotes: args.adminNotes,
+    });
+    const statusLabel = DRAW_STATUS_LABELS[args.status] ?? args.status;
+
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: draw.borrowerId,
+      type: "draw_reviewed",
+      title: "Draw Request " + statusLabel,
+      body: borrowerBody,
+      loanId: draw.loanId,
+      drawRequestId: args.id,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "draw_reviewed",
+      title: "Draw Request " + statusLabel,
+      body: `${admin.displayName} marked ${borrower?.displayName ?? "a borrower"}'s draw request for ${formatCurrencyPlain(draw.amountRequested)}${loan ? ` on ${loan.propertyAddress}` : ""} as ${statusLabel}.`,
+      loanId: draw.loanId,
+      drawRequestId: args.id,
+      details: [
+        { label: "Borrower", value: borrower?.displayName ?? "Unknown" },
+        { label: "Property address", value: loan?.propertyAddress ?? "Unknown" },
+        { label: "Amount requested", value: formatCurrencyPlain(draw.amountRequested) },
+        { label: "Status", value: statusLabel },
+        { label: "Updated by", value: admin.displayName },
+        ...(wireDate ? [{ label: "Wire date", value: wireDate }] : []),
+      ],
+      actionPath: `/dashboard/admin/draws/${args.id}`,
+      actionLabel: "View Draw Request",
+      sendSms: true,
+    });
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,

@@ -151,6 +151,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "payment.record": "Recorded Payment",
   "payment.delete": "Deleted Payment",
   "payment.bulkDelete": "Bulk Deleted Payments",
+  "charge.remove": "Removed Charge",
   "document.delete": "Deleted Document",
   "comps.fetch": "Fetched Property Comps",
   "user.create": "Created User",

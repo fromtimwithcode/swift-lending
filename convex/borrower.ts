@@ -1,9 +1,10 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { requireRole, getAdminLikeUsers } from "./lib/auth";
+import { requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoan } from "./lib/constants";
 import { getDefaultInterestRate } from "./lib/settings";
+import { notifyTeam } from "./lib/notifications";
 
 function getMonthlyPayment(loanAmount: number, interestRate: number) {
   return Math.round((interestRate / 100 / 12) * loanAmount * 100) / 100;
@@ -23,6 +24,14 @@ function optionalEmail(value: string | undefined, label: string) {
     throw new ConvexError(`${label} must be a valid email address`);
   }
   return email;
+}
+
+function optionalCurrency(value: number | undefined) {
+  return value === undefined ? "Not provided" : formatCurrencyPlain(value);
+}
+
+function optionalDetail(value: string | undefined) {
+  return value?.trim() || "Not provided";
 }
 
 export const getMyLoans = query({
@@ -181,33 +190,52 @@ export const submitApplication = mutation({
       });
     }
 
-    // Notify all admins/developers
-    const adminLikeUsers = await getAdminLikeUsers(ctx);
-    for (const admin of adminLikeUsers) {
-      await ctx.runMutation(internal.notifications.createNotification, {
-        recipientId: admin._id,
-        type: "application_submitted",
-        title: "New Loan Application",
-        body: `${profile.displayName} submitted a loan application for ${propertyAddress}.`,
-        loanId: id,
-      });
-    }
+    const titleCompanyDisplay = titleCompanyName ?? titlePreference;
+    const applicationDetails = [
+      { label: "Borrower", value: profile.displayName },
+      { label: "Property address", value: propertyAddress },
+      { label: "Purchase price", value: formatCurrencyPlain(args.purchasePrice) },
+      { label: "Rehab amount", value: formatCurrencyPlain(args.rehabBudgetTotal ?? 0) },
+      { label: "ARV", value: optionalCurrency(args.afterRepairValue) },
+      { label: "Total loan amount", value: formatCurrencyPlain(totalLoanAmount) },
+      { label: "Desired close date", value: optionalDetail(desiredCloseDate) },
+      { label: "Title company", value: optionalDetail(titleCompanyDisplay) },
+    ];
+
+    const teamProfileEmails = await notifyTeam(ctx, {
+      type: "application_submitted",
+      title: "New Loan Application",
+      body: `${profile.displayName} submitted a loan application for ${propertyAddress}. Purchase price: ${formatCurrencyPlain(args.purchasePrice)}. Rehab: ${formatCurrencyPlain(args.rehabBudgetTotal ?? 0)}. ARV: ${optionalCurrency(args.afterRepairValue)}. Desired close: ${optionalDetail(desiredCloseDate)}. Title company: ${optionalDetail(titleCompanyDisplay)}.`,
+      loanId: id,
+      details: applicationDetails,
+      actionPath: `/dashboard/admin/loans/${id}`,
+      actionLabel: "View Application",
+      sendSms: true,
+      sendExternalEmail: false,
+    });
 
     await ctx.runMutation(internal.notifications.createNotification, {
       recipientId: profile._id,
       type: "application_submitted",
       title: "Loan Application Received",
-      body: `We received your loan application for ${propertyAddress}. We'll review it and email you when the status changes.`,
+      body: `We received your loan application for ${propertyAddress}. It is under review, and we'll notify you when the status changes.`,
       loanId: id,
       dedupeKey: `application_received:${id}`,
+      sendSms: true,
     });
 
     // Send alert email to external recipients
     await ctx.scheduler.runAfter(0, internal.email.sendLoanApplicationAlert, {
       borrowerName: profile.displayName,
       propertyAddress,
+      purchasePrice: args.purchasePrice,
+      rehabBudgetTotal: args.rehabBudgetTotal ?? 0,
+      afterRepairValue: args.afterRepairValue,
+      desiredCloseDate,
+      titleCompany: titleCompanyDisplay,
       loanAmount: totalLoanAmount,
       loanId: id,
+      excludeEmails: teamProfileEmails,
     });
 
     await ctx.runMutation(internal.activityLog.log, {
@@ -306,18 +334,33 @@ export const submitDrawRequest = mutation({
       status: "pending",
     });
 
-    // Notify all admins/developers of new draw request
-    const adminLikeUsers = await getAdminLikeUsers(ctx);
-    for (const admin of adminLikeUsers) {
-      await ctx.runMutation(internal.notifications.createNotification, {
-        recipientId: admin._id,
-        type: "draw_submitted",
-        title: "New Draw Request",
-        body: `${profile.displayName} submitted a draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}.`,
-        loanId: args.loanId,
-        drawRequestId: id,
-      });
-    }
+    await notifyTeam(ctx, {
+      type: "draw_submitted",
+      title: "New Draw Request",
+      body: `${profile.displayName} submitted a draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}.`,
+      loanId: args.loanId,
+      drawRequestId: id,
+      details: [
+        { label: "Borrower", value: profile.displayName },
+        { label: "Property address", value: loan.propertyAddress },
+        { label: "Amount requested", value: formatCurrencyPlain(args.amountRequested) },
+        { label: "Work description", value: trimmedDescription },
+      ],
+      actionPath: `/dashboard/admin/draws/${id}`,
+      actionLabel: "Review Draw Request",
+      sendSms: true,
+    });
+
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: profile._id,
+      type: "draw_submitted",
+      title: "Draw Request Received",
+      body: `We received your draw request for ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}. We'll notify you when the status changes.`,
+      loanId: args.loanId,
+      drawRequestId: id,
+      dedupeKey: `draw_received:${id}`,
+      sendSms: true,
+    });
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: profile._id,
