@@ -17,6 +17,7 @@ import {
 import { parseUsDate, validateUsDate } from "./lib/dates";
 import { calculateMonthlyInterest, calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { getDefaultInterestRate } from "./lib/settings";
+import { notifyTeam } from "./lib/notifications";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -55,6 +56,45 @@ function optionalEmail(value: string | undefined, label: string) {
     throw new ConvexError(`${label} must be a valid email address`);
   }
   return email;
+}
+
+function optionalCurrency(value: number | undefined) {
+  return value === undefined ? "Not provided" : formatCurrencyPlain(value);
+}
+
+function optionalDetail(value: string | undefined) {
+  return value?.trim() || "Not provided";
+}
+
+const LOAN_UPDATE_FIELD_LABELS: Record<string, string> = {
+  borrowerName: "Borrower name",
+  entityName: "Entity name",
+  propertyAddress: "Property address",
+  purchasePrice: "Purchase price",
+  loanAmount: "Total loan amount",
+  afterRepairValue: "ARV",
+  rehabBudgetTotal: "Rehab amount",
+  closeDate: "Close date",
+  maturityDate: "Maturity date",
+  terms: "Terms",
+  interestRate: "Interest rate",
+  monthlyPayment: "Monthly payment",
+  paymentDueDay: "Payment due day",
+  pointsEarned: "Points earned",
+  monthlyInterestEarned: "Monthly interest earned",
+  strategy: "Strategy",
+  paymentType: "Payment type",
+  titleCompany: "Title company",
+  titleCompanyContact: "Title contact",
+  titleCompanyContactEmail: "Title contact email",
+  titleCompanyContactPhone: "Title contact phone",
+  drawFundsTotal: "Construction holdback",
+  drawFundsUsed: "Draw funds used",
+  notes: "Notes",
+};
+
+function changedFieldSummary(keys: string[]) {
+  return keys.map((key) => LOAN_UPDATE_FIELD_LABELS[key] ?? key).join(", ");
 }
 
 function getPointsEarned(totalLoanAmount: number) {
@@ -516,6 +556,37 @@ export const createLoan = mutation({
       });
     }
 
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: args.borrowerId,
+      type: "loan_updated",
+      title: "Loan Created",
+      body: `A loan for ${propertyAddress} has been created with status "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
+      loanId: id,
+      dedupeKey: `loan_created:${id}`,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "loan_updated",
+      title: "Loan Created",
+      body: `${admin.displayName} created a loan for ${borrower.displayName} on ${propertyAddress}.`,
+      loanId: id,
+      details: [
+        { label: "Borrower", value: borrower.displayName },
+        { label: "Property address", value: propertyAddress },
+        { label: "Purchase price", value: formatCurrencyPlain(args.purchasePrice) },
+        { label: "Rehab amount", value: optionalCurrency(args.rehabBudgetTotal) },
+        { label: "ARV", value: optionalCurrency(args.afterRepairValue) },
+        { label: "Total loan amount", value: formatCurrencyPlain(loanAmount) },
+        { label: "Status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
+        { label: "Close date", value: optionalDetail(closeDate) },
+        { label: "Title company", value: optionalDetail(titleCompany) },
+      ],
+      actionPath: `/dashboard/admin/loans/${id}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
@@ -675,22 +746,30 @@ export const updateLoan = mutation({
       });
     }
 
-    if (Object.keys(updates).length > 0) {
-      await ctx.db.patch(id, updates);
+    const changedEntries = Object.entries(updates).filter(([key, value]) => {
+      const existingValue = existing[key as keyof typeof existing];
+      return !Object.is(existingValue, value);
+    });
+    if (changedEntries.length === 0) {
+      return id;
     }
 
-    const hasOwnUpdate = (key: string) => Object.prototype.hasOwnProperty.call(updates, key);
+    const changedUpdates = Object.fromEntries(changedEntries) as Record<string, unknown>;
+    const changedKeys = new Set(changedEntries.map(([key]) => key));
+    await ctx.db.patch(id, changedUpdates);
+
+    const hasOwnUpdate = (key: string) => Object.prototype.hasOwnProperty.call(changedUpdates, key);
     const nextTitleCompany = hasOwnUpdate("titleCompany")
-      ? updates.titleCompany as string | undefined
+      ? changedUpdates.titleCompany as string | undefined
       : existing.titleCompany;
     const nextTitleCompanyContact = hasOwnUpdate("titleCompanyContact")
-      ? updates.titleCompanyContact as string | undefined
+      ? changedUpdates.titleCompanyContact as string | undefined
       : existing.titleCompanyContact;
     const nextTitleCompanyContactEmail = hasOwnUpdate("titleCompanyContactEmail")
-      ? updates.titleCompanyContactEmail as string | undefined
+      ? changedUpdates.titleCompanyContactEmail as string | undefined
       : existing.titleCompanyContactEmail;
     const nextTitleCompanyContactPhone = hasOwnUpdate("titleCompanyContactPhone")
-      ? updates.titleCompanyContactPhone as string | undefined
+      ? changedUpdates.titleCompanyContactPhone as string | undefined
       : existing.titleCompanyContactPhone;
     const titleContactChanged =
       nextTitleCompany !== existing.titleCompany ||
@@ -711,19 +790,49 @@ export const updateLoan = mutation({
     }
 
     if (
-      fields.closeDate !== undefined ||
-      fields.purchasePrice !== undefined ||
-      fields.rehabBudgetTotal !== undefined ||
-      fields.drawFundsTotal !== undefined ||
-      fields.drawFundsUsed !== undefined ||
-      fields.interestRate !== undefined ||
-      fields.paymentType !== undefined
+      changedKeys.has("closeDate") ||
+      changedKeys.has("purchasePrice") ||
+      changedKeys.has("loanAmount") ||
+      changedKeys.has("rehabBudgetTotal") ||
+      changedKeys.has("drawFundsTotal") ||
+      changedKeys.has("drawFundsUsed") ||
+      changedKeys.has("interestRate") ||
+      changedKeys.has("paymentType")
     ) {
       await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
         loanId: id,
         createdBy: admin._id,
       });
     }
+
+    const updatedFields = changedFieldSummary([...changedKeys]);
+    const nextPropertyAddress = (changedUpdates.propertyAddress as string | undefined) ?? existing.propertyAddress;
+    const nextBorrowerName = (changedUpdates.borrowerName as string | undefined) ?? existing.borrowerName;
+
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: existing.borrowerId,
+      type: "loan_updated",
+      title: "Loan Details Updated",
+      body: `Your loan details for ${nextPropertyAddress} were updated. Updated fields: ${updatedFields}.`,
+      loanId: id,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "loan_updated",
+      title: "Loan Details Updated",
+      body: `${admin.displayName} updated loan details for ${nextBorrowerName} on ${nextPropertyAddress}. Updated fields: ${updatedFields}.`,
+      loanId: id,
+      details: [
+        { label: "Borrower", value: nextBorrowerName },
+        { label: "Property address", value: nextPropertyAddress },
+        { label: "Updated fields", value: updatedFields },
+        { label: "Updated by", value: admin.displayName },
+      ],
+      actionPath: `/dashboard/admin/loans/${id}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
@@ -985,6 +1094,23 @@ export const updateLoanStatus = mutation({
       sendSms: true,
     });
 
+    await notifyTeam(ctx, {
+      type: "loan_status_changed",
+      title: "Loan Status Updated",
+      body: `${admin.displayName} changed ${existing.borrowerName}'s loan for ${existing.propertyAddress} from "${LOAN_STATUS_LABELS[existing.status] ?? existing.status}" to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
+      loanId: args.id,
+      details: [
+        { label: "Borrower", value: existing.borrowerName },
+        { label: "Property address", value: existing.propertyAddress },
+        { label: "Previous status", value: LOAN_STATUS_LABELS[existing.status] ?? existing.status },
+        { label: "New status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
+        { label: "Updated by", value: admin.displayName },
+      ],
+      actionPath: `/dashboard/admin/loans/${args.id}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
@@ -1030,6 +1156,33 @@ export const recordLoanReturned = mutation({
       ...(returnedNotes ? { returnedNotes } : {}),
     });
 
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: loan.borrowerId,
+      type: "loan_status_changed",
+      title: "Loan Closed",
+      body: `Your loan for ${loan.propertyAddress} has been marked closed after funds were returned on ${returnedDate}.`,
+      loanId: args.id,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "loan_status_changed",
+      title: "Loan Funds Returned",
+      body: `${admin.displayName} recorded ${formatCurrencyPlain(args.returnedAmount)} returned for ${loan.borrowerName}'s loan on ${loan.propertyAddress}.`,
+      loanId: args.id,
+      details: [
+        { label: "Borrower", value: loan.borrowerName },
+        { label: "Property address", value: loan.propertyAddress },
+        { label: "Returned amount", value: formatCurrencyPlain(args.returnedAmount) },
+        { label: "Returned date", value: returnedDate },
+        { label: "New status", value: LOAN_STATUS_LABELS.closed },
+        { label: "Recorded by", value: admin.displayName },
+      ],
+      actionPath: `/dashboard/admin/loans/${args.id}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
@@ -1059,6 +1212,30 @@ export const attachClosingStatement = mutation({
       await ctx.storage.delete(loan.closingStatementFileId);
     }
     await ctx.db.patch(args.loanId, { closingStatementFileId: args.fileId });
+
+    await ctx.runMutation(internal.notifications.createNotification, {
+      recipientId: loan.borrowerId,
+      type: "document_uploaded",
+      title: "Closing Statement Uploaded",
+      body: `A closing statement was uploaded for ${loan.propertyAddress}.`,
+      loanId: args.loanId,
+      sendSms: true,
+    });
+
+    await notifyTeam(ctx, {
+      type: "document_uploaded",
+      title: "Closing Statement Uploaded",
+      body: `${admin.displayName} uploaded a closing statement for ${loan.borrowerName}'s loan on ${loan.propertyAddress}.`,
+      loanId: args.loanId,
+      details: [
+        { label: "Borrower", value: loan.borrowerName },
+        { label: "Property address", value: loan.propertyAddress },
+        { label: "Uploaded by", value: admin.displayName },
+      ],
+      actionPath: `/dashboard/admin/loans/${args.loanId}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
 
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
@@ -1451,12 +1628,29 @@ export const bulkUpdateLoanStatus = mutation({
         title: "Loan Status Updated",
         body: `Your loan for ${loan.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
         loanId,
+        sendSms: true,
       });
 
       results.push({ loanId, success: true });
     }
 
     const successCount = results.filter((r) => r.success).length;
+    if (successCount > 0) {
+      await notifyTeam(ctx, {
+        type: "loan_status_changed",
+        title: "Loan Status Bulk Updated",
+        body: `${admin.displayName} bulk updated ${successCount}/${args.loanIds.length} loans to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
+        details: [
+          { label: "Updated by", value: admin.displayName },
+          { label: "New status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
+          { label: "Successful updates", value: `${successCount}/${args.loanIds.length}` },
+        ],
+        actionPath: "/dashboard/admin/loans",
+        actionLabel: "View Loans",
+        sendSms: true,
+      });
+    }
+
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,

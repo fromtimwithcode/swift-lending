@@ -186,6 +186,7 @@ const schema = defineSchema({
     recipientId: v.id("userProfiles"),
     type: v.union(
       v.literal("loan_status_changed"),
+      v.literal("loan_updated"),
       v.literal("draw_reviewed"),
       v.literal("draw_submitted"),
       v.literal("application_submitted"),

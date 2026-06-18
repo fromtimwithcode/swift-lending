@@ -2,9 +2,10 @@ import { query, mutation } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
-import { requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers } from "./lib/auth";
+import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_FILE_SIZE_BYTES } from "./lib/constants";
+import { notifyTeam } from "./lib/notifications";
 
 const MAX_DOCUMENT_BATCH_SIZE = 50;
 const ACCEPTED_CONTENT_TYPES_BY_EXTENSION: Record<string, string[]> = {
@@ -156,32 +157,73 @@ async function enrichDocuments(ctx: QueryCtx, docs: Doc<"documents">[]) {
   );
 }
 
-async function notifyBorrowerDocumentUpload(
+async function notifyDocumentUpload(
   ctx: MutationCtx,
   profile: Doc<"userProfiles">,
   loanId: Id<"loans"> | undefined,
+  drawRequestId: Id<"drawRequests"> | undefined,
   loan: Doc<"loans"> | null,
   documents: DocumentInput[]
 ) {
-  if (isAdminLike(profile.role) || !loanId) return;
+  if (!loanId) return;
 
   const count = documents.length;
   const target = loan?.propertyAddress ?? "a loan";
   const title = count === 1 ? "New Document Uploaded" : "New Documents Uploaded";
-  const body = count === 1
+  const uploadSummary = count === 1
     ? `${profile.displayName} uploaded "${documents[0].fileName}" for ${target}.`
     : `${profile.displayName} uploaded ${count} documents for ${target}.`;
-  const adminLikeUsers = await getAdminLikeUsers(ctx);
 
-  for (const admin of adminLikeUsers) {
+  if (isAdminLike(profile.role)) {
+    if (!loan) return;
+
     await ctx.runMutation(internal.notifications.createNotification, {
-      recipientId: admin._id,
+      recipientId: loan.borrowerId,
       type: "document_uploaded",
       title,
-      body,
+      body: count === 1
+        ? `A new document, "${documents[0].fileName}", was uploaded for ${target}.`
+        : `${count} new documents were uploaded for ${target}.`,
       loanId,
+      drawRequestId,
+      sendSms: true,
     });
+
+    await notifyTeam(ctx, {
+      type: "document_uploaded",
+      title,
+      body: uploadSummary,
+      loanId,
+      drawRequestId,
+      details: [
+        { label: "Borrower", value: loan.borrowerName },
+        { label: "Property address", value: target },
+        { label: "Uploaded by", value: profile.displayName },
+        { label: "Document count", value: String(count) },
+      ],
+      actionPath: drawRequestId ? `/dashboard/admin/draws/${drawRequestId}` : `/dashboard/admin/loans/${loanId}`,
+      actionLabel: "View Documents",
+      sendSms: true,
+    });
+    return;
   }
+
+  await notifyTeam(ctx, {
+    type: "document_uploaded",
+    title,
+    body: uploadSummary,
+    loanId,
+    drawRequestId,
+    details: [
+      { label: "Borrower", value: profile.displayName },
+      { label: "Property address", value: target },
+      { label: "Document count", value: String(count) },
+    ],
+    actionPath: drawRequestId ? `/dashboard/admin/draws/${drawRequestId}` : `/dashboard/admin/loans/${loanId}`,
+    actionLabel: "View Documents",
+    sendSms: true,
+    sendExternalEmail: true,
+  });
 }
 
 async function saveDocumentBatch(
@@ -216,7 +258,7 @@ async function saveDocumentBatch(
     }));
   }
 
-  await notifyBorrowerDocumentUpload(ctx, profile, access.loanId, access.loan, documents);
+  await notifyDocumentUpload(ctx, profile, access.loanId, args.drawRequestId, access.loan, documents);
 
   return ids;
 }

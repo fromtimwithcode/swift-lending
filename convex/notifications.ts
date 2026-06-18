@@ -87,6 +87,7 @@ export const createNotification = internalMutation({
     recipientId: v.id("userProfiles"),
     type: v.union(
       v.literal("loan_status_changed"),
+      v.literal("loan_updated"),
       v.literal("draw_reviewed"),
       v.literal("draw_submitted"),
       v.literal("application_submitted"),
@@ -100,10 +101,11 @@ export const createNotification = internalMutation({
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
     dedupeKey: v.optional(v.string()),
+    sendEmail: v.optional(v.boolean()),
     sendSms: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { sendSms, ...notificationFields } = args;
+    const { sendEmail, sendSms, ...notificationFields } = args;
     if (args.dedupeKey) {
       const existing = await ctx.db
         .query("notifications")
@@ -121,16 +123,18 @@ export const createNotification = internalMutation({
     // Look up recipient email for email notification (skip deactivated users)
     const recipient = await ctx.db.get(args.recipientId);
     if (recipient && recipient.isActive) {
-      const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId, recipient.role);
-      await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
-        notificationId: id,
-        recipientEmail: recipient.email,
-        recipientName: recipient.displayName,
-        title: args.title,
-        body: args.body,
-        actionPath,
-        actionLabel: actionPath ? "View Details" : undefined,
-      });
+      if (sendEmail !== false) {
+        const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId, recipient.role);
+        await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
+          notificationId: id,
+          recipientEmail: recipient.email,
+          recipientName: recipient.displayName,
+          title: args.title,
+          body: args.body,
+          actionPath,
+          actionLabel: actionPath ? "View Details" : undefined,
+        });
+      }
 
       if (sendSms && recipient.phone) {
         await ctx.scheduler.runAfter(0, internal.email.sendNotificationSms, {
@@ -161,16 +165,28 @@ function getNotificationActionPath(
       ? drawRequestId ? `/dashboard/admin/draws/${drawRequestId}` : "/dashboard/admin/draws"
       : "/dashboard/borrower/draws";
   }
+  if (type === "document_uploaded" && drawRequestId) {
+    return recipientRole === "admin" || recipientRole === "developer"
+      ? `/dashboard/admin/draws/${drawRequestId}`
+      : "/dashboard/borrower/draws";
+  }
   if (!loanId) return undefined;
   if (type === "application_submitted") {
     return recipientRole === "borrower"
       ? `/dashboard/borrower/loans/${loanId}`
       : `/dashboard/admin/loans/${loanId}`;
   }
-  if (type === "document_uploaded") {
-    return `/dashboard/admin/loans/${loanId}`;
+  if (type === "document_uploaded" || type === "loan_updated") {
+    return recipientRole === "admin" || recipientRole === "developer"
+      ? `/dashboard/admin/loans/${loanId}`
+      : `/dashboard/borrower/loans/${loanId}`;
   }
-  if (type === "loan_status_changed" || type === "payment_overdue") {
+  if (type === "loan_status_changed") {
+    return recipientRole === "admin" || recipientRole === "developer"
+      ? `/dashboard/admin/loans/${loanId}`
+      : `/dashboard/borrower/loans/${loanId}`;
+  }
+  if (type === "payment_overdue") {
     return `/dashboard/borrower/loans/${loanId}`;
   }
   return undefined;
