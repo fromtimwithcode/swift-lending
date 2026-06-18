@@ -128,11 +128,17 @@ export const getOverviewStats = query({
     const allLoans = await ctx.db.query("loans").collect();
 
     const totalLoans = allLoans.length;
-    const closedLoans = allLoans.filter((l) => l.status === "closed").length;
+    const closedLoans = allLoans.filter((l) => l.status === "closed" && !l.returnedDate).length;
+    const returnedLoans = allLoans.filter((l) => l.returnedDate).length;
     const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
-    const activePipeline = totalLoans - closedLoans - deniedLoans;
+    const activePipeline = allLoans.filter(
+      (l) => !l.returnedDate && l.status !== "closed" && l.status !== "denied"
+    ).length;
 
     const totalCapital = allLoans.reduce((sum, l) => sum + l.loanAmount, 0);
+    const capitalCurrentlyOut = allLoans
+      .filter((l) => isFundedLoanStatus(l.status) && !l.returnedDate)
+      .reduce((sum, l) => sum + getCurrentPrincipalOut(l), 0);
 
     // Closed loan revenue: points + interest from closed loans only
     const closedLoanRevenue = allLoans
@@ -199,8 +205,10 @@ export const getOverviewStats = query({
       totalLoans,
       activePipeline,
       closedLoans,
+      returnedLoans,
       deniedLoans,
       totalCapital,
+      capitalCurrentlyOut,
       closedLoanRevenue,
       monthlyCashFlow,
       cashFlowInterestRate: defaultInterestRate,
@@ -228,13 +236,24 @@ export const getLoanPeriodKpis = query({
     const allLoans = await ctx.db.query("loans").collect();
     const years = new Set<number>();
     const loansWithCloseDate: { loan: (typeof allLoans)[number]; closeDate: Date }[] = [];
+    const loansWithReturnedDate: { returnedDate: Date }[] = [];
 
     for (const loan of allLoans) {
-      if (!loan.closeDate) continue;
-      const closeDate = parseUsDate(loan.closeDate);
-      if (!closeDate) continue;
-      years.add(closeDate.getFullYear());
-      loansWithCloseDate.push({ loan, closeDate });
+      if (loan.closeDate) {
+        const closeDate = parseUsDate(loan.closeDate);
+        if (closeDate) {
+          years.add(closeDate.getFullYear());
+          loansWithCloseDate.push({ loan, closeDate });
+        }
+      }
+
+      if (loan.returnedDate) {
+        const returnedDate = parseUsDate(loan.returnedDate);
+        if (returnedDate) {
+          years.add(returnedDate.getFullYear());
+          loansWithReturnedDate.push({ returnedDate });
+        }
+      }
     }
 
     const availableYears = [...years].sort((a, b) => b - a);
@@ -252,6 +271,7 @@ export const getLoanPeriodKpis = query({
       activeLoans: 0,
       inProgressLoans: 0,
       fundedLoans: 0,
+      returnedLoans: 0,
       totalCapital: 0,
     }));
 
@@ -280,6 +300,23 @@ export const getLoanPeriodKpis = query({
 
       if (quarter) addLoanToPeriod(quarter, loan);
       addLoanToPeriod(fullYear, loan);
+    }
+
+    const addReturnedLoanToPeriod = (period: (typeof periods)[number]) => {
+      period.returnedLoans += 1;
+    };
+
+    for (const { returnedDate } of loansWithReturnedDate) {
+      if (returnedDate.getFullYear() !== selectedYear) continue;
+
+      const month = returnedDate.getMonth() + 1;
+      const quarter = periods.find(
+        (period) => period.key !== "full-year" && month >= period.startMonth && month <= period.endMonth
+      );
+      const fullYear = periods[4];
+
+      if (quarter) addReturnedLoanToPeriod(quarter);
+      addReturnedLoanToPeriod(fullYear);
     }
 
     return {

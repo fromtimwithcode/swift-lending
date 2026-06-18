@@ -239,13 +239,13 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
-          subtitle={`${stats.activePipeline} active / ${stats.closedLoans} closed`}
+          subtitle={`${stats.activePipeline} active / ${stats.closedLoans} closed / ${stats.returnedLoans} returned`}
           icon={Landmark}
         />
         <KpiCard
-          label="Total Capital"
-          value={formatCurrencyShort(stats.totalCapital)}
-          subtitle="All loan amounts"
+          label="Capital Out"
+          value={formatCurrencyShort(stats.capitalCurrentlyOut)}
+          subtitle="Current principal outstanding"
           icon={DollarSign}
         />
         <KpiCard
@@ -304,6 +304,7 @@ export default function AdminOverviewPage() {
                   <th className="pb-2 pr-3">Active</th>
                   <th className="pb-2 pr-3">In Progress</th>
                   <th className="pb-2 pr-3">Funded</th>
+                  <th className="pb-2 pr-3">Returned</th>
                   <th className="pb-2">Capital</th>
                 </tr>
               </thead>
@@ -315,6 +316,7 @@ export default function AdminOverviewPage() {
                     <td className="py-3 pr-3 tabular-nums">{period.activeLoans}</td>
                     <td className="py-3 pr-3 tabular-nums">{period.inProgressLoans}</td>
                     <td className="py-3 pr-3 tabular-nums">{period.fundedLoans}</td>
+                    <td className="py-3 pr-3 tabular-nums">{period.returnedLoans}</td>
                     <td className="py-3 tabular-nums">{formatCurrencyShort(period.totalCapital)}</td>
                   </tr>
                 ))}

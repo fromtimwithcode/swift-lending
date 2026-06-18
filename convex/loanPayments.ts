@@ -325,7 +325,7 @@ async function getReminderData(
   });
 
   return {
-    reminders: reminders.slice(0, 25),
+    reminders,
     pastDueCount: reminders.filter((reminder) => reminder.status === "past_due").length,
     dueSoonCount: reminders.filter((reminder) => reminder.status === "due_soon").length,
     totalAmountDue: reminders.reduce((sum, reminder) => sum + reminder.amount, 0),

@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireRole } from "./lib/auth";
+import { formatCurrencyPlain } from "./lib/constants";
 import { parseUsDate, validateUsDate } from "./lib/dates";
 import {
   calculateDrawProration,
@@ -287,11 +288,13 @@ export const getChargesForLoan = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.db
+    const charges = await ctx.db
       .query("loanCharges")
       .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
       .order("desc")
       .collect();
+
+    return charges.filter((charge) => charge.status !== "waived");
   },
 });
 
@@ -302,11 +305,13 @@ export const getMyChargesForLoan = query({
     const loan = await ctx.db.get(args.loanId);
     if (!loan || loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
 
-    return await ctx.db
+    const charges = await ctx.db
       .query("loanCharges")
       .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
       .order("desc")
       .collect();
+
+    return charges.filter((charge) => charge.status !== "waived");
   },
 });
 
@@ -320,6 +325,40 @@ export const updateChargeStatus = mutation({
     const charge = await ctx.db.get(args.id);
     if (!charge) throw new ConvexError("Charge not found");
     await ctx.db.patch(args.id, { status: args.status });
+    return args.id;
+  },
+});
+
+export const removeCharge = mutation({
+  args: { id: v.id("loanCharges") },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const charge = await ctx.db.get(args.id);
+    if (!charge) throw new ConvexError("Charge not found");
+    if (charge.status === "waived") return args.id;
+
+    const relatedPayments = await ctx.db
+      .query("loanPayments")
+      .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
+      .collect();
+    const hasRelatedPayment = relatedPayments.some(
+      (payment) => payment.chargeId === args.id || (!payment.chargeId && payment.dueDate === charge.dueDate)
+    );
+    if (hasRelatedPayment) {
+      throw new ConvexError("Remove related payment records before deleting this charge");
+    }
+
+    await ctx.db.patch(args.id, { status: "waived" });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "charge.remove",
+      entityType: "loan",
+      entityId: charge.loanId,
+      details: `Removed ${charge.type} charge for ${formatCurrencyPlain(charge.amount)} due ${charge.dueDate}`,
+    });
+
     return args.id;
   },
 });

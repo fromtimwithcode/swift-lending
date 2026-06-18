@@ -116,6 +116,7 @@ export default function LoanDetailPage() {
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const recordPayment = useMutation(api.loanPayments.recordPayment);
   const deletePayment = useMutation(api.loanPayments.deletePayment);
+  const removeCharge = useMutation(api.loanCharges.removeCharge);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
@@ -125,8 +126,10 @@ export default function LoanDetailPage() {
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
+  const [confirmDeleteCharge, setConfirmDeleteCharge] = useState<string | null>(null);
   const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
   const [deletingPayment, setDeletingPayment] = useState(false);
+  const [deletingCharge, setDeletingCharge] = useState(false);
   const [removingClosing, setRemovingClosing] = useState(false);
   const [returnFormOpen, setReturnFormOpen] = useState(false);
   const [returnSaving, setReturnSaving] = useState(false);
@@ -244,6 +247,10 @@ export default function LoanDetailPage() {
   };
   const getChargeRemainingAmount = (charge: { _id: Id<"loanCharges">; dueDate: string; amount: number }) =>
     Math.max(0, Math.round((charge.amount - getChargePaidAmount(charge)) * 100) / 100);
+  const hasRelatedPaymentForCharge = (charge: { _id: Id<"loanCharges">; dueDate: string }) =>
+    payments?.some(
+      (payment) => payment.chargeId === charge._id || (!payment.chargeId && payment.dueDate === charge.dueDate)
+    ) ?? false;
   const scheduledCharges = [...(charges ?? [])]
     .filter((charge) => charge.status === "scheduled")
     .filter((charge) => getChargeRemainingAmount(charge) > 0.01)
@@ -718,29 +725,55 @@ export default function LoanDetailPage() {
       key: "_id",
       header: "",
       render: (row) => {
-        if (row.status !== "scheduled") return null;
-        const remainingAmount = getChargeRemainingAmount({
-          _id: row._id as Id<"loanCharges">,
+        const chargeId = row._id as Id<"loanCharges">;
+        const dueDate = row.dueDate as string;
+        const remainingAmount = row.status === "scheduled" ? getChargeRemainingAmount({
+          _id: chargeId,
           amount: row.amount as number,
-          dueDate: row.dueDate as string,
-        });
-        if (remainingAmount <= 0.01) return null;
+          dueDate,
+        }) : 0;
+        const canRecordCharge = row.status === "scheduled" && remainingAmount > 0.01;
+        const hasRelatedPayment = hasRelatedPaymentForCharge({ _id: chargeId, dueDate });
+        const deleteDisabled = payments === undefined || hasRelatedPayment;
 
         return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              openPaymentFormForCharge({
-                _id: row._id as Id<"loanCharges">,
-                amount: remainingAmount,
-                dueDate: row.dueDate as string,
-              });
-            }}
-            className="rounded-lg border border-border px-2 py-1 text-xs font-medium hover:bg-muted"
-          >
-            Record
-          </button>
+          <div className="flex justify-end gap-2">
+            {canRecordCharge && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPaymentFormForCharge({
+                    _id: chargeId,
+                    amount: remainingAmount,
+                    dueDate,
+                  });
+                }}
+                className="rounded-lg border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Record
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!deleteDisabled) setConfirmDeleteCharge(chargeId);
+              }}
+              disabled={deleteDisabled}
+              title={
+                payments === undefined
+                  ? "Payments are still loading"
+                  : hasRelatedPayment
+                    ? "Remove related payments before deleting this charge"
+                    : "Delete charge"
+              }
+              aria-label="Delete charge"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground dark:hover:bg-red-900/30"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
         );
       },
     },
@@ -1826,6 +1859,28 @@ export default function LoanDetailPage() {
           }
         }}
         onCancel={() => setConfirmDeletePayment(null)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteCharge !== null}
+        title="Delete this charge?"
+        description="This removes the charge from schedules and payment reminders by marking it waived. Charges with related payment records cannot be deleted."
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deletingCharge}
+        onConfirm={async () => {
+          if (!confirmDeleteCharge) return;
+          setDeletingCharge(true);
+          try {
+            await removeCharge({ id: confirmDeleteCharge as Id<"loanCharges"> });
+            toast.success("Charge deleted");
+            setConfirmDeleteCharge(null);
+          } catch (err) {
+            toast.error(getErrorMessage(err, "Failed to delete charge"));
+          } finally {
+            setDeletingCharge(false);
+          }
+        }}
+        onCancel={() => setConfirmDeleteCharge(null)}
       />
       <ConfirmDialog
         open={confirmRemoveClosing}
