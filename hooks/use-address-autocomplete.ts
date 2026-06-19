@@ -37,10 +37,12 @@ export function useAddressAutocomplete() {
     if (input.trim().length < 3) {
       setSuggestions([]);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
     setIsLoading(true);
+    setError(null);
 
     timerRef.current = setTimeout(async () => {
       const controller = new AbortController();
@@ -55,7 +57,7 @@ export function useAddressAutocomplete() {
         const data = await res.json();
         setSuggestions(data.predictions ?? []);
         if (data.error) {
-          setError(data.error);
+          setError("Address suggestions unavailable");
         } else {
           setError(null);
         }

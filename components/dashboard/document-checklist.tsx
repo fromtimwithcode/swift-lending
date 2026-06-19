@@ -7,6 +7,7 @@ import { type Id } from "@/convex/_generated/dataModel";
 import { DOC_TYPE_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize } from "@/lib/format";
+import { toast } from "sonner";
 import {
   CheckCircle2,
   Circle,
@@ -61,7 +62,6 @@ export function DocumentChecklist({
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [uploadingRow, setUploadingRow] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [error, setError] = useState("");
   const [articleSubType, setArticleSubType] = useState<"articles" | "operating_agreement">("articles");
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -125,19 +125,18 @@ export function DocumentChecklist({
   }
 
   async function handleUpload(row: DocRow, files: FileList) {
-    setError("");
     setUploadingRow(row.label);
 
     const fileArray = Array.from(files);
     if (fileArray.length > MAX_UPLOAD_BATCH_FILES) {
-      setError(`Select up to ${MAX_UPLOAD_BATCH_FILES} files at a time.`);
+      toast.error(`Select up to ${MAX_UPLOAD_BATCH_FILES} files at a time.`);
       setUploadingRow(null);
       const input = fileInputRefs.current[row.label];
       if (input) input.value = "";
       return;
     }
 
-    const skipped: string[] = [];
+    let skippedCount = 0;
     const uploadedFileIds: Id<"_storage">[] = [];
     let metadataSaved = false;
     const documentsToSave: Array<{
@@ -157,7 +156,7 @@ export function DocumentChecklist({
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          skipped.push(`${file.name} (${formatFileSize(file.size)})`);
+          skippedCount += 1;
           setUploadProgress({ current: i + 1, total: fileArray.length });
           continue;
         }
@@ -187,9 +186,9 @@ export function DocumentChecklist({
         metadataSaved = true;
       }
 
-      if (skipped.length > 0) {
-        setError(
-          `${skipped.length} file${skipped.length > 1 ? "s" : ""} skipped (exceeds ${formatFileSize(MAX_FILE_SIZE_BYTES)}): ${skipped.join(", ")}`
+      if (skippedCount > 0) {
+        toast.warning(
+          `${skippedCount} file${skippedCount > 1 ? "s" : ""} skipped because they exceed ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`
         );
       }
     } catch (err) {
@@ -197,10 +196,10 @@ export function DocumentChecklist({
         try {
           await discardUnsavedUploads({ fileIds: uploadedFileIds });
         } catch {
-          // Best-effort cleanup; keep the original upload error visible to the user.
+          // Best-effort cleanup; keep reporting the original upload error.
         }
       }
-      setError(getErrorMessage(err, "Upload failed. Please try again."));
+      toast.error(getErrorMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploadingRow(null);
       setUploadProgress(null);
@@ -374,10 +373,6 @@ export function DocumentChecklist({
         </div>
         {additionalRows.map(renderRow)}
       </div>
-
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
     </div>
   );
 }
