@@ -6,6 +6,7 @@ import { PageHeader } from "./page-header";
 import { Loader2, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
+import { EmptyState } from "./empty-state";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -67,8 +68,9 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
         actions={
           notifications.some((n) => !n.isRead) ? (
             <button
+              type="button"
               onClick={() => markAllRead()}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
             >
               Mark All Read
             </button>
@@ -77,17 +79,19 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
       />
 
       {notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card py-16">
-          <Bell className="size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No notifications yet</p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="No notifications yet"
+          description="When something needs your attention, it will appear here."
+        />
       ) : (
-        <div className="divide-y divide-border rounded-xl border border-border bg-card">
+        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%)]">
           {notifications.map((n) => (
             <button
               key={n._id}
+              type="button"
               onClick={() => handleClick(n)}
-              className={`flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/50 ${
+              className={`flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30 ${
                 !n.isRead ? "border-l-4 border-l-primary" : ""
               }`}
             >
@@ -101,7 +105,7 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {n.body}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                   {timeAgo(n._creationTime)}
                 </p>
               </div>

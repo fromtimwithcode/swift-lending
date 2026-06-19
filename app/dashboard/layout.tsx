@@ -3,7 +3,7 @@
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
@@ -39,12 +39,13 @@ function RedirectToLogin() {
 
 function AnimatedPage({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const shouldReduceMotion = useReducedMotion();
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0, y: 6 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: premiumEase }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: premiumEase }}
     >
       {children}
     </motion.div>
@@ -80,10 +81,10 @@ function DashboardShell({ children }: { children: ReactNode }) {
   // Deactivated account
   if (!profile.isActive) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold">Account Deactivated</h2>
-          <p className="mt-2 text-muted-foreground">
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="card-premium w-full max-w-md p-8 text-center">
+          <h2 className="text-xl font-bold tracking-tight">Account Deactivated</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
             Your account has been deactivated. Contact an administrator.
           </p>
         </div>
@@ -109,8 +110,10 @@ function DashboardShell({ children }: { children: ReactNode }) {
         )}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-5 sm:p-8 lg:p-10">
-          <AnimatedPage>{children}</AnimatedPage>
+        <main className="min-h-[calc(100vh-4rem)] px-4 py-6 pb-28 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
+          <div className="mx-auto w-full max-w-[1440px]">
+            <AnimatedPage>{children}</AnimatedPage>
+          </div>
         </main>
       </div>
       <FloatingMessenger />
@@ -122,19 +125,20 @@ function AccountPending() {
   const { signOut } = useAuthActions();
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="max-w-md text-center">
+    <div className="flex min-h-screen items-center justify-center px-6">
+      <div className="card-premium w-full max-w-md p-8 text-center">
         <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10">
           <Loader2 className="size-8 text-primary" />
         </div>
-        <h2 className="mt-6 text-xl font-bold">Account Pending</h2>
-        <p className="mt-2 text-muted-foreground">
+        <h2 className="mt-6 text-xl font-bold tracking-tight">Account Pending</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
           Your account is being set up. An administrator will grant you access
           shortly.
         </p>
         <button
+          type="button"
           onClick={() => signOut()}
-          className="mt-6 text-sm text-muted-foreground underline hover:text-foreground"
+          className="mt-6 inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
         >
           Sign out
         </button>

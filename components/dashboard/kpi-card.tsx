@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { staggerItem } from "@/lib/animations";
 
@@ -18,6 +18,7 @@ function AnimatedValue({ value }: { value: string | number }) {
 }
 
 function AnimatedNumber({ display }: { display: string }) {
+  const shouldReduceMotion = useReducedMotion();
   const nodeRef = useRef<HTMLSpanElement>(null);
   const hasAnimated = useRef(false);
 
@@ -38,6 +39,7 @@ function AnimatedNumber({ display }: { display: string }) {
   });
 
   useEffect(() => {
+    if (shouldReduceMotion) return;
     if (hasAnimated.current) return;
     hasAnimated.current = true;
     if (isNaN(target)) return;
@@ -46,14 +48,19 @@ function AnimatedNumber({ display }: { display: string }) {
       duration: 0.8,
       ease: [0.25, 0.46, 0.45, 0.94],
     });
-  }, [motionVal, target]);
+  }, [motionVal, shouldReduceMotion, target]);
 
   useEffect(() => {
+    if (shouldReduceMotion) return;
     const unsubscribe = rounded.on("change", (v) => {
       if (nodeRef.current) nodeRef.current.textContent = v;
     });
     return unsubscribe;
-  }, [rounded]);
+  }, [rounded, shouldReduceMotion]);
+
+  if (shouldReduceMotion) {
+    return <span className="tabular-nums">{display}</span>;
+  }
 
   return <span ref={nodeRef} className="tabular-nums">{display}</span>;
 }
@@ -75,13 +82,15 @@ export function KpiCard({
   trend,
   className,
 }: KpiCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <motion.div
-      variants={staggerItem}
-      initial="hidden"
-      animate="visible"
+      variants={shouldReduceMotion ? undefined : staggerItem}
+      initial={shouldReduceMotion ? false : "hidden"}
+      animate={shouldReduceMotion ? undefined : "visible"}
       className={cn(
-        "card-premium group relative overflow-hidden p-6",
+        "card-premium group relative min-h-36 overflow-hidden p-5 sm:p-6",
         className
       )}
     >
@@ -89,7 +98,7 @@ export function KpiCard({
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
 
       <div className="relative flex items-center justify-between">
-        <p className="truncate text-[13px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         {Icon && (
           <div className="rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12">
             <Icon className="size-4 text-primary" />

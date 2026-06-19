@@ -15,7 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 type View = "list" | "thread" | "new-message";
 
@@ -36,6 +36,7 @@ export function FloatingMessenger() {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   // Close on click outside
   useEffect(() => {
@@ -85,12 +86,14 @@ export function FloatingMessenger() {
     <>
       {/* FAB */}
       <motion.button
+        type="button"
         ref={fabRef}
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 z-[60] flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.96 }}
+        className="fixed bottom-6 right-6 z-[60] flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-[box-shadow,scale] hover:shadow-xl hover:shadow-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.96]"
+        whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
         aria-label={open ? "Close messages" : "Open messages"}
+        aria-expanded={open}
       >
         <AnimatePresence mode="wait" initial={false}>
           {open ? (
@@ -129,11 +132,13 @@ export function FloatingMessenger() {
         {open && (
           <motion.div
             ref={panelRef}
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            role="dialog"
+            aria-label="Messages"
+            initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-24 right-6 z-[60] flex origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/20 w-[380px] h-[520px] max-sm:w-[calc(100vw-32px)] max-sm:h-[70vh]"
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-24 right-6 z-[60] flex h-[520px] w-[380px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/20 max-sm:right-4 max-sm:h-[70vh] max-sm:w-[calc(100vw-32px)]"
           >
             {view === "list" && (
               <ConversationListView
@@ -202,16 +207,18 @@ function ConversationListView({
         <div className="flex items-center gap-1">
           {showNewMessageButton && (
             <button
+              type="button"
               onClick={onNewMessage}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               aria-label="New message"
             >
               <Plus className="size-4" />
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -224,11 +231,12 @@ function ConversationListView({
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            type="text"
+            type="search"
+            aria-label="Search conversations"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search conversations..."
-            className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="min-h-10 w-full rounded-xl border border-border bg-background py-1.5 pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
         </div>
       </div>
@@ -243,10 +251,11 @@ function ConversationListView({
           filtered.map((conv) => (
             <button
               key={conv.partnerId}
+              type="button"
               onClick={() =>
                 onSelectConversation(conv.partnerId, conv.partnerName)
               }
-              className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+              className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                 {conv.partnerName.charAt(0).toUpperCase()}
@@ -301,6 +310,7 @@ function ThreadView({
   onBack: () => void;
   onClose: () => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const messages = useQuery(api.messages.getDirectMessages, { partnerId });
   const sendMessage = useMutation(api.messages.sendMessage);
   const markRead = useMutation(api.messages.markMessagesRead);
@@ -312,8 +322,8 @@ function ThreadView({
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages?.length]);
+    bottomRef.current?.scrollIntoView({ behavior: shouldReduceMotion ? "auto" : "smooth" });
+  }, [messages?.length, shouldReduceMotion]);
 
   // Focus input when entering thread
   useEffect(() => {
@@ -345,15 +355,16 @@ function ThreadView({
   return (
     <motion.div
       className="flex h-full flex-col"
-      initial={{ x: 40, opacity: 0 }}
+      initial={shouldReduceMotion ? false : { x: 40, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-3">
         <button
+          type="button"
           onClick={onBack}
-          className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
@@ -365,8 +376,9 @@ function ThreadView({
           {partnerName}
         </span>
         <button
+          type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           aria-label="Close"
         >
           <X className="size-4" />
@@ -433,12 +445,14 @@ function ThreadView({
               }
             }}
             placeholder="Type a message..."
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="min-h-10 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
           <button
+            type="button"
             onClick={handleSend}
             disabled={!text.trim() || sending}
-            className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors"
+            aria-label="Send message"
+            className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
           >
             {sending ? (
               <Loader2 className="size-4 animate-spin" />
@@ -463,28 +477,31 @@ function NewMessageView({
   onBack: () => void;
   onClose: () => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const admins = useQuery(api.users.getAdminUsers);
 
   return (
     <motion.div
       className="flex h-full flex-col"
-      initial={{ x: 40, opacity: 0 }}
+      initial={shouldReduceMotion ? false : { x: 40, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-3">
         <button
+          type="button"
           onClick={onBack}
-          className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
         </button>
         <span className="flex-1 text-sm font-semibold">New Message</span>
         <button
+          type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           aria-label="Close"
         >
           <X className="size-4" />
@@ -508,8 +525,9 @@ function NewMessageView({
           admins.map((admin) => (
             <button
               key={admin._id}
+              type="button"
               onClick={() => onSelect(admin._id, admin.displayName)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {admin.displayName.charAt(0).toUpperCase()}

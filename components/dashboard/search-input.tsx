@@ -28,14 +28,15 @@ export function SearchInput({
   }, [internal, onChange]);
 
   return (
-    <div className="group relative max-w-sm">
+    <div className="group relative w-full max-w-sm">
       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-primary" />
       <input
-        type="text"
+        type="search"
+        aria-label={placeholder}
         placeholder={placeholder}
         value={internal}
         onChange={(e) => setInternal(e.target.value)}
-        className="w-full rounded-xl border border-border bg-muted/30 py-2 pl-9 pr-4 text-sm placeholder:text-muted-foreground/60 transition-[background-color,border-color,box-shadow] duration-200 focus:border-ring focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:shadow-[0_0_0_3px_oklch(0.30_0.10_250_/_8%)]"
+        className="min-h-11 w-full rounded-2xl border border-border bg-card px-4 pl-10 text-sm shadow-[0_1px_2px_oklch(0_0_0_/_3%)] transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-muted-foreground/60 focus:border-ring focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:shadow-[0_0_0_3px_oklch(0.30_0.10_250_/_8%)]"
       />
     </div>
   );

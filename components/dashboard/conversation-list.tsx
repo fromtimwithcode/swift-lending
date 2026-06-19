@@ -34,8 +34,9 @@ export function ConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="p-4 text-center text-sm text-muted-foreground">
-        No conversations yet
+      <div className="px-4 py-10 text-center">
+        <p className="text-sm font-medium text-foreground">No conversations yet</p>
+        <p className="mt-1 text-xs text-muted-foreground">Messages will appear here once a thread starts.</p>
       </div>
     );
   }
@@ -45,9 +46,11 @@ export function ConversationList({
       {conversations.map((conv) => (
         <button
           key={conv.partnerId}
+          type="button"
           onClick={() => onSelect(conv.partnerId)}
+          aria-pressed={selectedId === conv.partnerId}
           className={cn(
-            "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50",
+            "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30",
             selectedId === conv.partnerId && "bg-muted"
           )}
         >
