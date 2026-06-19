@@ -30,11 +30,11 @@ function DetailRow({
   value: string | number | undefined | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
       <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
         {label}
       </span>
-      <span className="text-sm">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -166,10 +166,10 @@ export default function BorrowerLoanDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/borrower"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -384,19 +384,19 @@ export default function BorrowerLoanDetailPage() {
                   />
                 </div>
               </div>
-              <div className="mt-4 flex justify-end gap-2">
+              <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setDrawFormOpen(false)}
                   disabled={drawSaving}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={drawSaving || drawAvailabilityLoading || (drawRequestAvailable !== undefined && drawRequestAvailable <= 0)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   {drawSaving && <Loader2 className="size-4 animate-spin" />}
                   Submit Request
@@ -413,7 +413,7 @@ export default function BorrowerLoanDetailPage() {
           <h3 className="mb-4 text-sm font-medium text-muted-foreground">
             Notes
           </h3>
-          <p className="text-sm whitespace-pre-wrap">{loan.notes}</p>
+          <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{loan.notes}</p>
         </div>
       )}
 
@@ -463,7 +463,7 @@ export default function BorrowerLoanDetailPage() {
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">
               Charges / Interest Schedule
@@ -472,7 +472,7 @@ export default function BorrowerLoanDetailPage() {
               Interest charges are shown separately from payments received.
             </p>
           </div>
-          <div className="rounded-lg bg-muted/50 px-3 py-2 text-right">
+          <div className="w-fit rounded-lg bg-muted/50 px-3 py-2 text-left sm:text-right">
             <p className="text-xs text-muted-foreground">Current Monthly</p>
             <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
           </div>
@@ -534,14 +534,14 @@ export default function BorrowerLoanDetailPage() {
 
       {/* Draw Requests */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">
             Draw Requests
           </h3>
           {isDrawEligibleLoan(loan) && (
             <Link
               href={`/dashboard/borrower/draws/new?loanId=${id}`}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               New Draw
             </Link>

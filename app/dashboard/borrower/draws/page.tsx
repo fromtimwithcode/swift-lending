@@ -82,7 +82,7 @@ export default function BorrowerDrawsPage() {
         actions={
           <Link
             href="/dashboard/borrower/draws/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:w-full"
           >
             <Plus className="size-4" />
             New Draw Request
@@ -91,26 +91,29 @@ export default function BorrowerDrawsPage() {
       />
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
-            className={`relative pb-3 text-sm font-medium transition-colors ${
-              activeTab === tab.value
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-            <span className="ml-1.5 text-xs text-muted-foreground">
-              {tab.count}
-            </span>
-            {activeTab === tab.value && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
-            )}
-          </button>
-        ))}
+      <div className="min-w-0 overflow-x-auto overscroll-x-contain border-b border-border touch-pan-x">
+        <div className="flex min-w-max items-center gap-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={`relative min-h-10 shrink-0 pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 ${
+                activeTab === tab.value
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                {tab.count}
+              </span>
+              {activeTab === tab.value && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {filtered.length > 0 ? (
@@ -126,7 +129,7 @@ export default function BorrowerDrawsPage() {
           action={
             <Link
               href="/dashboard/borrower/draws/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:w-full"
             >
               <Plus className="size-4" />
               New Draw Request

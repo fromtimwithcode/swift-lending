@@ -25,11 +25,11 @@ function DetailRow({
   value: string | number | undefined | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
       <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
         {label}
       </span>
-      <span className="text-sm">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -74,10 +74,10 @@ export default function AdminDrawDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/draws"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -89,7 +89,7 @@ export default function AdminDrawDetailPage() {
 
       {/* Status */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">
             Status
           </h3>
@@ -136,9 +136,10 @@ export default function AdminDrawDetailPage() {
             {REVIEW_STATUSES.map((status) => (
               <button
                 key={status}
+                type="button"
                 onClick={() => handleReview(status)}
                 disabled={saving || isTerminal}
-                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1 ${
                   status === "approved"
                     ? "bg-green-600 text-white hover:bg-green-700"
                     : status === "denied"
@@ -216,14 +217,14 @@ export default function AdminDrawDetailPage() {
 
       {/* Documents */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">
             Attached Documents
           </h3>
           <button
             type="button"
             onClick={() => setUploadOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           >
             <Upload className="size-3" />
             Upload

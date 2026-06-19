@@ -129,14 +129,14 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
     "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">
           Rehab Budget
         </h3>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <Plus className="size-3" />
           Add Item
@@ -145,7 +145,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
 
       {/* Summary Bar */}
       {items.length > 0 && (
-        <div className="mb-4 grid grid-cols-3 gap-4 rounded-lg bg-muted/40 p-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-lg bg-muted/40 p-3 min-[420px]:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground">Total Allocated</p>
             <p className="text-sm font-bold">{formatCurrency(totalAllocated)}</p>
@@ -236,17 +236,17 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               onClick={() => setShowAdd(false)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
             >
               {adding && <Loader2 className="size-3 animate-spin" />}
               Add
@@ -257,8 +257,8 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
 
       {/* Table */}
       {items.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="max-w-full overflow-x-auto overscroll-x-contain touch-pan-x">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="pb-2 pr-4 text-xs font-medium text-muted-foreground">

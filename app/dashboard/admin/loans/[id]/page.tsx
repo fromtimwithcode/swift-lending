@@ -87,11 +87,11 @@ function DetailRow({
   value: string | number | undefined | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
       <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
         {label}
       </span>
-      <span className="text-sm">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -737,7 +737,7 @@ export default function LoanDetailPage() {
         const deleteDisabled = payments === undefined || hasRelatedPayment;
 
         return (
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {canRecordCharge && (
               <button
                 type="button"
@@ -781,10 +781,10 @@ export default function LoanDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/loans"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -792,12 +792,12 @@ export default function LoanDetailPage() {
           title={loan.propertyAddress}
           description={`${loan.borrowerName} — ${loan.entityName}`}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               {editing ? (
                 <>
                   <button
                     onClick={() => setEditing(false)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96]"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                   >
                     <X className="size-4" />
                     Cancel
@@ -805,7 +805,7 @@ export default function LoanDetailPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1"
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -821,7 +821,7 @@ export default function LoanDetailPage() {
                     <button
                       type="button"
                       onClick={openReturnForm}
-                      className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 active:scale-[0.96]"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                     >
                       <RotateCcw className="size-4" />
                       Record Funds Returned
@@ -829,7 +829,7 @@ export default function LoanDetailPage() {
                   )}
                   <button
                     onClick={startEditing}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96]"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                   >
                     <Pencil className="size-4" />
                     Edit
@@ -853,7 +853,7 @@ export default function LoanDetailPage() {
                 </p>
               )}
               {loan.returnedNotes && (
-                <p className="mt-2 text-sm text-emerald-700/80 dark:text-emerald-300/80">
+                <p className="mt-2 break-words text-sm text-emerald-700/80 [overflow-wrap:anywhere] dark:text-emerald-300/80">
                   {loan.returnedNotes}
                 </p>
               )}
@@ -1319,19 +1319,19 @@ export default function LoanDetailPage() {
                   />
                 </div>
               </div>
-              <div className="mt-4 flex justify-end gap-2">
+              <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setDrawFormOpen(false)}
                   disabled={drawSaving}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={drawSaving || drawAvailabilityLoading || (drawRequestAvailable !== undefined && drawRequestAvailable <= 0)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   {drawSaving && <Loader2 className="size-4 animate-spin" />}
                   Create Draw
@@ -1348,17 +1348,17 @@ export default function LoanDetailPage() {
           Closing Statement
         </h3>
         {closingStatementUrl ? (
-          <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
             <a
               href={closingStatementUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+              className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-lg text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <FileText className="size-4" />
               View Closing Statement
             </a>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring/30">
               {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
               Replace
               <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
@@ -1367,14 +1367,14 @@ export default function LoanDetailPage() {
               onClick={() => {
                 setConfirmRemoveClosing(true);
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 dark:hover:bg-red-900/20"
             >
               <Trash2 className="size-3" />
               Remove
             </button>
           </div>
         ) : (
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80">
+          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-within:ring-2 focus-within:ring-ring/30">
             {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
             Attach Closing Statement
             <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
@@ -1394,7 +1394,7 @@ export default function LoanDetailPage() {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{loan.notes || "No notes"}</p>
+          <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{loan.notes || "No notes"}</p>
         )}
       </div>
 
@@ -1447,7 +1447,7 @@ export default function LoanDetailPage() {
 
       {/* Charges */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">
               Charges / Interest Schedule
@@ -1456,7 +1456,7 @@ export default function LoanDetailPage() {
               Charges owed are tracked separately from payments received.
             </p>
           </div>
-          <div className="rounded-lg bg-muted/50 px-3 py-2 text-right">
+          <div className="w-fit rounded-lg bg-muted/50 px-3 py-2 text-left sm:text-right">
             <p className="text-xs text-muted-foreground">Current Monthly</p>
             <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
           </div>
@@ -1475,7 +1475,7 @@ export default function LoanDetailPage() {
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-medium text-muted-foreground">
             Payment History
           </h3>
@@ -1485,7 +1485,7 @@ export default function LoanDetailPage() {
                 if (paymentFormOpen) setPaymentFormOpen(false);
                 else openPaymentFormForCharge(nextScheduledCharge);
               }}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               {paymentFormOpen ? <ChevronUp className="size-3" /> : <Plus className="size-3" />}
               Record Payment
@@ -1610,17 +1610,17 @@ export default function LoanDetailPage() {
                 />
               </div>
             </div>
-            <div className="mt-3 flex justify-end gap-2">
+            <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setPaymentFormOpen(false)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRecordPayment}
                 disabled={paymentSaving}
-                className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               >
                 {paymentSaving && <Loader2 className="size-3 animate-spin" />}
                 Save Payment
@@ -1642,13 +1642,13 @@ export default function LoanDetailPage() {
       {/* Documents & Draw Requests */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-medium text-muted-foreground">
               Documents
             </h3>
             <button
               onClick={() => setUploadOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <Upload className="size-3" />
               Upload
@@ -1666,14 +1666,14 @@ export default function LoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-medium text-muted-foreground">
               Draw Requests ({loanDraws.length})
             </h3>
             {canAddDrawRequest && (
               <Link
                 href={`/dashboard/admin/draws/new?loanId=${id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 <Plus className="size-3" />
                 Add
@@ -1686,13 +1686,13 @@ export default function LoanDetailPage() {
                 <button
                   key={draw._id}
                   onClick={() => router.push(`/dashboard/admin/draws/${draw._id}`)}
-                  className="flex w-full items-center justify-between py-2 text-left hover:bg-muted/50 rounded px-1 transition-colors"
+                  className="flex w-full min-w-0 items-center justify-between gap-3 rounded px-1 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {formatCurrency(draw.amountRequested)}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    <p className="max-w-[200px] truncate text-xs text-muted-foreground">
                       {draw.workDescription}
                     </p>
                   </div>
@@ -1816,12 +1816,12 @@ export default function LoanDetailPage() {
                 />
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setReturnFormOpen(false)}
                 disabled={returnSaving}
-                className="min-h-10 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] duration-150 hover:bg-muted active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 Cancel
               </button>
@@ -1829,7 +1829,7 @@ export default function LoanDetailPage() {
                 type="button"
                 onClick={handleRecordLoanReturned}
                 disabled={returnSaving || !canSaveReturn}
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 {returnSaving && <Loader2 className="size-4 animate-spin" />}
                 Save Return

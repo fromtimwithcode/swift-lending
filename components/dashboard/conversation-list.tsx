@@ -50,16 +50,16 @@ export function ConversationList({
           onClick={() => onSelect(conv.partnerId)}
           aria-pressed={selectedId === conv.partnerId}
           className={cn(
-            "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30",
+            "flex w-full min-w-0 items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30",
             selectedId === conv.partnerId && "bg-muted"
           )}
         >
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
             {conv.partnerName.charAt(0).toUpperCase()}
           </div>
-          <div className="flex-1 overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium truncate">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex min-w-0 items-center justify-between">
+              <span className="truncate text-sm font-medium">
                 {conv.partnerName}
               </span>
               <span className="text-[10px] text-muted-foreground shrink-0 ml-2">

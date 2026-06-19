@@ -136,7 +136,7 @@ export default function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         {/* Profile & Edit Card */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
             <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
               {initial}
             </div>
@@ -145,7 +145,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground truncate">{me.email}</p>
             </div>
             <span
-              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_BADGE_COLORS[me.role] ?? "bg-muted text-muted-foreground"}`}
+              className={`w-fit shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_BADGE_COLORS[me.role] ?? "bg-muted text-muted-foreground"}`}
             >
               {ROLE_LABELS[me.role] ?? me.role}
             </span>

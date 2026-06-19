@@ -152,12 +152,12 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)]",
+        "min-w-0 max-w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)]",
         className
       )}
     >
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="max-w-full overflow-x-auto overscroll-x-contain touch-pan-x">
+        <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="border-b border-border/50 bg-muted/35">
               {selectable && (
@@ -189,7 +189,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                      "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                       col.className
                     )}
                   >

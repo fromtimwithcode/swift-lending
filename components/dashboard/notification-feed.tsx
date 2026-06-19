@@ -85,24 +85,24 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
           description="When something needs your attention, it will appear here."
         />
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%)]">
+        <div className="min-w-0 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%)]">
           {notifications.map((n) => (
             <button
               key={n._id}
               type="button"
               onClick={() => handleClick(n)}
-              className={`flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30 ${
+              className={`flex w-full min-w-0 items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30 sm:px-5 ${
                 !n.isRead ? "border-l-4 border-l-primary" : ""
               }`}
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{n.title}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="min-w-0 break-words text-sm font-medium [overflow-wrap:anywhere]">{n.title}</p>
                   {!n.isRead && (
                     <span className="size-2 rounded-full bg-primary" />
                   )}
                 </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">
+                <p className="mt-0.5 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                   {n.body}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground tabular-nums">

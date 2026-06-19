@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import NextTopLoader from "nextjs-toploader";
@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   title: "Swift Capital Lending | Hard Money Loans Made Simple",
   description:
     "Fast, flexible hard money lending for Wisconsin real estate investors. Fix & flip and BRRRR strategy loans, closing in days, not months.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -24,7 +24,7 @@ export function StatusTabFilter({
     <div
       role="tablist"
       aria-label="Status filter"
-      className="flex w-full items-center gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card/70 p-1 shadow-[0_1px_3px_oklch(0_0_0_/_3%)]"
+      className="flex w-full min-w-0 items-center gap-1 overflow-x-auto overscroll-x-contain rounded-2xl border border-border/60 bg-card/70 p-1 shadow-[0_1px_3px_oklch(0_0_0_/_3%)] touch-pan-x"
     >
       {tabs.map((tab) => (
         <button

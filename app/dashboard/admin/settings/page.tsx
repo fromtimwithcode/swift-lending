@@ -139,7 +139,7 @@ export default function AdminSettingsPage() {
       key: "isActive",
       header: "Status",
       render: (row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
               row.isActive
@@ -150,12 +150,13 @@ export default function AdminSettingsPage() {
             {row.isActive ? "Active" : "Inactive"}
           </span>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               handleToggle(row._id, row.displayName, row.isActive);
             }}
             disabled={togglingId === row._id}
-            className="rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
           >
             {togglingId === row._id ? (
               <Loader2 className="size-3 animate-spin" />
@@ -183,7 +184,7 @@ export default function AdminSettingsPage() {
       key: "isActive",
       header: "Status",
       render: (row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
               row.isActive
@@ -194,12 +195,13 @@ export default function AdminSettingsPage() {
             {row.isActive ? "Active" : "Inactive"}
           </span>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               handleToggle(row._id, row.displayName, row.isActive);
             }}
             disabled={togglingId === row._id}
-            className="rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
           >
             {togglingId === row._id ? (
               <Loader2 className="size-3 animate-spin" />
@@ -222,8 +224,8 @@ export default function AdminSettingsPage() {
       />
 
       {/* Tabs */}
-      <div className="relative border-b border-border">
-        <div className="flex gap-6">
+      <div className="relative min-w-0 overflow-x-auto overscroll-x-contain border-b border-border touch-pan-x">
+        <div className="flex min-w-max gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -231,7 +233,7 @@ export default function AdminSettingsPage() {
                 setActiveTab(tab.key);
                 setSearch("");
               }}
-              className={`relative pb-3 text-sm font-medium transition-colors ${
+              className={`relative min-h-10 shrink-0 pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 ${
                 activeTab === tab.key
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
