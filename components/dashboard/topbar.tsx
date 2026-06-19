@@ -7,6 +7,8 @@ import { NotificationBell } from "./notification-bell";
 
 interface TopbarProps {
   onMenuClick: () => void;
+  rolePrefix: "admin" | "borrower" | "investor";
+  notificationUnreadCount?: number;
 }
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -49,7 +51,11 @@ function getPageContext(pathname: string) {
   return { eyebrow: role, title };
 }
 
-export function Topbar({ onMenuClick }: TopbarProps) {
+export function Topbar({
+  onMenuClick,
+  rolePrefix,
+  notificationUnreadCount,
+}: TopbarProps) {
   const pathname = usePathname();
   const { eyebrow, title } = getPageContext(pathname);
 
@@ -75,7 +81,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <NotificationBell />
+        <NotificationBell
+          rolePrefix={rolePrefix}
+          unreadCount={notificationUnreadCount}
+        />
         <Link
           href="/dashboard/settings"
           className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
