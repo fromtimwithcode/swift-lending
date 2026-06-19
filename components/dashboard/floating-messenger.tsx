@@ -19,13 +19,18 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 type View = "list" | "thread" | "new-message";
 
-export function FloatingMessenger() {
-  const profile = useQuery(api.users.getMe);
-  const unreadCount = useQuery(
-    api.messages.getUnreadCount,
-    profile ? {} : "skip"
-  );
+interface FloatingMessengerProps {
+  profile: {
+    _id: Id<"userProfiles">;
+    role: string;
+  };
+  unreadCount?: number;
+}
 
+export function FloatingMessenger({
+  profile,
+  unreadCount,
+}: FloatingMessengerProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("list");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(
@@ -77,8 +82,6 @@ export function FloatingMessenger() {
   const handleBack = useCallback(() => {
     setView("list");
   }, []);
-
-  if (!profile) return null;
 
   const isNonAdmin = profile.role === "borrower" || profile.role === "investor";
 

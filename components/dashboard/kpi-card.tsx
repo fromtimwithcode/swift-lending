@@ -90,32 +90,36 @@ export function KpiCard({
       initial={shouldReduceMotion ? false : "hidden"}
       animate={shouldReduceMotion ? undefined : "visible"}
       className={cn(
-        "card-premium group relative min-h-36 overflow-hidden p-5 sm:p-6",
+        "card-premium group relative flex min-h-36 flex-col overflow-hidden p-5 sm:p-6",
         className
       )}
     >
       {/* Hover gradient overlay */}
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
 
-      <div className="relative flex items-center justify-between">
-        <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <div className="relative flex items-start justify-between gap-3">
+        <p className="min-w-0 flex-1 text-xs font-semibold uppercase leading-5 tracking-[0.14em] text-muted-foreground [overflow-wrap:anywhere]">
+          {label}
+        </p>
         {Icon && (
-          <div className="rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12">
+          <div className="shrink-0 rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12">
             <Icon className="size-4 text-primary" />
           </div>
         )}
       </div>
-      <div className="relative mt-3">
-        <p className="text-[28px] font-bold leading-none tracking-tight">
+      <div className="relative mt-auto pt-4">
+        <p className="text-[28px] font-bold leading-none tracking-tight [overflow-wrap:anywhere]">
           <AnimatedValue value={value} />
         </p>
         {subtitle && (
-          <p className="mt-1.5 truncate text-sm text-muted-foreground">{subtitle}</p>
+          <p className="mt-1.5 text-sm leading-5 text-muted-foreground text-pretty [overflow-wrap:anywhere]">
+            {subtitle}
+          </p>
         )}
         {trend && (
           <span
             className={cn(
-              "mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+              "mt-2 inline-flex max-w-full flex-wrap items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums [overflow-wrap:anywhere]",
               trend.value >= 0
                 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                 : "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400"

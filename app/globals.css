@@ -150,6 +150,34 @@
   p {
     text-wrap: pretty;
   }
+  :where(
+    button,
+    [role="button"],
+    [data-slot="button"],
+    [data-slot="badge"],
+    [class*="rounded-full"],
+    a[class*="rounded-"][class*="flex"]
+  ),
+  :where(
+    button,
+    [role="button"],
+    [data-slot="button"],
+    [data-slot="badge"],
+    [class*="rounded-full"],
+    a[class*="rounded-"][class*="flex"]
+  ) :where(:not(input):not(textarea):not(select)) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  :where([data-slot="badge"], [class*="rounded-full"]) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  :where([data-slot="badge"], [class*="rounded-full"]) :where(span, p) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
   #nprogress .bar {
     background: var(--primary) !important;
   }

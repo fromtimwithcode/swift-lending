@@ -10,14 +10,17 @@ import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/format";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
+import { useState } from "react";
 
 export default function InvestorDashboardPage() {
-  const stats = useQuery(api.investor.getPortfolioStats);
-  const investments = useQuery(api.investor.getMyInvestments);
+  const [nowMinute] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
+  const dashboard = useQuery(api.investor.getPortfolioDashboard, { now: nowMinute });
 
-  if (stats === undefined || investments === undefined) {
+  if (dashboard === undefined) {
     return <PageSkeleton />;
   }
+
+  const { stats, investments } = dashboard;
 
   const kpis = [
     {

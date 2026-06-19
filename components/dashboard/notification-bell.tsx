@@ -19,14 +19,23 @@ function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
-export function NotificationBell() {
-  const unreadCount = useQuery(api.notifications.getUnreadCount);
-  const notifications = useQuery(api.notifications.getMyNotifications);
-  const me = useQuery(api.users.getMe);
+interface NotificationBellProps {
+  rolePrefix: "admin" | "borrower" | "investor";
+  unreadCount?: number;
+}
+
+export function NotificationBell({
+  rolePrefix,
+  unreadCount,
+}: NotificationBellProps) {
+  const [open, setOpen] = useState(false);
+  const notifications = useQuery(
+    api.notifications.getMyNotifications,
+    open ? {} : "skip"
+  );
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const popupId = useId();
   const shouldReduceMotion = useReducedMotion();
@@ -50,8 +59,6 @@ export function NotificationBell() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
-
-  const rolePrefix = (me?.role === "admin" || me?.role === "developer") ? "admin" : me?.role === "investor" ? "investor" : "borrower";
 
   const getLink = (n: { type: string; loanId?: Id<"loans">; drawRequestId?: Id<"drawRequests"> }) => {
     const base = `/dashboard/${rolePrefix}`;
@@ -80,7 +87,7 @@ export function NotificationBell() {
     router.push(getLink(n));
   };
 
-  const recent = (notifications ?? []).slice(0, 10);
+  const recent = notifications?.slice(0, 10) ?? [];
 
   return (
     <div className="relative" ref={ref}>
@@ -126,7 +133,19 @@ export function NotificationBell() {
               )}
             </div>
             <div className="max-h-80 overflow-y-auto">
-              {recent.length === 0 ? (
+              {notifications === undefined ? (
+                <div className="space-y-3 p-4" aria-label="Loading notifications">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="mt-1.5 size-2 shrink-0 rounded-full bg-muted" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+                        <div className="h-2.5 w-full animate-pulse rounded bg-muted/70" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : recent.length === 0 ? (
                 <p className="p-4 text-center text-sm text-muted-foreground">
                   No notifications
                 </p>

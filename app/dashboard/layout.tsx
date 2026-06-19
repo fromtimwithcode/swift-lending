@@ -2,9 +2,11 @@
 
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { cn } from "@/lib/utils";
@@ -13,7 +15,27 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
-import { FloatingMessenger } from "@/components/dashboard/floating-messenger";
+
+const FloatingMessenger = dynamic<{
+  profile: Pick<Doc<"userProfiles">, "_id" | "role">;
+  unreadCount?: number;
+}>(
+  () => import("@/components/dashboard/floating-messenger").then((mod) => mod.FloatingMessenger),
+  { ssr: false, loading: () => null }
+);
+
+function getDashboardHomeHref(role: string) {
+  if (role === "admin" || role === "developer") return "/dashboard/admin";
+  if (role === "borrower") return "/dashboard/borrower";
+  if (role === "investor") return "/dashboard/investor";
+  return "/dashboard";
+}
+
+function getRolePrefix(role: string): "admin" | "borrower" | "investor" {
+  if (role === "admin" || role === "developer") return "admin";
+  if (role === "investor") return "investor";
+  return "borrower";
+}
 
 function AuthLoadingSkeleton() {
   return (
@@ -54,9 +76,12 @@ function AnimatedPage({ children }: { children: ReactNode }) {
 
 function DashboardShell({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.getMe);
+  const messageUnreadCount = useQuery(api.messages.getUnreadCount, profile ? {} : "skip");
+  const notificationUnreadCount = useQuery(api.notifications.getUnreadCount, profile ? {} : "skip");
   const claimProfile = useMutation(api.users.claimProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const pathname = usePathname();
 
   // Link authUserId on pending profiles (admin-created, not yet claimed).
   // getMe returns pending profiles via email fallback from the auth users
@@ -92,12 +117,19 @@ function DashboardShell({ children }: { children: ReactNode }) {
     );
   }
 
+  const homeHref = getDashboardHomeHref(profile.role);
+  const rolePrefix = getRolePrefix(profile.role);
+  const showFloatingMessenger = !pathname.includes("/messages");
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar
         role={profile.role}
         displayName={profile.displayName}
         email={profile.email}
+        homeHref={homeHref}
+        messageUnreadCount={messageUnreadCount}
+        notificationUnreadCount={notificationUnreadCount}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
@@ -105,18 +137,27 @@ function DashboardShell({ children }: { children: ReactNode }) {
       />
       <div
         className={cn(
-          "transition-[padding-left] duration-300",
+          "transition-[padding-left] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
           sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
         )}
       >
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar
+          onMenuClick={() => setSidebarOpen(true)}
+          rolePrefix={rolePrefix}
+          notificationUnreadCount={notificationUnreadCount}
+        />
         <main className="min-h-[calc(100vh-4rem)] px-4 py-6 pb-28 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
           <div className="mx-auto w-full max-w-[1440px]">
             <AnimatedPage>{children}</AnimatedPage>
           </div>
         </main>
       </div>
-      <FloatingMessenger />
+      {showFloatingMessenger && (
+        <FloatingMessenger
+          profile={{ _id: profile._id, role: profile.role }}
+          unreadCount={messageUnreadCount}
+        />
+      )}
     </div>
   );
 }

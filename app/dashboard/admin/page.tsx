@@ -9,12 +9,14 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
+import dynamic from "next/dynamic";
 import {
   Landmark,
   DollarSign,
   TrendingUp,
   Wallet,
   BarChart3,
+  Hammer,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,19 +29,17 @@ import {
   isActiveLoanDisplay,
   isFundsReturnedLoan,
 } from "@/lib/loan-display";
-import { useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { useEffect, useState } from "react";
+
+const LoanOverviewCharts = dynamic(
+  () => import("@/components/dashboard/admin-overview-charts").then((mod) => mod.LoanOverviewCharts),
+  { ssr: false, loading: () => <ChartGridSkeleton /> }
+);
+
+const RevenueByMonthChart = dynamic(
+  () => import("@/components/dashboard/admin-overview-charts").then((mod) => mod.RevenueByMonthChart),
+  { ssr: false, loading: () => <ChartCardSkeleton /> }
+);
 
 const STATUS_COLORS: Record<string, string> = {
   submitted: "#9ca3af",
@@ -65,23 +65,62 @@ const STATUS_LABELS: Record<string, string> = {
   funds_returned: "Funds Returned",
 };
 
+function ChartCardSkeleton() {
+  return (
+    <div className="card-premium p-6" aria-label="Loading chart">
+      <div className="mb-4 h-4 w-36 animate-pulse rounded bg-muted" />
+      <div className="h-[250px] animate-pulse rounded-xl bg-muted/60" />
+    </div>
+  );
+}
+
+function ChartGridSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <ChartCardSkeleton />
+      <ChartCardSkeleton />
+    </div>
+  );
+}
+
+type DrilldownRequest =
+  | { kind: "month"; value: string; title: string }
+  | { kind: "status"; value: string; title: string };
+
 export default function AdminOverviewPage() {
   const stats = useQuery(api.admin.getOverviewStats);
-  const allLoans = useQuery(api.admin.getLoans, {});
-  const paymentsSummary = useQuery(api.loanPayments.getAllPaymentsSummary);
   const paymentReminders = useQuery(api.loanPayments.getAdminPaymentReminders);
-  const borrowerPerformance = useQuery(api.admin.getBorrowerPerformance);
+  const [loadSecondaryAnalytics, setLoadSecondaryAnalytics] = useState(false);
+  const paymentsSummary = useQuery(
+    api.loanPayments.getAllPaymentsSummary,
+    loadSecondaryAnalytics ? {} : "skip"
+  );
+  const borrowerPerformance = useQuery(
+    api.admin.getBorrowerPerformance,
+    loadSecondaryAnalytics ? {} : "skip"
+  );
   const [selectedKpiYear, setSelectedKpiYear] = useState<number | null>(null);
   const loanPeriodKpis = useQuery(
     api.admin.getLoanPeriodKpis,
-    selectedKpiYear ? { year: selectedKpiYear } : {}
+    loadSecondaryAnalytics
+      ? selectedKpiYear
+        ? { year: selectedKpiYear }
+        : {}
+      : "skip"
   );
   const router = useRouter();
-  const [drilldown, setDrilldown] = useState<{
-    title: string;
-    description: string;
-    loans: NonNullable<typeof allLoans>;
-  } | null>(null);
+  const [drilldownRequest, setDrilldownRequest] = useState<DrilldownRequest | null>(null);
+  const drilldownLoans = useQuery(
+    api.admin.getLoans,
+    drilldownRequest ? {} : "skip"
+  );
+
+  useEffect(() => {
+    if (stats === undefined || loadSecondaryAnalytics) return;
+
+    const timer = window.setTimeout(() => setLoadSecondaryAnalytics(true), 1);
+    return () => window.clearTimeout(timer);
+  }, [stats, loadSecondaryAnalytics]);
 
   if (stats === undefined) {
     return <PageSkeleton />;
@@ -125,26 +164,39 @@ export default function AdminOverviewPage() {
   };
 
   const openMonthDrilldown = (month: string) => {
-    const loans = (allLoans ?? []).filter((loan) => getLoanMonth(loan.closeDate) === month);
-    setDrilldown({
+    setDrilldownRequest({
+      kind: "month",
+      value: month,
       title: `Loans Closed in ${month}`,
-      description: `${loans.length} loan${loans.length === 1 ? "" : "s"} with a close date in this month`,
-      loans,
     });
   };
 
   const openStatusDrilldown = (status: string) => {
-    const loans = (allLoans ?? []).filter((loan) => {
-      if (status === "funds_returned") return isFundsReturnedLoan(loan);
-      if (status === "closed") return loan.status === "closed" && !loan.returnedDate;
-      return loan.status === status && !loan.returnedDate;
-    });
-    setDrilldown({
+    setDrilldownRequest({
+      kind: "status",
+      value: status,
       title: `${STATUS_LABELS[status] ?? status} Loans`,
-      description: `${loans.length} loan${loans.length === 1 ? "" : "s"} currently marked ${STATUS_LABELS[status] ?? status}`,
-      loans,
     });
   };
+
+  const drilldownMatches = drilldownRequest && drilldownLoans
+    ? drilldownLoans.filter((loan) => {
+        if (drilldownRequest.kind === "month") {
+          return getLoanMonth(loan.closeDate) === drilldownRequest.value;
+        }
+        if (drilldownRequest.value === "funds_returned") return isFundsReturnedLoan(loan);
+        if (drilldownRequest.value === "closed") return loan.status === "closed" && !loan.returnedDate;
+        return loan.status === drilldownRequest.value && !loan.returnedDate;
+      })
+    : [];
+
+  const drilldownDescription = drilldownRequest
+    ? drilldownLoans === undefined
+      ? "Loading matching loans..."
+      : drilldownRequest.kind === "month"
+        ? `${drilldownMatches.length} loan${drilldownMatches.length === 1 ? "" : "s"} with a close date in this month`
+        : `${drilldownMatches.length} loan${drilldownMatches.length === 1 ? "" : "s"} currently marked ${STATUS_LABELS[drilldownRequest.value] ?? drilldownRequest.value}`
+    : "";
 
   const columns: Column<(typeof recentLoans)[number]>[] = [
     {
@@ -234,7 +286,7 @@ export default function AdminOverviewPage() {
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
-        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5"
+        className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3"
       >
         <KpiCard
           label="Total Loans"
@@ -247,6 +299,12 @@ export default function AdminOverviewPage() {
           value={formatCurrencyShort(stats.capitalCurrentlyOut)}
           subtitle="Current principal outstanding"
           icon={DollarSign}
+        />
+        <KpiCard
+          label="Draws Remaining"
+          value={formatCurrencyShort(stats.totalDrawRemaining)}
+          subtitle="Available on active loans"
+          icon={Hammer}
         />
         <KpiCard
           label="Closed Loan Revenue"
@@ -334,125 +392,19 @@ export default function AdminOverviewPage() {
 
       {/* Charts */}
       {stats.totalLoans > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Loan Volume by Month */}
-          {barData.length > 0 && (
-            <div className="card-premium p-6">
-              <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                Loan Volume by Month
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "12px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="loans"
-                    fill="var(--primary)"
-                    radius={[4, 4, 0, 0]}
-                    className="cursor-pointer"
-                    onClick={(entry) =>
-                      openMonthDrilldown((entry.payload as { month: string }).month)
-                    }
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Click a bar to view the loans for that month.
-              </p>
-            </div>
-          )}
-
-          {/* Status Distribution */}
-          {pieData.length > 0 && (
-            <div className="card-premium p-6">
-              <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                Loan Status Distribution
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    dataKey="value"
-                    className="cursor-pointer"
-                    onClick={(entry) =>
-                      openStatusDrilldown((entry.payload as { status: string }).status)
-                    }
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} className="focus:outline-none" />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "12px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {pieData.map((entry, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => openStatusDrilldown(entry.status)}
-                    className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  >
-                    <div
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: entry.fill }}
-                    />
-                    {entry.name} ({entry.value})
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Click a slice or status label to view the matching loans.
-              </p>
-            </div>
-          )}
-        </div>
+        <LoanOverviewCharts
+          barData={barData}
+          pieData={pieData}
+          onMonthClick={openMonthDrilldown}
+          onStatusClick={openStatusDrilldown}
+        />
       )}
 
       {/* Revenue & Borrower Performance */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revenue by Month */}
         {paymentsSummary && paymentsSummary.monthlyRevenue.length > 0 && (
-          <div className="card-premium p-6">
-            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-              Revenue by Month
-            </h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={paymentsSummary.monthlyRevenue}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "12px",
-                  }}
-                  formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
-                />
-                <Bar dataKey="amount" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <RevenueByMonthChart data={paymentsSummary.monthlyRevenue} />
         )}
 
         {/* Borrower Performance */}
@@ -560,29 +512,29 @@ export default function AdminOverviewPage() {
         )}
       </div>
 
-      {drilldown && (
+      {drilldownRequest && (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="chart-drilldown-title"
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setDrilldown(null);
+            if (event.target === event.currentTarget) setDrilldownRequest(null);
           }}
         >
           <div className="flex max-h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
               <div>
                 <h2 id="chart-drilldown-title" className="text-lg font-semibold">
-                  {drilldown.title}
+                  {drilldownRequest.title}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {drilldown.description}
+                  {drilldownDescription}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setDrilldown(null)}
+                onClick={() => setDrilldownRequest(null)}
                 className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 aria-label="Close loan list"
               >
@@ -590,12 +542,14 @@ export default function AdminOverviewPage() {
               </button>
             </div>
             <div className="min-h-0 overflow-auto p-5">
-              {drilldown.loans.length > 0 ? (
+              {drilldownLoans === undefined ? (
+                <PageSkeleton />
+              ) : drilldownMatches.length > 0 ? (
                 <DataTable
-                  data={drilldown.loans as unknown as Record<string, unknown>[]}
+                  data={drilldownMatches as unknown as Record<string, unknown>[]}
                   columns={columns as Column<Record<string, unknown>>[]}
                   onRowClick={(row) => {
-                    setDrilldown(null);
+                    setDrilldownRequest(null);
                     router.push(`/dashboard/admin/loans/${(row as unknown as { _id: string })._id}`);
                   }}
                 />
