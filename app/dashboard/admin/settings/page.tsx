@@ -283,7 +283,7 @@ export default function AdminSettingsPage() {
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Percent className="size-5" />
             </div>

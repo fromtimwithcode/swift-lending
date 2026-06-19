@@ -72,10 +72,10 @@ export function PaymentRemindersCard({
   return (
     <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] sm:p-6">
       <div className="mb-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <div
             className={cn(
-              "mt-0.5 rounded-xl p-2",
+              "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl",
               data && data.pastDueCount > 0
                 ? "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300"
                 : "bg-primary/10 text-primary"

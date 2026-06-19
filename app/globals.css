@@ -169,11 +169,11 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  :where([data-slot="badge"], [class*="rounded-full"]) {
+  :where([data-slot="badge"]) {
     max-width: 100%;
     overflow-wrap: anywhere;
   }
-  :where([data-slot="badge"], [class*="rounded-full"]) :where(span, p) {
+  :where([data-slot="badge"]) :where(span, p) {
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
