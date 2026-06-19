@@ -4,8 +4,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useState, useRef, useEffect, useId } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { Id } from "@/convex/_generated/dataModel";
 
 function timeAgo(ts: number): string {
@@ -28,16 +28,28 @@ export function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const popupId = useId();
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
+    if (!open) return;
+
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   const rolePrefix = (me?.role === "admin" || me?.role === "developer") ? "admin" : me?.role === "investor" ? "investor" : "borrower";
 
@@ -73,9 +85,13 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="relative inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
         aria-label="Notifications"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? popupId : undefined}
       >
         <Bell key={unreadCount ?? 0} className={`size-5 ${unreadCount && unreadCount > 0 ? "animate-wiggle" : ""}`} />
         {unreadCount !== undefined && unreadCount > 0 && (
@@ -88,18 +104,22 @@ export function NotificationBell() {
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            id={popupId}
+            role="dialog"
+            aria-label="Notifications"
+            initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -4 }}
-            transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="absolute right-0 top-11 z-50 w-80 rounded-2xl border border-border/60 bg-card shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
+            transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
           >
             <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
               <h3 className="text-sm font-semibold">Notifications</h3>
               {unreadCount !== undefined && unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={() => markAllRead()}
-                  className="text-xs text-primary hover:underline"
+                  className="rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 >
                   Mark all read
                 </button>
@@ -114,8 +134,9 @@ export function NotificationBell() {
                 recent.map((n) => (
                   <button
                     key={n._id}
+                    type="button"
                     onClick={() => handleClick(n)}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
                   >
                     {!n.isRead && (
                       <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
@@ -136,11 +157,12 @@ export function NotificationBell() {
             </div>
             <div className="border-t border-border/40 px-4 py-2">
               <button
+                type="button"
                 onClick={() => {
                   setOpen(false);
                   router.push(`/dashboard/${rolePrefix}/notifications`);
                 }}
-                className="w-full text-center text-xs text-primary hover:underline"
+                className="min-h-9 w-full rounded-xl text-center text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 View all
               </button>
