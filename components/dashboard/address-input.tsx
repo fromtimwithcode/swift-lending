@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useAddressAutocomplete } from "@/hooks/use-address-autocomplete";
 import { MapPin, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 type AddressInputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
@@ -107,6 +108,10 @@ export const AddressInput = React.forwardRef<HTMLInputElement, AddressInputProps
       return () => document.removeEventListener("mousedown", handler);
     }, []);
 
+    useEffect(() => {
+      if (error) toast.warning(error, { id: "address-suggestions-unavailable" });
+    }, [error]);
+
     const showDropdown = open && suggestions.length > 0;
 
     return (
@@ -171,9 +176,6 @@ export const AddressInput = React.forwardRef<HTMLInputElement, AddressInputProps
           </ul>
         )}
 
-        {error && !showDropdown && (
-          <p className="mt-1 text-xs text-muted-foreground">{error}</p>
-        )}
       </div>
     );
   }

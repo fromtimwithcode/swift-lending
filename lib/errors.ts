@@ -12,13 +12,11 @@ function cleanMessage(message: string) {
   return message.replace(/\s+/g, " ").trim().slice(0, MAX_ERROR_MESSAGE_LENGTH);
 }
 
-function mapKnownMessage(message: string) {
-  const clean = cleanMessage(message);
-  const lower = clean.toLowerCase();
+function isUnsafeMessage(message: string) {
+  const lower = message.toLowerCase();
 
-  if (!clean) return null;
-  if (
-    clean === "[object Object]" ||
+  return (
+    message === "[object Object]" ||
     lower.includes("[convex") ||
     lower.includes("convexerror") ||
     lower.includes("api key") ||
@@ -29,9 +27,16 @@ function mapKnownMessage(message: string) {
     lower.includes("stack trace") ||
     lower.includes("token") ||
     lower.includes("uncaught")
-  ) {
-    return null;
-  }
+  );
+}
+
+function mapKnownMessage(message: string) {
+  const clean = cleanMessage(message);
+  const lower = clean.toLowerCase();
+
+  if (!clean) return null;
+  if (isUnsafeMessage(clean)) return null;
+
   if (lower.includes("not authenticated")) return "Please sign in to continue.";
   if (lower.includes("account is deactivated")) return "Your account is deactivated. Contact an administrator.";
   if (
@@ -45,16 +50,36 @@ function mapKnownMessage(message: string) {
   if (lower.endsWith("not found") || lower === "not found") {
     return "We could not find that record.";
   }
+  if (lower.includes("already exists")) return "A record with this information already exists.";
+  if (lower.includes("valid email")) return "Enter a valid email address.";
+  if (lower.includes("own account")) return "You cannot change your own account this way.";
+  if (lower.includes("active admin must remain")) return "At least one active admin must remain.";
+  if (lower.includes("file") && lower.includes("too large")) return "The selected file is too large.";
+  if (lower.includes("unsupported") && lower.includes("file type")) return "That file type is not supported.";
+  if (lower.includes("maximum") && lower.includes("bulk operation")) return "Select fewer items and try again.";
+  if (lower.includes("upload up to") && lower.includes("documents")) return "Select fewer files and try again.";
 
-  return clean;
+  return null;
+}
+
+function messageFromPublicData(data: unknown) {
+  if (!data || typeof data !== "object") return null;
+
+  const publicMessage = (data as { publicMessage?: unknown }).publicMessage;
+  if (typeof publicMessage !== "string") return null;
+
+  const clean = cleanMessage(publicMessage);
+  return clean && !isUnsafeMessage(clean) ? clean : null;
 }
 
 function messageFromConvexData(data: unknown) {
+  const publicMessage = messageFromPublicData(data);
+  if (publicMessage) return publicMessage;
+
   if (typeof data === "string") return mapKnownMessage(data);
   if (!data || typeof data !== "object") return null;
 
-  const maybeMessage = (data as { message?: unknown; publicMessage?: unknown }).publicMessage ??
-    (data as { message?: unknown }).message;
+  const maybeMessage = (data as { message?: unknown }).message;
 
   return typeof maybeMessage === "string" ? mapKnownMessage(maybeMessage) : null;
 }

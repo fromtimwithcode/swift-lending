@@ -8,8 +8,8 @@ import { MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
-  AlertCircle,
   CheckCircle2,
   FileText,
   FolderOpen,
@@ -82,7 +82,6 @@ export function FileUploadDialog({
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -101,7 +100,6 @@ export function FileUploadDialog({
       setSelectedDrawRequestId(drawRequestId ?? "");
       setDragActive(false);
       setUploadProgress(null);
-      setError("");
       onClose();
     };
     const previousOverflow = document.body.style.overflow;
@@ -119,8 +117,7 @@ export function FileUploadDialog({
   const targetDrawRequestId = drawRequestId ?? (selectedDrawRequestId || undefined);
   const targetDraw = drawOptions.find((draw) => draw._id === targetDrawRequestId);
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-  const invalidFiles = files.filter((file) => getFileIssue(file));
-  const canUpload = files.length > 0 && invalidFiles.length === 0 && !uploading;
+  const canUpload = files.length > 0 && !uploading;
   const uploadLabel = uploading && uploadProgress
     ? `Uploading ${uploadProgress.current} of ${uploadProgress.total}`
     : files.length > 1
@@ -134,8 +131,20 @@ export function FileUploadDialog({
     const nextFiles = [...files];
     let duplicateCount = 0;
     let maxCountSkipped = 0;
+    let oversizedCount = 0;
+    let unsupportedCount = 0;
 
     for (const file of incomingFiles) {
+      const issue = getFileIssue(file);
+      if (issue === "too_large") {
+        oversizedCount += 1;
+        continue;
+      }
+      if (issue === "unsupported_type") {
+        unsupportedCount += 1;
+        continue;
+      }
+
       const key = getFileKey(file);
       if (existingKeys.has(key)) {
         duplicateCount += 1;
@@ -157,9 +166,15 @@ export function FileUploadDialog({
     if (maxCountSkipped > 0) {
       messages.push(`Only ${MAX_UPLOAD_BATCH_FILES} files can be uploaded at a time.`);
     }
+    if (oversizedCount > 0) {
+      messages.push(`${oversizedCount} ${oversizedCount === 1 ? "file is" : "files are"} too large. Max ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
+    }
+    if (unsupportedCount > 0) {
+      messages.push(`${unsupportedCount} unsupported ${unsupportedCount === 1 ? "file type was" : "file types were"} skipped.`);
+    }
 
     setFiles(nextFiles);
-    setError(messages.join(" "));
+    if (messages.length > 0) toast.warning(messages.join(" "));
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,7 +188,6 @@ export function FileUploadDialog({
     setSelectedDrawRequestId(drawRequestId ?? "");
     setDragActive(false);
     setUploadProgress(null);
-    setError("");
   }
 
   function handleClose() {
@@ -187,13 +201,12 @@ export function FileUploadDialog({
 
     const firstInvalidFile = files.find((file) => getFileIssue(file));
     if (firstInvalidFile) {
-      setError(`${firstInvalidFile.name}: ${getFileIssue(firstInvalidFile)}`);
+      toast.error("Remove unsupported or oversized files before uploading.");
       return;
     }
 
     setUploading(true);
     setUploadProgress({ current: 0, total: files.length });
-    setError("");
     const uploadedFileIds: Id<"_storage">[] = [];
     let metadataSaved = false;
 
@@ -242,10 +255,10 @@ export function FileUploadDialog({
         try {
           await discardUnsavedUploads({ fileIds: uploadedFileIds });
         } catch {
-          // Best-effort cleanup; keep the original upload error visible to the user.
+          // Best-effort cleanup; keep reporting the original upload error.
         }
       }
-      setError(getErrorMessage(err, "Upload failed. Please try again."));
+      toast.error(getErrorMessage(err, "Upload failed. Please try again."));
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -403,7 +416,6 @@ export function FileUploadDialog({
                   type="button"
                   onClick={() => {
                     setFiles([]);
-                    setError("");
                   }}
                   disabled={uploading}
                   className="inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground active:scale-[0.96] disabled:opacity-50"
@@ -419,20 +431,10 @@ export function FileUploadDialog({
                     disabled={uploading}
                     onRemove={() => {
                       setFiles((currentFiles) => currentFiles.filter((file) => getFileKey(file) !== getFileKey(selectedFile)));
-                      setError("");
                     }}
                   />
                 ))}
               </div>
-            </div>
-          )}
-
-          {(error || invalidFiles.length > 0) && (
-            <div className="flex gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              <p>
-                {error || `${invalidFiles.length} ${invalidFiles.length === 1 ? "file needs" : "files need"} attention before uploading.`}
-              </p>
             </div>
           )}
         </div>
@@ -471,7 +473,6 @@ function SelectedFileRow({
   onRemove: () => void;
 }) {
   const previewUrl = useObjectUrl(file);
-  const issue = getFileIssue(file);
   const isImage = file.type.startsWith("image/");
 
   return (
@@ -489,10 +490,10 @@ function SelectedFileRow({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <p className="truncate text-sm font-medium">{file.name}</p>
-          {!issue && <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />}
+          <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />
         </div>
-        <p className={cn("mt-0.5 text-xs tabular-nums", issue ? "text-red-500" : "text-muted-foreground")}>
-          {issue || formatFileSize(file.size)}
+        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+          {formatFileSize(file.size)}
         </p>
       </div>
       <button
@@ -529,13 +530,13 @@ function getFileKey(file: File) {
 
 function getFileIssue(file: File) {
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `Too large. Max ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`;
+    return "too_large";
   }
   if (!isAcceptedFile(file)) {
-    return "Unsupported file type.";
+    return "unsupported_type";
   }
 
-  return "";
+  return null;
 }
 
 function isAcceptedFile(file: File) {

@@ -67,7 +67,7 @@ export default function AdminSettingsPage() {
     parsedDefaultInterestRate > adminSettings.maxDefaultInterestRate;
   const normalizedDefaultInterestRate = Math.round(parsedDefaultInterestRate * 100) / 100;
   const defaultInterestRateChanged =
-    !defaultInterestRateIsInvalid && normalizedDefaultInterestRate !== adminSettings.defaultInterestRate;
+    defaultInterestRateIsInvalid || normalizedDefaultInterestRate !== adminSettings.defaultInterestRate;
 
   const handleToggle = async (id: string, name: string, isActive: boolean) => {
     if (isActive) {
@@ -328,7 +328,7 @@ export default function AdminSettingsPage() {
             <button
               type="button"
               onClick={saveFinancialSettings}
-              disabled={!defaultInterestRateChanged || defaultInterestRateIsInvalid || savingSettings}
+              disabled={!defaultInterestRateChanged || savingSettings}
               className="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[background-color,color,opacity,transform] hover:bg-primary/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {savingSettings ? (
@@ -339,12 +339,6 @@ export default function AdminSettingsPage() {
             </button>
           </div>
         </div>
-
-        {defaultInterestRateIsInvalid && (
-          <p className="mt-3 text-xs text-destructive">
-            Enter a rate between {adminSettings.minDefaultInterestRate}% and {adminSettings.maxDefaultInterestRate}%.
-          </p>
-        )}
       </div>
       <ConfirmDialog
         open={confirmDeactivate !== null}

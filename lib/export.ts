@@ -75,7 +75,7 @@ export async function exportToExcel(
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
   } catch {
-    alert("Excel export failed. Please try again.");
+    throw new Error("Excel export failed. Please try again.");
   }
 }
 
@@ -109,6 +109,6 @@ export async function exportToPdf(
 
     doc.save(filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
   } catch {
-    alert("PDF export failed. Please try again.");
+    throw new Error("PDF export failed. Please try again.");
   }
 }
