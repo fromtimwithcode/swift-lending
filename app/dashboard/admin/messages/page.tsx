@@ -41,9 +41,9 @@ export default function AdminMessagesPage() {
     <div className="space-y-6">
       <PageHeader title="Messages" description="Communicate with borrowers" />
 
-      <div className="flex h-[calc(100vh-220px)] overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex h-[calc(100dvh_-_12rem)] min-h-[360px] min-w-0 overflow-hidden rounded-xl border border-border bg-card sm:h-[calc(100dvh_-_220px)]">
         {/* Left - Conversations */}
-        <div className="w-72 shrink-0 border-r border-border overflow-y-auto hidden sm:block">
+        <div className="hidden w-72 shrink-0 overflow-y-auto border-r border-border sm:block">
           <div className="border-b border-border px-4 py-3">
             <span className="text-sm font-medium">Conversations</span>
           </div>
@@ -55,7 +55,7 @@ export default function AdminMessagesPage() {
         </div>
 
         {/* Mobile */}
-        <div className="sm:hidden w-full">
+        <div className="min-w-0 w-full sm:hidden">
           {!selectedPartnerId ? (
             <div className="h-full overflow-y-auto">
               <div className="border-b border-border px-4 py-3">
@@ -68,14 +68,14 @@ export default function AdminMessagesPage() {
               />
             </div>
           ) : (
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-w-0 flex-col">
               <button
                 onClick={() => setSelectedPartnerOverride(null)}
                 className="border-b border-border px-4 py-2 text-left text-sm text-primary hover:bg-muted"
               >
                 &larr; Back to conversations
               </button>
-              <div className="flex-1">
+              <div className="min-h-0 min-w-0 flex-1">
                 <MessageThread
                   messages={messages ?? []}
                   currentUserId={profile._id}
@@ -88,7 +88,7 @@ export default function AdminMessagesPage() {
         </div>
 
         {/* Right - Thread (desktop) */}
-        <div className="hidden sm:flex flex-1 flex-col">
+        <div className="hidden min-w-0 flex-1 flex-col sm:flex">
           {selectedPartnerId ? (
             <MessageThread
               messages={messages ?? []}

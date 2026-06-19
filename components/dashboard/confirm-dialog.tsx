@@ -71,7 +71,7 @@ export function ConfirmDialog({
               aria-modal="true"
               aria-labelledby={titleId}
               aria-describedby={description ? descriptionId : undefined}
-              className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-6 shadow-[0_4px_24px_oklch(0_0_0_/_12%)]"
+              className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border/60 bg-card p-6 shadow-[0_4px_24px_oklch(0_0_0_/_12%)]"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 id={titleId} className="text-lg font-semibold">{title}</h3>
@@ -81,7 +81,7 @@ export function ConfirmDialog({
                 </p>
               )}
               {children && <div className="mt-5">{children}</div>}
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={onCancel}

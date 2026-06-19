@@ -69,7 +69,7 @@ export function ExportButton({
   };
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative max-sm:flex-1" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -77,7 +77,7 @@ export function ExportButton({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium transition-[background-color,box-shadow,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium transition-[background-color,box-shadow,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:w-full"
       >
         <Download className="size-4" />
         Export
@@ -91,7 +91,7 @@ export function ExportButton({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -4 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-2xl border border-border/60 bg-card p-1 shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
+            className="absolute right-0 top-full z-50 mt-2 w-44 max-w-[calc(100vw_-_2rem)] overflow-hidden rounded-2xl border border-border/60 bg-card p-1 shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)] max-sm:left-0 max-sm:right-auto"
           >
             <button
               type="button"

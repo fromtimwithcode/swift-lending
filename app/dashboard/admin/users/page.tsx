@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
         title="Users"
         description={`${users.length} user${users.length !== 1 ? "s" : ""}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <ExportButton
               data={filtered as unknown as Record<string, unknown>[]}
               columns={exportColumns}
@@ -190,7 +190,7 @@ export default function AdminUsersPage() {
             />
             <Link
               href="/dashboard/admin/users/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add User
@@ -201,7 +201,7 @@ export default function AdminUsersPage() {
 
       <StatusTabFilter tabs={tabs} activeTab={roleTab} onChange={setRoleTab} />
 
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex-1">
           <SearchInput
             value={search}
@@ -212,7 +212,7 @@ export default function AdminUsersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+          className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 sm:w-auto"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>

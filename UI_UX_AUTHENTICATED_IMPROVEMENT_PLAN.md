@@ -35,6 +35,7 @@ Improve the authenticated dashboard experience only. This includes routes under 
 | 8. Non-selectable controls | Complete | Made button, button-role, badge, bubble, and button-like link text non-selectable while preserving text selection in inputs and normal content. |
 | 9. Sidebar collapse animation polish | Complete | Reworked sidebar label reveal timing, clipping, rail icon centering, expander row animation, and matched content offset easing. |
 | 10. KPI and badge text-fit pass | Complete | Removed KPI label/subtitle clipping, added badge text-fit safeguards, and added a sixth admin KPI so rows stay balanced across breakpoints. |
+| 11. Table badge fit correction | Complete | Kept status badges atomic and let shared tables scroll horizontally instead of crushing labels on narrow columns. |
 
 ## Implementation Checklist
 
@@ -57,6 +58,7 @@ Improve the authenticated dashboard experience only. This includes routes under 
 - [x] Let KPI labels, values, and subtitles wrap without clipping.
 - [x] Keep badge/pill text within its surface without accidental selection.
 - [x] Avoid orphaned single-card rows in the admin KPI layout.
+- [x] Keep status badge words intact inside data-table columns.
 - [x] Validate with `pnpm lint` and `pnpm build`.
 
 ## Deferred Functional Issues
@@ -78,3 +80,4 @@ These were found during review but are intentionally out of scope because they c
 - Non-selectable controls verification: `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build` completed successfully. Lint still reports the existing unrelated warnings in landing/generated/auth files.
 - Sidebar animation verification: `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build` completed successfully. Lint still reports the existing unrelated warnings in landing/generated/auth files.
 - KPI and badge text-fit verification: `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build` completed successfully. Lint still reports the existing unrelated warnings in landing/generated/auth files.
+- Table badge fit correction verification: `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build` completed successfully. Lint still reports the existing unrelated warnings in landing/generated/auth files.

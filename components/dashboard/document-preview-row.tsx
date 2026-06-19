@@ -54,7 +54,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 py-2">
+      <div className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           {isImage ? (
             <button
@@ -81,7 +81,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
             </div>
           )}
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{document.fileName}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <StatusBadge status={document.type} />
@@ -96,12 +96,12 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                 </button>
               )}
               {(document.propertyAddress || document.entityName) && (
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
                   {[document.propertyAddress, document.entityName].filter(Boolean).join(" / ")}
                 </span>
               )}
               {!compact && document.drawWorkDescription && (
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
                   Draw: {document.drawWorkDescription}
                 </span>
               )}
@@ -109,12 +109,12 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 self-end sm:self-auto">
           {document.url && isImage && (
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               aria-label={`Preview ${document.fileName}`}
             >
               <Eye className="size-4" />
@@ -126,7 +126,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
               target="_blank"
               rel="noopener noreferrer"
               download={document.fileName}
-              className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               aria-label={isImage ? `Download ${document.fileName}` : `Open ${document.fileName}`}
             >
               {isImage ? <Download className="size-4" /> : <ExternalLink className="size-4" />}
@@ -147,20 +147,20 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
           }}
         >
           <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-              <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:items-center sm:px-5">
+              <div className="min-w-0 flex-1">
                 <h2 id={titleId} className="truncate text-sm font-semibold sm:text-base">
                   {document.fileName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <StatusBadge status={document.type} />
                   {(document.propertyAddress || document.entityName) && (
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
                       {[document.propertyAddress, document.entityName].filter(Boolean).join(" / ")}
                     </span>
                   )}
                   {document.drawWorkDescription && (
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
                       Draw: {document.drawWorkDescription}
                     </span>
                   )}
@@ -172,7 +172,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                   target="_blank"
                   rel="noopener noreferrer"
                   download={document.fileName}
-                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   aria-label={`Download ${document.fileName}`}
                 >
                   <Download className="size-4" />
@@ -180,7 +180,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                 <button
                   type="button"
                   onClick={() => setPreviewOpen(false)}
-                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   aria-label="Close preview"
                 >
                   <X className="size-4" />

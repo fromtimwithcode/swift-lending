@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { MobileMenuBar } from "@/components/dashboard/mobile-menu-bar";
 import { cn } from "@/lib/utils";
 import { premiumEase } from "@/lib/animations";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -39,9 +40,9 @@ function getRolePrefix(role: string): "admin" | "borrower" | "investor" {
 
 function AuthLoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex min-h-screen min-w-0 overflow-x-clip bg-background">
       <div className="hidden lg:block w-64 shrink-0 border-r border-border/50 bg-sidebar" />
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <div className="h-16 border-b border-border/50 bg-background/70 backdrop-blur-xl" />
         <div className="p-5 sm:p-8 lg:p-10">
           <PageSkeleton />
@@ -65,6 +66,7 @@ function AnimatedPage({ children }: { children: ReactNode }) {
   return (
     <motion.div
       key={pathname}
+      className="min-w-0"
       initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: premiumEase }}
@@ -122,7 +124,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const showFloatingMessenger = !pathname.includes("/messages");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
       <Sidebar
         role={profile.role}
         displayName={profile.displayName}
@@ -137,7 +139,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       />
       <div
         className={cn(
-          "transition-[padding-left] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
+          "min-w-0 transition-[padding-left] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
           sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
         )}
       >
@@ -146,17 +148,26 @@ function DashboardShell({ children }: { children: ReactNode }) {
           rolePrefix={rolePrefix}
           notificationUnreadCount={notificationUnreadCount}
         />
-        <main className="min-h-[calc(100vh-4rem)] px-4 py-6 pb-28 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
-          <div className="mx-auto w-full max-w-[1440px]">
+        <main className="min-h-[calc(100vh_-_4rem)] min-w-0 overflow-x-clip px-4 py-6 pb-[calc(7rem_+_env(safe-area-inset-bottom))] sm:px-6 sm:py-8 sm:pb-[calc(7rem_+_env(safe-area-inset-bottom))] lg:px-10 lg:py-10 lg:pb-10">
+          <div className="mx-auto w-full min-w-0 max-w-[1440px]">
             <AnimatedPage>{children}</AnimatedPage>
           </div>
         </main>
+        <MobileMenuBar
+          role={profile.role}
+          moreOpen={sidebarOpen}
+          messageUnreadCount={messageUnreadCount}
+          notificationUnreadCount={notificationUnreadCount}
+          onMoreClick={() => setSidebarOpen(true)}
+        />
       </div>
       {showFloatingMessenger && (
-        <FloatingMessenger
-          profile={{ _id: profile._id, role: profile.role }}
-          unreadCount={messageUnreadCount}
-        />
+        <div className="hidden lg:block">
+          <FloatingMessenger
+            profile={{ _id: profile._id, role: profile.role }}
+            unreadCount={messageUnreadCount}
+          />
+        </div>
       )}
     </div>
   );

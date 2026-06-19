@@ -260,9 +260,9 @@ export function FileUploadDialog({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
       <div className="fixed inset-0 bg-black/55 backdrop-blur-[2px]" onClick={handleClose} />
-      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.28)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
-        <div className="flex items-start justify-between gap-4 border-b border-border/70 px-6 py-5">
-          <div>
+      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.28)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
+        <div className="flex min-w-0 items-start justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
             <h3 id={titleId} className="text-xl font-semibold text-balance">
               {title}
             </h3>
@@ -281,7 +281,7 @@ export function FileUploadDialog({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium">
@@ -437,7 +437,7 @@ export function FileUploadDialog({
           )}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border/70 bg-muted/10 px-6 py-4 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 border-t border-border/70 bg-muted/10 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button
             type="button"
             onClick={handleClose}

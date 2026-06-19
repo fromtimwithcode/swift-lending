@@ -171,7 +171,7 @@ export default function AdminBorrowersPage() {
         title="Borrowers"
         description={`${borrowers.length} borrower${borrowers.length !== 1 ? "s" : ""}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <ExportButton
               data={filtered as unknown as Record<string, unknown>[]}
               columns={exportColumns}
@@ -180,7 +180,7 @@ export default function AdminBorrowersPage() {
             />
             <Link
               href="/dashboard/admin/borrowers/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Borrower

@@ -273,7 +273,7 @@ export default function AdminLoansPage() {
         title="Loans"
         description={`${loans.length} total loans`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <ExportButton
               data={exportData as unknown as Record<string, unknown>[]}
               columns={exportColumns}
@@ -282,7 +282,7 @@ export default function AdminLoansPage() {
             />
             <Link
               href="/dashboard/admin/loans/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Loan
@@ -375,8 +375,8 @@ export default function AdminLoansPage() {
       />
 
       {bulkStatusOpen && selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card p-3 shadow-lg">
+        <div className="fixed inset-x-4 bottom-24 z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+          <div className="mx-auto flex max-h-[calc(100dvh_-_8rem)] max-w-lg flex-wrap items-center justify-center gap-1.5 overflow-y-auto rounded-xl border border-border bg-card p-3 shadow-lg sm:max-w-none">
             {LOAN_STATUSES.map((status) => (
               <button
                 key={status}

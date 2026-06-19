@@ -25,21 +25,25 @@ export function PageHeader({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
-        "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        "flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
         className
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-[2rem]">
+        <h1 className="break-words text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-[2rem]">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-muted-foreground text-pretty [overflow-wrap:anywhere]">
             {description}
           </p>
         )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div>}
+      {actions && (
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>*]:max-w-full [&>*]:min-w-0 [&>*]:flex-wrap">
+          {actions}
+        </div>
+      )}
     </motion.div>
   );
 }

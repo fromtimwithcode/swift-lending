@@ -224,7 +224,7 @@ export function DocumentChecklist({
 
     return (
       <div key={row.label} className="border-b border-border last:border-b-0">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
           {/* Status icon */}
           {hasFiles ? (
             <CheckCircle2 className="size-5 shrink-0 text-green-500" />
@@ -236,8 +236,9 @@ export function DocumentChecklist({
 
           {/* Expand toggle + label */}
           <button
+            type="button"
             onClick={() => hasFiles && toggleExpanded(row.label)}
-            className="flex flex-1 items-center gap-2 text-left"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
             disabled={!hasFiles}
           >
             {hasFiles ? (
@@ -249,14 +250,14 @@ export function DocumentChecklist({
             ) : (
               <span className="w-4" />
             )}
-            <span className="text-sm font-medium">{row.label}</span>
+            <span className="min-w-0 break-words text-sm font-medium [overflow-wrap:anywhere]">{row.label}</span>
             {row.required && !hasFiles && (
               <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-600">
                 Required
               </span>
             )}
             {hasFiles && (
-              <span className="text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 ({docs.length} {docs.length === 1 ? "file" : "files"})
               </span>
             )}
@@ -298,9 +299,10 @@ export function DocumentChecklist({
             }}
           />
           <button
+            type="button"
             onClick={() => fileInputRefs.current[row.label]?.click()}
             disabled={isUploading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 sm:self-auto"
           >
             {isThisRowUploading ? (
               <>

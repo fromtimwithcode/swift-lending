@@ -60,7 +60,7 @@ export function Topbar({
   const { eyebrow, title } = getPageContext(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 px-4 shadow-[0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 min-w-0 items-center gap-4 border-b border-border/50 bg-background/80 px-4 shadow-[0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8">
       {/* Mobile menu button */}
       <button
         type="button"
@@ -80,7 +80,7 @@ export function Topbar({
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <NotificationBell
           rolePrefix={rolePrefix}
           unreadCount={notificationUnreadCount}

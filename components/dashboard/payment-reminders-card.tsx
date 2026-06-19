@@ -70,9 +70,9 @@ export function PaymentRemindersCard({
   const hasReminders = reminders.length > 0;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)]">
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
+    <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] sm:p-6">
+      <div className="mb-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-3">
           <div
             className={cn(
               "mt-0.5 rounded-xl p-2",
@@ -83,7 +83,7 @@ export function PaymentRemindersCard({
           >
             {data && !hasReminders ? <CheckCircle2 className="size-5" /> : <CalendarClock className="size-5" />}
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-base font-semibold text-balance">{title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {description ??
@@ -95,7 +95,7 @@ export function PaymentRemindersCard({
         </div>
 
         {data && (
-          <div className="grid grid-cols-3 gap-2 text-center sm:min-w-80">
+          <div className="grid w-full grid-cols-1 gap-2 text-center min-[420px]:grid-cols-3 sm:w-auto sm:min-w-80">
             <button
               type="button"
               onClick={() => setActiveFilter((current) => current === "past_due" ? null : "past_due")}
@@ -180,7 +180,7 @@ export function PaymentRemindersCard({
                         {TYPE_LABELS[reminder.type] ?? reminder.type}
                       </span>
                     </div>
-                    <p className="mt-2 truncate text-sm font-semibold">
+                    <p className="mt-2 break-words text-sm font-semibold [overflow-wrap:anywhere] sm:truncate">
                       {showBorrower ? `${reminder.borrowerName} - ` : ""}{reminder.propertyAddress}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">

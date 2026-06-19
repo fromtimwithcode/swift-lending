@@ -70,8 +70,8 @@ export function DrawDocumentFolders({
 
   return (
     <div className={cn("rounded-2xl border border-border bg-card", className)}>
-      <div className="flex flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-        <div>
+      <div className="flex min-w-0 flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-balance">{title}</h3>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground text-pretty">
             {description}
@@ -96,11 +96,11 @@ export function DrawDocumentFolders({
 
             return (
               <div key={draw._id} className="px-4 py-3 sm:px-5">
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
                   <button
                     type="button"
                     onClick={() => toggleDraw(draw._id)}
-                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left transition-colors hover:bg-muted/40 active:scale-[0.995]"
+                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.995]"
                   >
                     <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       {isExpanded ? <FolderOpen className="size-5" /> : <Folder className="size-5" />}
@@ -116,12 +116,12 @@ export function DrawDocumentFolders({
                           {drawDocs.length} {drawDocs.length === 1 ? "file" : "files"}
                         </span>
                       </span>
-                      <span className="mt-1 block truncate text-sm text-muted-foreground">
+                      <span className="mt-1 block break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                         {draw.workDescription}
                       </span>
                       <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>{createdAt}</span>
-                        {showProperty && draw.propertyAddress && <span>{draw.propertyAddress}</span>}
+                        {showProperty && draw.propertyAddress && <span className="min-w-0 break-words [overflow-wrap:anywhere]">{draw.propertyAddress}</span>}
                         <span>{receiptCount} receipts</span>
                         <span>{lienWaiverCount} lien waivers</span>
                       </span>
@@ -135,7 +135,7 @@ export function DrawDocumentFolders({
                     <button
                       type="button"
                       onClick={() => onUploadToDraw(draw)}
-                      className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-[background-color,transform] hover:bg-muted active:scale-[0.96]"
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-[background-color,transform] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] sm:self-auto"
                     >
                       <Upload className="size-3.5" />
                       Upload

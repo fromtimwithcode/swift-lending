@@ -96,9 +96,9 @@ export default function ActivityLogPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain touch-pan-x">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -138,7 +138,7 @@ export default function ActivityLogPage() {
                         {ENTITY_TYPE_LABELS[entry.entityType] ?? entry.entityType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground max-w-md truncate">
+                    <td className="max-w-md truncate px-4 py-3 text-muted-foreground">
                       {entry.details ?? "—"}
                     </td>
                   </tr>

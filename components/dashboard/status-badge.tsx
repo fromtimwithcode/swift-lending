@@ -184,13 +184,13 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     <span
       data-slot="badge"
       className={cn(
-        "inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium leading-4",
+        "inline-flex w-fit max-w-full flex-nowrap items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium leading-4 [overflow-wrap:normal]",
         config.className,
         className
       )}
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", config.dot)} />
-      <span className="min-w-0 max-w-full [overflow-wrap:anywhere]">
+      <span className="min-w-0 truncate whitespace-nowrap [overflow-wrap:normal]">
         {config.label}
       </span>
     </span>

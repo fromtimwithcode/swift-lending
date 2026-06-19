@@ -4,161 +4,19 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
   Landmark,
-  FileText,
-  HandCoins,
-  Users,
-  PiggyBank,
-  MessageSquare,
   LogOut,
   X,
-  Bell,
-  Activity,
-  ShieldCheck,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
+import { getNavForRole, isDashboardNavItemActive } from "@/components/dashboard/nav-items";
 
 const PREWARM_TTL_MS = 20_000;
-
-interface NavItem {
-  label: string;
-  href: string;
-  icon: ReactNode;
-}
-
-const adminNav: NavItem[] = [
-  {
-    label: "Overview",
-    href: "/dashboard/admin",
-    icon: <LayoutDashboard className="size-5" />,
-  },
-  {
-    label: "Loans",
-    href: "/dashboard/admin/loans",
-    icon: <Landmark className="size-5" />,
-  },
-  {
-    label: "Applications",
-    href: "/dashboard/admin/applications",
-    icon: <FileText className="size-5" />,
-  },
-  {
-    label: "Draw Requests",
-    href: "/dashboard/admin/draws",
-    icon: <HandCoins className="size-5" />,
-  },
-  {
-    label: "Users",
-    href: "/dashboard/admin/users",
-    icon: <ShieldCheck className="size-5" />,
-  },
-  {
-    label: "Borrowers",
-    href: "/dashboard/admin/borrowers",
-    icon: <Users className="size-5" />,
-  },
-  {
-    label: "Investors",
-    href: "/dashboard/admin/investors",
-    icon: <PiggyBank className="size-5" />,
-  },
-  {
-    label: "Notifications",
-    href: "/dashboard/admin/notifications",
-    icon: <Bell className="size-5" />,
-  },
-  {
-    label: "Messages",
-    href: "/dashboard/admin/messages",
-    icon: <MessageSquare className="size-5" />,
-  },
-  {
-    label: "Activity Log",
-    href: "/dashboard/admin/activity",
-    icon: <Activity className="size-5" />,
-  },
-];
-
-const borrowerNav: NavItem[] = [
-  {
-    label: "My Loans",
-    href: "/dashboard/borrower",
-    icon: <Landmark className="size-5" />,
-  },
-  {
-    label: "New Loan",
-    href: "/dashboard/borrower/apply",
-    icon: <FileText className="size-5" />,
-  },
-  {
-    label: "Draw Requests",
-    href: "/dashboard/borrower/draws",
-    icon: <HandCoins className="size-5" />,
-  },
-  {
-    label: "Documents",
-    href: "/dashboard/borrower/documents",
-    icon: <FileText className="size-5" />,
-  },
-  {
-    label: "Notifications",
-    href: "/dashboard/borrower/notifications",
-    icon: <Bell className="size-5" />,
-  },
-  {
-    label: "Messages",
-    href: "/dashboard/borrower/messages",
-    icon: <MessageSquare className="size-5" />,
-  },
-];
-
-const investorNav: NavItem[] = [
-  {
-    label: "Portfolio",
-    href: "/dashboard/investor",
-    icon: <PiggyBank className="size-5" />,
-  },
-  {
-    label: "Payments",
-    href: "/dashboard/investor/payments",
-    icon: <Landmark className="size-5" />,
-  },
-  {
-    label: "Statements",
-    href: "/dashboard/investor/statements",
-    icon: <FileText className="size-5" />,
-  },
-  {
-    label: "Notifications",
-    href: "/dashboard/investor/notifications",
-    icon: <Bell className="size-5" />,
-  },
-  {
-    label: "Messages",
-    href: "/dashboard/investor/messages",
-    icon: <MessageSquare className="size-5" />,
-  },
-];
-
-function getNavForRole(role: string): NavItem[] {
-  switch (role) {
-    case "admin":
-    case "developer":
-      return adminNav;
-    case "borrower":
-      return borrowerNav;
-    case "investor":
-      return investorNav;
-    default:
-      return [];
-  }
-}
 
 function revealTextClass(collapsed: boolean, maxWidth: "max-w-40" | "max-w-44") {
   return cn(
@@ -201,11 +59,7 @@ export function Sidebar({
   const navItems = getNavForRole(role);
   const prewarmedAtRef = useRef<Map<string, number>>(new Map());
 
-  const rootPaths = ["/dashboard/admin", "/dashboard/borrower", "/dashboard/investor"];
-  const isActive = (href: string) => {
-    if (rootPaths.includes(href)) return pathname === href;
-    return pathname.startsWith(href);
-  };
+  const isActive = (href: string) => isDashboardNavItemActive(pathname, href);
 
   const prewarmHref = (href: string) => {
     const now = Date.now();
@@ -295,6 +149,7 @@ export function Sidebar({
       )}
 
       <aside
+        id="dashboard-sidebar"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden bg-sidebar shadow-[1px_0_0_0_var(--sidebar-border)] transition-[transform,width] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
           collapsed ? "w-16" : "w-64",
