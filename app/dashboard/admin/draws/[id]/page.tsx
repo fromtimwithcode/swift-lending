@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { Loader2, ArrowLeft, Upload } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Pencil, Save, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
+import { BorrowerEmailDialog } from "@/components/dashboard/borrower-email-dialog";
 
 function DetailRow({
   label,
@@ -41,10 +42,16 @@ export default function AdminDrawDetailPage() {
   const id = params.id as Id<"drawRequests">;
   const draw = useQuery(api.draws.getDrawRequest, { id });
   const reviewDraw = useMutation(api.draws.reviewDrawRequest);
+  const updateDraw = useMutation(api.draws.updateDrawRequest);
   const [notes, setNotes] = useState("");
   const [wireDate, setWireDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
   const isTerminal = draw !== undefined && (draw.status === "approved" || draw.status === "denied");
 
   if (draw === undefined) {
@@ -72,6 +79,40 @@ export default function AdminDrawDetailPage() {
     }
   };
 
+  const startEditingDetails = () => {
+    setEditAmount(String(draw.amountRequested));
+    setEditDescription(draw.workDescription);
+    setEditingDetails(true);
+  };
+
+  const handleSaveDetails = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const amountRequested = Number(editAmount);
+    if (!Number.isFinite(amountRequested) || amountRequested <= 0) {
+      toast.error("Draw amount must be greater than 0");
+      return;
+    }
+    if (!editDescription.trim()) {
+      toast.error("Work description cannot be empty");
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      await updateDraw({
+        id,
+        amountRequested,
+        workDescription: editDescription,
+      });
+      setEditingDetails(false);
+      toast.success("Draw request updated");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update draw request"));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
@@ -84,6 +125,17 @@ export default function AdminDrawDetailPage() {
         <PageHeader
           title="Draw Request Detail"
           description={`${draw.borrowerName} — ${draw.propertyAddress}`}
+          actions={
+            <button
+              type="button"
+              onClick={() => setEmailOpen(true)}
+              aria-haspopup="dialog"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+            >
+              <Mail className="size-4" aria-hidden="true" />
+              Email Investor
+            </button>
+          }
         />
       </div>
 
@@ -162,24 +214,96 @@ export default function AdminDrawDetailPage() {
       {/* Details */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-            Request Details
-          </h3>
-          <div className="space-y-3">
-            <DetailRow label="Borrower" value={draw.borrowerName} />
-            <DetailRow label="Email" value={draw.borrowerEmail} />
-            <DetailRow label="Property" value={draw.propertyAddress} />
-            <DetailRow
-              label="Amount Requested"
-              value={formatCurrency(draw.amountRequested)}
-            />
-            <DetailRow label="Description" value={draw.workDescription} />
-            <DetailRow label="Wire Date" value={draw.wireDate} />
-            <DetailRow
-              label="Submitted"
-              value={new Date(draw._creationTime).toLocaleDateString()}
-            />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Request Details
+            </h3>
+            {!isTerminal && !editingDetails && (
+              <button
+                type="button"
+                onClick={startEditingDetails}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-[background-color,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+              >
+                <Pencil className="size-3.5" aria-hidden="true" />
+                Edit Draw
+              </button>
+            )}
           </div>
+          {editingDetails ? (
+            <form onSubmit={handleSaveDetails} className="space-y-4" aria-busy={editSaving}>
+              <div className="space-y-3">
+                <DetailRow label="Borrower" value={draw.borrowerName} />
+                <DetailRow label="Email" value={draw.borrowerEmail} />
+                <DetailRow label="Property" value={draw.propertyAddress} />
+              </div>
+              <div>
+                <label htmlFor="draw-amount-requested" className="mb-1.5 block text-sm font-medium">
+                  Amount Requested <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="draw-amount-requested"
+                  type="text"
+                  inputMode="decimal"
+                  value={editAmount}
+                  onChange={(event) => setEditAmount(event.target.value)}
+                  disabled={editSaving}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This amount must fit within the remaining construction holdback after other pending draws.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="draw-work-description" className="mb-1.5 block text-sm font-medium">
+                  Work Description <span className="text-destructive">*</span>
+                </label>
+                <textarea
+                  id="draw-work-description"
+                  value={editDescription}
+                  onChange={(event) => setEditDescription(event.target.value)}
+                  disabled={editSaving}
+                  rows={3}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+                />
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditingDetails(false)}
+                  disabled={editSaving}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50"
+                >
+                  {editSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" aria-hidden="true" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-3">
+              <DetailRow label="Borrower" value={draw.borrowerName} />
+              <DetailRow label="Email" value={draw.borrowerEmail} />
+              <DetailRow label="Property" value={draw.propertyAddress} />
+              <DetailRow
+                label="Amount Requested"
+                value={formatCurrency(draw.amountRequested)}
+              />
+              <DetailRow label="Description" value={draw.workDescription} />
+              <DetailRow label="Wire Date" value={draw.wireDate} />
+              <DetailRow
+                label="Submitted"
+                value={new Date(draw._creationTime).toLocaleDateString()}
+              />
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
@@ -252,6 +376,16 @@ export default function AdminDrawDetailPage() {
         defaultDocType="receipt"
         title="Upload to Draw Folder"
         description="Add receipts, lien waivers, photos, or supporting files to this draw."
+      />
+      <BorrowerEmailDialog
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        borrowerId={draw.borrowerId}
+        borrowerName={draw.borrowerName}
+        loanId={draw.loanId}
+        drawRequestId={id}
+        contextLabel={`${formatCurrency(draw.amountRequested)} draw request`}
+        contextDescription={`${draw.propertyAddress} - ${draw.workDescription}`}
       />
     </div>
   );

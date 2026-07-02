@@ -12,6 +12,7 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  confirmDisabled?: boolean;
   variant?: "default" | "destructive";
   loading?: boolean;
   children?: ReactNode;
@@ -24,6 +25,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirm",
+  confirmDisabled = false,
   variant = "default",
   loading = false,
   children,
@@ -93,7 +95,7 @@ export function ConfirmDialog({
                 <button
                   type="button"
                   onClick={onConfirm}
-                  disabled={loading}
+                  disabled={loading || confirmDisabled}
                   className={cn(
                     "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-[background-color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100",
                     variant === "destructive"
