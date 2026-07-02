@@ -115,7 +115,7 @@ async function sendWithResend(args: {
 }) {
   const resend = new Resend(args.apiKey);
   await resend.emails.send({
-    from: "Swift Capital <notifications@swiftcapitallending.com>",
+    from: "Swift Capital <notifications@mail.swiftcapitallending.com>",
     to: args.to,
     subject: args.subject,
     headers: args.headers,
