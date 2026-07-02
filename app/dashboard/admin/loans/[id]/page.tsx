@@ -22,6 +22,7 @@ import {
   ChevronUp,
   Plus,
   RotateCcw,
+  Mail,
 } from "lucide-react";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
@@ -38,6 +39,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
+import { BorrowerEmailDialog } from "@/components/dashboard/borrower-email-dialog";
 
 const STATUSES = [
   "submitted",
@@ -135,6 +137,7 @@ export default function LoanDetailPage() {
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnAmountManuallyEdited, setReturnAmountManuallyEdited] = useState(false);
   const [drawFormOpen, setDrawFormOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [drawAmount, setDrawAmount] = useState("");
   const [drawDescription, setDrawDescription] = useState("");
   const [drawSaving, setDrawSaving] = useState(false);
@@ -827,6 +830,15 @@ export default function LoanDetailPage() {
                       Record Funds Returned
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setEmailOpen(true)}
+                    aria-haspopup="dialog"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+                  >
+                    <Mail className="size-4" aria-hidden="true" />
+                    Email Investor
+                  </button>
                   <button
                     onClick={startEditing}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
@@ -1902,6 +1914,15 @@ export default function LoanDetailPage() {
           }
         }}
         onCancel={() => setConfirmRemoveClosing(false)}
+      />
+      <BorrowerEmailDialog
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        borrowerId={loan.borrowerId}
+        borrowerName={loan.borrowerName}
+        loanId={id}
+        contextLabel={`${loan.propertyAddress} loan`}
+        contextDescription={`${loan.entityName} - ${formatCurrency(loan.loanAmount)}`}
       />
     </div>
   );

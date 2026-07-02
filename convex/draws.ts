@@ -227,6 +227,67 @@ export const createManualDrawRequest = mutation({
   },
 });
 
+export const updateDrawRequest = mutation({
+  args: {
+    id: v.id("drawRequests"),
+    amountRequested: v.number(),
+    workDescription: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireRole(ctx, "admin");
+    const draw = await ctx.db.get(args.id);
+    if (!draw) throw new ConvexError("Draw request not found");
+    if (draw.status === "approved" || draw.status === "denied") {
+      throw new ConvexError(`Cannot edit a draw request after it has been ${draw.status}`);
+    }
+
+    if (!Number.isFinite(args.amountRequested) || args.amountRequested <= 0) {
+      throw new ConvexError("Draw amount must be greater than 0");
+    }
+
+    const trimmedDescription = args.workDescription.trim();
+    if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
+
+    const loan = await ctx.db.get(draw.loanId);
+    if (!loan) throw new ConvexError("Loan not found");
+
+    if (loan.drawFundsTotal !== undefined) {
+      let otherPendingTotal = 0;
+      for await (const existingDraw of ctx.db
+        .query("drawRequests")
+        .withIndex("by_loanId", (q) => q.eq("loanId", draw.loanId))) {
+        if (existingDraw._id === draw._id) continue;
+        if (existingDraw.status === "pending" || existingDraw.status === "under_review") {
+          otherPendingTotal += existingDraw.amountRequested;
+        }
+      }
+
+      const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - otherPendingTotal;
+      if (args.amountRequested > available) {
+        throw new ConvexError(
+          `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`
+        );
+      }
+    }
+
+    await ctx.db.patch(args.id, {
+      amountRequested: args.amountRequested,
+      workDescription: trimmedDescription,
+    });
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "draw.update",
+      entityType: "draw",
+      entityId: args.id,
+      details: `Updated draw request from ${formatCurrencyPlain(draw.amountRequested)} to ${formatCurrencyPlain(args.amountRequested)} on ${loan.propertyAddress}`,
+    });
+
+    return args.id;
+  },
+});
+
 export const bulkReviewDrawRequests = mutation({
   args: {
     drawIds: v.array(v.id("drawRequests")),

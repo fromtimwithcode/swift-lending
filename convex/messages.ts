@@ -7,6 +7,8 @@ import { internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { MAX_BULK_OPERATION_SIZE } from "./lib/constants";
 
+const MAX_MESSAGE_LENGTH = 4000;
+
 /** Check that two users share a loan relationship or one of them is an admin. */
 async function validateMessageRelationship(
   ctx: QueryCtx | MutationCtx,
@@ -142,20 +144,46 @@ export const sendMessage = mutation({
     recipientId: v.id("userProfiles"),
     content: v.string(),
     loanId: v.optional(v.id("loans")),
+    drawRequestId: v.optional(v.id("drawRequests")),
   },
   handler: async (ctx, args) => {
     const profile = await requireUser(ctx);
 
-    if (!args.content.trim()) throw new ConvexError("Message cannot be empty");
+    const content = args.content.trim();
+    if (!content) throw new ConvexError("Message cannot be empty");
+    if (content.length > MAX_MESSAGE_LENGTH) {
+      throw new ConvexError(`Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`);
+    }
 
     // Validate relationship before allowing message
     await validateMessageRelationship(ctx, profile, args.recipientId);
 
+    let loanId = args.loanId;
+    if (args.drawRequestId) {
+      const draw = await ctx.db.get(args.drawRequestId);
+      if (!draw) throw new ConvexError("Draw request not found");
+      if (loanId && draw.loanId !== loanId) {
+        throw new ConvexError("Draw request does not belong to this loan");
+      }
+      if (!isAdminLike(profile.role) && draw.borrowerId !== profile._id && draw.borrowerId !== args.recipientId) {
+        throw new ConvexError("Not authorized for this draw request");
+      }
+      loanId = draw.loanId;
+    }
+
+    const loan = loanId ? await ctx.db.get(loanId) : null;
+    if (loanId && !loan) throw new ConvexError("Loan not found");
+    if (loan && !isAdminLike(profile.role) && loan.borrowerId !== profile._id && loan.borrowerId !== args.recipientId) {
+      throw new ConvexError("Not authorized for this loan");
+    }
+
+    const contextText = loan?.propertyAddress ? ` about ${loan.propertyAddress}` : "";
+
     const id = await ctx.db.insert("messages", {
       senderId: profile._id,
       recipientId: args.recipientId,
-      content: args.content,
-      loanId: args.loanId,
+      content,
+      loanId,
       isRead: false,
     });
 
@@ -163,9 +191,11 @@ export const sendMessage = mutation({
     await ctx.runMutation(internal.notifications.createNotification, {
       recipientId: args.recipientId,
       type: "message_received",
-      title: "New Message",
-      body: `${profile.displayName} sent you a message.`,
-      loanId: args.loanId,
+      title: `New Message from ${profile.displayName}`,
+      body: `${profile.displayName} sent you a message${contextText}.`,
+      emailBody: `${profile.displayName} sent you a message${contextText}:\n\n${content}`,
+      loanId,
+      drawRequestId: args.drawRequestId,
     });
 
     return id;

@@ -101,11 +101,12 @@ export const createNotification = internalMutation({
     loanId: v.optional(v.id("loans")),
     drawRequestId: v.optional(v.id("drawRequests")),
     dedupeKey: v.optional(v.string()),
+    emailBody: v.optional(v.string()),
     sendEmail: v.optional(v.boolean()),
     sendSms: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { sendEmail, sendSms, ...notificationFields } = args;
+    const { emailBody, sendEmail, sendSms, ...notificationFields } = args;
     if (args.dedupeKey) {
       const existing = await ctx.db
         .query("notifications")
@@ -125,14 +126,15 @@ export const createNotification = internalMutation({
     if (recipient && recipient.isActive) {
       if (sendEmail !== false) {
         const actionPath = getNotificationActionPath(args.type, args.loanId, args.drawRequestId, recipient.role);
+        const actionLabel = args.type === "message_received" ? "Open Messages" : actionPath ? "View Details" : undefined;
         await ctx.scheduler.runAfter(0, internal.email.sendNotificationEmail, {
           notificationId: id,
           recipientEmail: recipient.email,
           recipientName: recipient.displayName,
           title: args.title,
-          body: args.body,
+          body: emailBody ?? args.body,
           actionPath,
-          actionLabel: actionPath ? "View Details" : undefined,
+          actionLabel,
         });
       }
 
@@ -155,6 +157,11 @@ function getNotificationActionPath(
   drawRequestId: string | undefined,
   recipientRole?: string
 ) {
+  if (type === "message_received") {
+    if (recipientRole === "admin" || recipientRole === "developer") return "/dashboard/admin/messages";
+    if (recipientRole === "investor") return "/dashboard/investor/messages";
+    return "/dashboard/borrower/messages";
+  }
   if (drawRequestId && type === "draw_submitted") {
     return recipientRole === "borrower"
       ? "/dashboard/borrower/draws"
