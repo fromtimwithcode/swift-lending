@@ -12,6 +12,7 @@ import {
   calculateMonthlyPaymentDue,
   calculatePrepaidInterest,
   getCurrentPrincipalOut,
+  getMonthlyInterestPeriodForDate,
   getMonthlyInterestPeriods,
 } from "./lib/loanCalculations";
 
@@ -109,6 +110,117 @@ async function upsertSingleLoanCharge(
   return await ctx.db.insert("loanCharges", charge);
 }
 
+function canCreateRegularMonthlyChargeForPeriod(loan: Doc<"loans">, periodDueDate: string, periodStartDate: Date) {
+  if ((loan.paymentType ?? "monthly") === "balloon") return false;
+  if (!loan.closeDate) return false;
+
+  const closeDate = parseUsDate(loan.closeDate);
+  if (!closeDate) return false;
+
+  const firstRegularPeriodStart = new Date(closeDate.getFullYear(), closeDate.getMonth() + 1, 1);
+  if (periodStartDate < firstRegularPeriodStart) return false;
+
+  const maturityDate = loan.maturityDate ? parseUsDate(loan.maturityDate) : null;
+  const dueDate = parseUsDate(periodDueDate);
+  if (maturityDate && dueDate && dueDate > maturityDate) return false;
+
+  return true;
+}
+
+async function upsertMonthlyInterestChargeForPeriodStart(
+  ctx: MutationCtx,
+  args: {
+    loan: Doc<"loans">;
+    drawRequests: Doc<"drawRequests">[];
+    periodStartDate: Date;
+    createdBy: Id<"userProfiles">;
+  }
+) {
+  const period = getMonthlyInterestPeriodForDate({
+    date: args.periodStartDate,
+    paymentDueDay: args.loan.paymentDueDay,
+  });
+  if (!canCreateRegularMonthlyChargeForPeriod(args.loan, period.dueDate, period.periodStartDate)) {
+    return null;
+  }
+
+  const periodPrincipalOut = getPrincipalOutForPeriodStart(
+    args.loan,
+    args.drawRequests,
+    period.periodStartDate
+  );
+  const periodMonthlyInterest = calculateMonthlyInterest(periodPrincipalOut, args.loan.interestRate);
+  if (periodMonthlyInterest <= 0) return null;
+
+  return await upsertSingleLoanCharge(ctx, {
+    loanId: args.loan._id,
+    borrowerId: args.loan.borrowerId,
+    type: "monthly_interest",
+    amount: periodMonthlyInterest,
+    principalBasis: periodPrincipalOut,
+    interestRate: args.loan.interestRate,
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
+    dueDate: period.dueDate,
+    notes: "Monthly interest payment after closing.",
+    createdBy: args.createdBy,
+  });
+}
+
+async function upsertDrawProrationCharge(
+  ctx: MutationCtx,
+  args: {
+    loan: Doc<"loans">;
+    draw: Doc<"drawRequests">;
+    wireDate: string;
+    createdBy: Id<"userProfiles">;
+  }
+) {
+  if ((args.loan.paymentType ?? "monthly") === "balloon") return null;
+
+  const proration = calculateDrawProration({
+    drawAmount: args.draw.amountRequested,
+    annualRate: args.loan.interestRate,
+    wireDate: args.wireDate,
+  });
+  if (!proration || proration.amount <= 0) return null;
+
+  const existing = await ctx.db
+    .query("loanCharges")
+    .withIndex("by_drawRequestId", (q) => q.eq("drawRequestId", args.draw._id))
+    .first();
+
+  const charge = {
+    loanId: args.loan._id,
+    borrowerId: args.loan.borrowerId,
+    drawRequestId: args.draw._id,
+    type: "draw_proration" as const,
+    amount: proration.amount,
+    principalBasis: args.draw.amountRequested,
+    interestRate: args.loan.interestRate,
+    periodStart: proration.periodStart,
+    periodEnd: proration.periodEnd,
+    dueDate: proration.dueDate,
+    status: "scheduled" as const,
+    perDiem: proration.perDiem,
+    daysCharged: proration.daysCharged,
+    notes: "Prorated interest from draw wire date through month end.",
+    createdBy: args.createdBy,
+  };
+
+  if (existing) {
+    if (existing.status !== "waived") {
+      await ctx.db.patch(existing._id, {
+        ...charge,
+        status: existing.status,
+      });
+    }
+    return existing._id;
+  }
+
+  return await ctx.db.insert("loanCharges", charge);
+}
+
 export const syncInitialInterestCharges = internalMutation({
   args: {
     loanId: v.id("loans"),
@@ -167,29 +279,47 @@ export const syncInitialInterestCharges = internalMutation({
       });
     }
 
+    let syncedMonthlyChargeCount = 0;
+    const syncedMonthlyPeriods = new Set<string>();
+    const syncMonthlyChargeForPeriodStart = async (periodStartDate: Date) => {
+      const period = getMonthlyInterestPeriodForDate({
+        date: periodStartDate,
+        paymentDueDay: loan.paymentDueDay,
+      });
+      if (syncedMonthlyPeriods.has(period.periodStart)) return;
+
+      syncedMonthlyPeriods.add(period.periodStart);
+      const chargeId = await upsertMonthlyInterestChargeForPeriodStart(ctx, {
+        loan,
+        drawRequests,
+        periodStartDate: period.periodStartDate,
+        createdBy: args.createdBy,
+      });
+      if (chargeId) syncedMonthlyChargeCount++;
+    };
+
     if ((loan.paymentType ?? "monthly") !== "balloon") {
       for (const period of monthlyPeriods) {
-        const periodPrincipalOut = getPrincipalOutForPeriodStart(loan, drawRequests, period.periodStartDate);
-        const periodMonthlyInterest = calculateMonthlyInterest(periodPrincipalOut, loan.interestRate);
-        if (periodMonthlyInterest <= 0) continue;
+        await syncMonthlyChargeForPeriodStart(period.periodStartDate);
+      }
 
-        await upsertSingleLoanCharge(ctx, {
-          loanId: loan._id,
-          borrowerId: loan.borrowerId,
-          type: "monthly_interest",
-          amount: periodMonthlyInterest,
-          principalBasis: periodPrincipalOut,
-          interestRate: loan.interestRate,
-          periodStart: period.periodStart,
-          periodEnd: period.periodEnd,
-          dueDate: period.dueDate,
-          notes: "Monthly interest payment after closing.",
+      for (const draw of drawRequests) {
+        if (draw.status !== "approved" || !draw.wireDate) continue;
+
+        const wireDate = parseUsDate(draw.wireDate);
+        if (!wireDate) continue;
+
+        await syncMonthlyChargeForPeriodStart(wireDate);
+        await upsertDrawProrationCharge(ctx, {
+          loan,
+          draw,
+          wireDate: draw.wireDate,
           createdBy: args.createdBy,
         });
       }
     }
 
-    return { principalOut: currentPrincipalOut, monthlyInterest, monthlyChargesSynced: monthlyPeriods.length };
+    return { principalOut: currentPrincipalOut, monthlyInterest, monthlyChargesSynced: syncedMonthlyChargeCount };
   },
 });
 
@@ -249,36 +379,25 @@ export const recordDrawProration = internalMutation({
     });
     await ctx.db.patch(loan._id, { monthlyPayment });
 
-    if ((loan.paymentType ?? "monthly") === "balloon") return null;
+    const drawRequests = await ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
+      .collect();
 
-    const existing = await ctx.db
-      .query("loanCharges")
-      .withIndex("by_drawRequestId", (q) => q.eq("drawRequestId", draw._id))
-      .first();
-    if (existing) return existing._id;
+    const wireDate = parseUsDate(args.wireDate);
+    if (wireDate) {
+      await upsertMonthlyInterestChargeForPeriodStart(ctx, {
+        loan,
+        drawRequests,
+        periodStartDate: wireDate,
+        createdBy: args.createdBy,
+      });
+    }
 
-    const proration = calculateDrawProration({
-      drawAmount: draw.amountRequested,
-      annualRate: loan.interestRate,
+    return await upsertDrawProrationCharge(ctx, {
+      loan,
+      draw,
       wireDate: args.wireDate,
-    });
-    if (!proration || proration.amount <= 0) return null;
-
-    return await ctx.db.insert("loanCharges", {
-      loanId: loan._id,
-      borrowerId: loan.borrowerId,
-      drawRequestId: draw._id,
-      type: "draw_proration",
-      amount: proration.amount,
-      principalBasis: draw.amountRequested,
-      interestRate: loan.interestRate,
-      periodStart: proration.periodStart,
-      periodEnd: proration.periodEnd,
-      dueDate: proration.dueDate,
-      status: "scheduled",
-      perDiem: proration.perDiem,
-      daysCharged: proration.daysCharged,
-      notes: "Prorated interest from draw wire date through month end.",
       createdBy: args.createdBy,
     });
   },

@@ -19,6 +19,17 @@ function siteUrl() {
   return (process.env.SITE_URL ?? "https://swiftcapitallending.com").replace(/\/+$/, "");
 }
 
+const DEFAULT_MESSAGE_REPLY_TO_EMAIL = "thepatchgroup22@gmail.com";
+
+function messageReplyToEmail() {
+  const configured = process.env.MESSAGE_REPLY_TO_EMAIL?.trim();
+  if (!configured) return DEFAULT_MESSAGE_REPLY_TO_EMAIL;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(configured)) return configured;
+
+  console.warn("MESSAGE_REPLY_TO_EMAIL is invalid — using default message reply-to email");
+  return DEFAULT_MESSAGE_REPLY_TO_EMAIL;
+}
+
 function formatCurrency(value: number): string {
   return value.toLocaleString("en-US", {
     style: "currency",
@@ -112,6 +123,7 @@ async function sendWithResend(args: {
   subject: string;
   html: string;
   headers?: Record<string, string>;
+  replyTo?: string;
 }) {
   const resend = new Resend(args.apiKey);
   await resend.emails.send({
@@ -119,6 +131,7 @@ async function sendWithResend(args: {
     to: args.to,
     subject: args.subject,
     headers: args.headers,
+    replyTo: args.replyTo,
     html: args.html,
   });
 }
@@ -242,6 +255,7 @@ export const sendNotificationEmail = internalAction({
     body: v.string(),
     actionPath: v.optional(v.string()),
     actionLabel: v.optional(v.string()),
+    useMessageReplyTo: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const apiKey = process.env.RESEND_API_KEY;
@@ -260,6 +274,7 @@ export const sendNotificationEmail = internalAction({
         headers: {
           "X-Entity-Ref-ID": args.notificationId,
         },
+        replyTo: args.useMessageReplyTo ? messageReplyToEmail() : undefined,
         html: brandedEmailHtml({
           title: args.title,
           greeting: args.recipientName,

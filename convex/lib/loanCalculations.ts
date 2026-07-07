@@ -118,6 +118,23 @@ export function getMonthlyInterestPeriods(args: {
   return periods;
 }
 
+export function getMonthlyInterestPeriodForDate(args: {
+  date: Date;
+  paymentDueDay?: number;
+}) {
+  const paymentDueDay = args.paymentDueDay ?? 1;
+  const periodStart = new Date(args.date.getFullYear(), args.date.getMonth(), 1);
+  const periodEnd = getMonthEnd(periodStart);
+  const dueDate = getDueDate(periodStart.getFullYear(), periodStart.getMonth() + 1, paymentDueDay);
+
+  return {
+    periodStart: formatUsDate(periodStart),
+    periodEnd: formatUsDate(periodEnd),
+    dueDate: formatUsDate(dueDate),
+    periodStartDate: periodStart,
+  };
+}
+
 export function calculatePrepaidInterest(args: {
   principalOut: number;
   annualRate: number;

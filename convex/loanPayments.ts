@@ -259,7 +259,11 @@ async function getReminderData(
       if (existing) existing.push(charge);
       else chargesByDueDate.set(charge.dueDate, [charge]);
     }
-    const chargeDueDates = new Set(charges.map((charge) => charge.dueDate));
+    const monthlyInterestChargeDueDates = new Set(
+      charges
+        .filter((charge) => charge.status !== "waived" && charge.type === "monthly_interest")
+        .map((charge) => charge.dueDate)
+    );
 
     for (const charge of charges) {
       if (isPayoffOnlyInterestCharge(loan, charge)) continue;
@@ -289,7 +293,7 @@ async function getReminderData(
     const monthlyDueDates = getMonthlyDueDates(loan, windowEnd);
     const getRemainingMonthlyAmount = (monthlyDueDate: Date) => {
       const dueDate = formatUsDate(monthlyDueDate);
-      if (chargeDueDates.has(dueDate)) return 0;
+      if (monthlyInterestChargeDueDates.has(dueDate)) return 0;
       if (daysUntil(monthlyDueDate, today) > REMINDER_WINDOW_DAYS) return 0;
       return getRemainingAmount(loan.monthlyPayment, getPaidAmountForDueDate(payments, dueDate));
     };
