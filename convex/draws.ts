@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
@@ -312,6 +313,7 @@ export const bulkReviewDrawRequests = mutation({
     if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
 
     const results: { drawId: string; success: boolean; error?: string }[] = [];
+    const approvedLoanIdsToSync = new Set<Id<"loans">>();
 
     for (const drawId of args.drawIds) {
       const draw = await ctx.db.get(drawId);
@@ -349,14 +351,6 @@ export const bulkReviewDrawRequests = mutation({
             paymentType: loan.paymentType,
           }),
         });
-        if (wireDate) {
-          await ctx.runMutation(internal.loanCharges.recordDrawProration, {
-            loanId: draw.loanId,
-            drawRequestId: drawId,
-            wireDate,
-            createdBy: admin._id,
-          });
-        }
       }
 
       await ctx.db.patch(drawId, {
@@ -366,6 +360,16 @@ export const bulkReviewDrawRequests = mutation({
         reviewedBy: admin._id,
         reviewedAt: Date.now(),
       });
+
+      if (args.status === "approved" && wireDate) {
+        await ctx.runMutation(internal.loanCharges.recordDrawProration, {
+          loanId: draw.loanId,
+          drawRequestId: drawId,
+          wireDate,
+          createdBy: admin._id,
+        });
+        approvedLoanIdsToSync.add(draw.loanId);
+      }
 
       await ctx.runMutation(internal.notifications.createNotification, {
         recipientId: draw.borrowerId,
@@ -387,6 +391,13 @@ export const bulkReviewDrawRequests = mutation({
     }
 
     const successCount = results.filter((r) => r.success).length;
+    for (const loanId of approvedLoanIdsToSync) {
+      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+        loanId,
+        createdBy: admin._id,
+      });
+    }
+
     if (successCount > 0) {
       await notifyTeam(ctx, {
         type: "draw_reviewed",
@@ -459,14 +470,6 @@ export const reviewDrawRequest = mutation({
           paymentType: loan.paymentType,
         }),
       });
-      if (wireDate) {
-        await ctx.runMutation(internal.loanCharges.recordDrawProration, {
-          loanId: draw.loanId,
-          drawRequestId: args.id,
-          wireDate,
-          createdBy: admin._id,
-        });
-      }
     }
 
     await ctx.db.patch(args.id, {
@@ -476,6 +479,19 @@ export const reviewDrawRequest = mutation({
       reviewedBy: admin._id,
       reviewedAt: Date.now(),
     });
+
+    if (args.status === "approved" && wireDate) {
+      await ctx.runMutation(internal.loanCharges.recordDrawProration, {
+        loanId: draw.loanId,
+        drawRequestId: args.id,
+        wireDate,
+        createdBy: admin._id,
+      });
+      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+        loanId: draw.loanId,
+        createdBy: admin._id,
+      });
+    }
 
     const [loan, borrower] = await Promise.all([
       ctx.db.get(draw.loanId),

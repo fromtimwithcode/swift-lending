@@ -135,6 +135,7 @@ export const createNotification = internalMutation({
           body: emailBody ?? args.body,
           actionPath,
           actionLabel,
+          ...(args.type === "message_received" ? { useMessageReplyTo: true } : {}),
         });
       }
 
