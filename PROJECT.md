@@ -40,6 +40,8 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] `documents` — file storage references
 - [x] `messages` — communication system records
 - [x] `investments` — fund investor records
+- [x] `borrowerSensitiveDetails` and `borrowerBankAccounts` — encrypted EIN and ACH records with masked summaries
+- [x] `borrowerRelatedParties` — co-borrowers, guarantors, members, spouses, and other contacts
 
 ### Auth & Access Control
 - [x] Server-side auth helpers (`getCurrentUser`, `requireAdmin`, `requireRole`)
@@ -70,6 +72,9 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ### Admin Borrower Management
 - [x] Borrowers list with loan stats (active loans, total capital)
 - [x] Add Borrower form (email, name, company, phone)
+- [x] Responsive borrower detail tabs for Overview, Financial, and Related parties
+- [x] AES-GCM encrypted EIN and ACH details with audited, time-limited reveal controls
+- [x] Inline related-party CRUD for co-borrowers and other borrower contacts
 
 ### Reusable Components
 - [x] `KpiCard` — stat card with icon and trend
@@ -438,6 +443,7 @@ components/
 - `getOverviewStats` uses `.collect()` on all loans — fine for now, may need optimization at scale
 - Messaging queries bounded with `.take(5000)` on sent/received — works at moderate volume, may need pagination at scale
 - `RESEND_API_KEY` must be set in Convex dashboard environment variables (not .env.local — runs in Convex Node.js runtime)
+- `BORROWER_DATA_ENCRYPTION_KEY` must be a base64-encoded 32-byte key in each Convex deployment before EIN or ACH details can be saved or revealed. Generate it without committing the value: `openssl rand -base64 32 | pnpm exec convex env set BORROWER_DATA_ENCRYPTION_KEY` (add `--prod` for production and use a separately generated production key)
 - `LOAN_ALERT_EMAILS` env var (Convex dashboard): comma-separated recipients for new loan application alerts (dev: `hi@timbothe.dev`, prod: `craig@swiftcapitallenders.com,adam@ffs-wi.com`)
 - Email failures are caught and logged, never block in-app notification delivery
 - Pending user profiles expire after 30 days (must be re-created by admin if unclaimed)

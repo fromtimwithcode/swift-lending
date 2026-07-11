@@ -16,7 +16,7 @@ function escapeHtml(str: string): string {
 }
 
 function siteUrl() {
-  return (process.env.SITE_URL ?? "https://swiftcapitallending.com").replace(/\/+$/, "");
+  return (process.env.SITE_URL ?? "https://swiftcapitallenders.com").replace(/\/+$/, "");
 }
 
 const DEFAULT_MESSAGE_REPLY_TO_EMAIL = "thepatchgroup22@gmail.com";

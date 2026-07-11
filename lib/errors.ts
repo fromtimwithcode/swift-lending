@@ -52,6 +52,22 @@ function mapKnownMessage(message: string) {
   }
   if (lower.includes("already exists")) return "A record with this information already exists.";
   if (lower.includes("valid email")) return "Enter a valid email address.";
+  if (lower.includes("ein must contain exactly 9 digits")) return "EIN must contain exactly 9 digits.";
+  if (lower.includes("routing number must contain exactly 9 digits")) {
+    return "Routing number must contain exactly 9 digits.";
+  }
+  if (lower.includes("valid routing number")) return "Enter a valid routing number.";
+  if (lower.includes("account number must contain 4 to 17 digits")) {
+    return "Account number must contain 4 to 17 digits.";
+  }
+  if (lower.includes("routing and account numbers are required")) {
+    return "Routing and account numbers are required.";
+  }
+  if (lower.includes("both routing and account numbers")) {
+    return "Enter both routing and account numbers to replace bank details.";
+  }
+  if (lower.includes("up to 10 bank accounts")) return "A borrower can have up to 10 bank accounts.";
+  if (lower.includes("up to 50 related parties")) return "A borrower can have up to 50 related parties.";
   if (lower.includes("own account")) return "You cannot change your own account this way.";
   if (lower.includes("active admin must remain")) return "At least one active admin must remain.";
   if (lower.includes("file") && lower.includes("too large")) return "The selected file is too large.";

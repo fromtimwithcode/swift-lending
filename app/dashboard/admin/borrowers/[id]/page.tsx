@@ -9,13 +9,16 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { Loader2, ArrowLeft, MessageSquare, Pencil, Save, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
+import { BorrowerDetailTabs } from "@/components/dashboard/borrower-detail-tabs";
+import { BorrowerFinancialPanel } from "@/components/dashboard/borrower-financial-panel";
+import { BorrowerRelatedPartiesPanel } from "@/components/dashboard/borrower-related-parties-panel";
 
 export default function AdminBorrowerDetailPage() {
   const params = useParams();
@@ -68,6 +71,7 @@ export default function AdminBorrowerDetailPage() {
   };
 
   const startEditing = () => {
+    router.replace(`/dashboard/admin/borrowers/${id}`, { scroll: false });
     setEditing(true);
     setEditData({
       displayName: profile.displayName,
@@ -105,7 +109,7 @@ export default function AdminBorrowerDetailPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "min-h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20";
 
   const loanColumns: Column<(typeof loans)[number]>[] = [
     {
@@ -180,21 +184,23 @@ export default function AdminBorrowerDetailPage() {
               {editing ? (
                 <>
                   <button
+                    type="button"
                     onClick={() => setEditing(false)}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
-                    <X className="size-4" />
+                    <X className="size-4" aria-hidden="true" />
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveProfile}
                     disabled={saving}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1"
                   >
                     {saving ? (
-                      <Loader2 className="size-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Save className="size-4" />
+                      <Save className="size-4" aria-hidden="true" />
                     )}
                     Save
                   </button>
@@ -202,17 +208,18 @@ export default function AdminBorrowerDetailPage() {
               ) : (
                 <>
                   <button
+                    type="button"
                     onClick={startEditing}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
-                    <Pencil className="size-4" />
+                    <Pencil className="size-4" aria-hidden="true" />
                     Edit
                   </button>
                   <Link
                     href={`/dashboard/admin/messages?partnerId=${id}`}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
-                    <MessageSquare className="size-4" />
+                    <MessageSquare className="size-4" aria-hidden="true" />
                     Message
                   </Link>
                 </>
@@ -222,166 +229,163 @@ export default function AdminBorrowerDetailPage() {
         />
       </div>
 
-      {/* Profile Card */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-muted-foreground">Profile</h3>
-          <button
-            onClick={handleToggleActive}
-            disabled={toggling}
-            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
-              profile.isActive
-                ? "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-                : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
-            } disabled:opacity-50`}
-          >
-            {toggling && <Loader2 className="size-3 animate-spin" />}
-            {profile.isActive ? "Deactivate" : "Activate"}
-          </button>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {editing ? (
-            <>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Name</p>
-                <input
-                  className={inputClass}
-                  value={editData.displayName}
-                  onChange={(e) =>
-                    setEditData((p) => ({ ...p, displayName: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Email</p>
-                <input
-                  className={inputClass}
-                  type="email"
-                  value={editData.email}
-                  onChange={(e) =>
-                    setEditData((p) => ({ ...p, email: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Phone</p>
-                <input
-                  className={inputClass}
-                  value={editData.phone}
-                  onChange={(e) =>
-                    setEditData((p) => ({ ...p, phone: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Company</p>
-                <input
-                  className={inputClass}
-                  value={editData.company}
-                  onChange={(e) =>
-                    setEditData((p) => ({ ...p, company: e.target.value }))
-                  }
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <p className="text-xs text-muted-foreground">Name</p>
-                <p className="text-sm font-medium">{profile.displayName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="text-sm font-medium">{profile.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Phone</p>
-                <p className="text-sm font-medium">{profile.phone || "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Company</p>
-                <p className="text-sm font-medium">{profile.company || "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Status</p>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    profile.isActive
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                      : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                  }`}
-                >
-                  {profile.isActive ? "Active" : "Inactive"}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Onboarded</p>
-                <p className="text-sm font-medium">
-                  {profile.onboardedAt
-                    ? new Date(profile.onboardedAt).toLocaleDateString()
-                    : "Not yet"}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Loans */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Properties ({loans.length})
-        </h3>
-        {loans.length > 0 ? (
-          <DataTable
-            data={loans as unknown as Record<string, unknown>[]}
-            columns={loanColumns as Column<Record<string, unknown>>[]}
-            onRowClick={(row) =>
-              router.push(
-                `/dashboard/admin/loans/${(row as unknown as { _id: string })._id}`
-              )
-            }
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">No properties</p>
-        )}
-      </div>
-
-      {/* Draw Requests */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Draw Requests ({draws.length})
-        </h3>
-        {draws.length > 0 ? (
-          <DataTable
-            data={draws as unknown as Record<string, unknown>[]}
-            columns={drawColumns as Column<Record<string, unknown>>[]}
-            onRowClick={(row) =>
-              router.push(
-                `/dashboard/admin/draws/${(row as unknown as { _id: string })._id}`
-              )
-            }
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">No draw requests</p>
-        )}
-      </div>
-
-      {/* Documents */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Documents ({documents.length})
-        </h3>
-        {documents.length > 0 ? (
-          <div className="divide-y divide-border">
-            {documents.map((doc) => (
-              <DocumentPreviewRow key={doc._id} document={doc} />
-            ))}
+      <Suspense
+        fallback={
+          <div className="rounded-2xl bg-muted/70 p-1 shadow-[inset_0_0_0_1px_var(--border)]">
+            <div className="skeleton h-10 w-full" />
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No documents</p>
-        )}
-      </div>
+        }
+      >
+        <BorrowerDetailTabs
+          onTabChange={() => setEditing(false)}
+          overview={
+            <div className="space-y-6">
+              <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-profile-heading">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <h2 id="borrower-profile-heading" className="text-sm font-semibold">Profile</h2>
+                  <button
+                    type="button"
+                    onClick={handleToggleActive}
+                    disabled={toggling}
+                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] ${
+                      profile.isActive
+                        ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                        : "bg-primary/20 text-foreground hover:bg-primary/30"
+                    } disabled:opacity-50`}
+                  >
+                    {toggling && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+                    {profile.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {editing ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <label htmlFor="profile-name" className="text-sm font-medium">Name</label>
+                        <input
+                          id="profile-name"
+                          className={inputClass}
+                          value={editData.displayName}
+                          onChange={(event) => setEditData((current) => ({ ...current, displayName: event.target.value }))}
+                          autoComplete="name"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="profile-email" className="text-sm font-medium">Email</label>
+                        <input
+                          id="profile-email"
+                          className={inputClass}
+                          type="email"
+                          value={editData.email}
+                          onChange={(event) => setEditData((current) => ({ ...current, email: event.target.value }))}
+                          autoComplete="email"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="profile-phone" className="text-sm font-medium">Phone</label>
+                        <input
+                          id="profile-phone"
+                          className={inputClass}
+                          type="tel"
+                          value={editData.phone}
+                          onChange={(event) => setEditData((current) => ({ ...current, phone: event.target.value }))}
+                          autoComplete="tel"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="profile-company" className="text-sm font-medium">Company</label>
+                        <input
+                          id="profile-company"
+                          className={inputClass}
+                          value={editData.company}
+                          onChange={(event) => setEditData((current) => ({ ...current, company: event.target.value }))}
+                          autoComplete="organization"
+                          spellCheck={false}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Detail label="Name" value={profile.displayName} />
+                      <Detail label="Email" value={profile.email} />
+                      <Detail label="Phone" value={profile.phone || "—"} />
+                      <Detail label="Company" value={profile.company || "—"} />
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Status</p>
+                        <span className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          profile.isActive
+                            ? "bg-primary/20 text-foreground"
+                            : "bg-destructive/10 text-destructive"
+                        }`}>
+                          {profile.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      <Detail
+                        label="Onboarded"
+                        value={profile.onboardedAt ? new Date(profile.onboardedAt).toLocaleDateString() : "Not yet"}
+                      />
+                    </>
+                  )}
+                </div>
+              </section>
+
+              <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-properties-heading">
+                <h2 id="borrower-properties-heading" className="mb-4 text-sm font-semibold">
+                  Properties <span className="text-muted-foreground tabular-nums">({loans.length})</span>
+                </h2>
+                {loans.length > 0 ? (
+                  <DataTable
+                    data={loans as unknown as Record<string, unknown>[]}
+                    columns={loanColumns as Column<Record<string, unknown>>[]}
+                    onRowClick={(row) =>
+                      router.push(`/dashboard/admin/loans/${(row as unknown as { _id: string })._id}`)
+                    }
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">No properties yet.</p>
+                )}
+              </section>
+
+              <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-draws-heading">
+                <h2 id="borrower-draws-heading" className="mb-4 text-sm font-semibold">
+                  Draw requests <span className="text-muted-foreground tabular-nums">({draws.length})</span>
+                </h2>
+                {draws.length > 0 ? (
+                  <DataTable
+                    data={draws as unknown as Record<string, unknown>[]}
+                    columns={drawColumns as Column<Record<string, unknown>>[]}
+                    onRowClick={(row) =>
+                      router.push(`/dashboard/admin/draws/${(row as unknown as { _id: string })._id}`)
+                    }
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">No draw requests yet.</p>
+                )}
+              </section>
+
+              <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-documents-heading">
+                <h2 id="borrower-documents-heading" className="mb-4 text-sm font-semibold">
+                  Documents <span className="text-muted-foreground tabular-nums">({documents.length})</span>
+                </h2>
+                {documents.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {documents.map((document) => (
+                      <DocumentPreviewRow key={document._id} document={document} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No documents yet.</p>
+                )}
+              </section>
+            </div>
+          }
+          financial={<BorrowerFinancialPanel borrowerId={id} />}
+          parties={<BorrowerRelatedPartiesPanel borrowerId={id} />}
+        />
+      </Suspense>
       <ConfirmDialog
         open={confirmDeactivate}
         title={`Deactivate ${profile.displayName}?`}
@@ -392,6 +396,15 @@ export default function AdminBorrowerDetailPage() {
         onConfirm={executeDeactivate}
         onCancel={() => setConfirmDeactivate(false)}
       />
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold">{value}</p>
     </div>
   );
 }
