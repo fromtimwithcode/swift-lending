@@ -26,6 +26,6 @@
 - Existing migration pattern is an `internalMutation` in `convex/migrations.ts` with batching and self-scheduling; example run command is `pnpm exec convex run migrations:backfillPaymentType`.
 
 ## Environment
-- Required runtime envs are inferred from code: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_SITE_URL`, `RESEND_API_KEY`, and `GOOGLE_MAPS_API_KEY`.
+- Required runtime envs are inferred from code: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_SITE_URL`, `RESEND_API_KEY`, `GOOGLE_MAPS_API_KEY`, and the base64-encoded 32-byte `BORROWER_DATA_ENCRYPTION_KEY` configured per Convex deployment.
 - Optional notification/site envs used by Convex email code: `LOAN_ALERT_EMAILS` and `SITE_URL`.
 - `.env.local` exists; do not print or commit secrets from it.

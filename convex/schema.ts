@@ -106,6 +106,50 @@ const schema = defineSchema({
     .index("by_borrowerId", ["borrowerId"])
     .index("by_borrowerId_and_normalizedKey", ["borrowerId", "normalizedKey"]),
 
+  borrowerSensitiveDetails: defineTable({
+    borrowerId: v.id("userProfiles"),
+    encryptedEin: v.string(),
+    einLast4: v.string(),
+    keyVersion: v.number(),
+    updatedAt: v.number(),
+    updatedBy: v.id("userProfiles"),
+  }).index("by_borrowerId", ["borrowerId"]),
+
+  borrowerBankAccounts: defineTable({
+    borrowerId: v.id("userProfiles"),
+    bankName: v.string(),
+    accountHolderName: v.string(),
+    accountType: v.union(v.literal("checking"), v.literal("savings")),
+    encryptedRoutingNumber: v.string(),
+    routingLast4: v.string(),
+    encryptedAccountNumber: v.string(),
+    accountLast4: v.string(),
+    encryptionContext: v.string(),
+    keyVersion: v.number(),
+    isPrimary: v.boolean(),
+    updatedAt: v.number(),
+    updatedBy: v.id("userProfiles"),
+  }).index("by_borrowerId", ["borrowerId"]),
+
+  borrowerRelatedParties: defineTable({
+    borrowerId: v.id("userProfiles"),
+    type: v.union(
+      v.literal("co_borrower"),
+      v.literal("guarantor"),
+      v.literal("member"),
+      v.literal("spouse"),
+      v.literal("other")
+    ),
+    fullName: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    company: v.optional(v.string()),
+    relationship: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    updatedAt: v.number(),
+    updatedBy: v.id("userProfiles"),
+  }).index("by_borrowerId", ["borrowerId"]),
+
   appSettings: defineTable({
     key: v.literal("defaultInterestRate"),
     value: v.number(),
