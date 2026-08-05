@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   Activity,
   Bell,
+  BookOpenCheck,
   FileText,
   HandCoins,
   Landmark,
@@ -63,6 +64,11 @@ const adminNav: NavItem[] = [
     label: "Messages",
     href: "/dashboard/admin/messages",
     icon: <MessageSquare className="size-5" />,
+  },
+  {
+    label: "Calculation Guide",
+    href: "/dashboard/admin/calculation-guide",
+    icon: <BookOpenCheck className="size-5" />,
   },
   {
     label: "Activity Log",

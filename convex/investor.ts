@@ -2,6 +2,11 @@ import { query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
+import {
+  MONTHS_PER_YEAR,
+  PERCENTAGE_DIVISOR,
+  roundCents,
+} from "./lib/financialRules";
 
 function summarizePortfolio(investments: Doc<"investments">[], now: number) {
   const totalInvested = investments.reduce(
@@ -15,12 +20,12 @@ function summarizePortfolio(investments: Doc<"investments">[], now: number) {
 
   const avgInterestRate =
     totalInvested > 0
-      ? Math.round(
-          (investments.reduce(
+      ? roundCents(
+          investments.reduce(
             (sum, i) => sum + i.interestRate * i.investmentAmount,
             0
-          ) / totalInvested) * 100
-        ) / 100
+          ) / totalInvested
+        )
       : 0;
 
   const upcomingPayments = investments
@@ -117,13 +122,15 @@ export const getInvestmentStatement = query({
         : 0;
 
     const estAnnualIncome = investments.reduce(
-      (sum, i) => sum + (i.investmentAmount * i.interestRate) / 100,
+      (sum, i) =>
+        sum + (i.investmentAmount * i.interestRate) / PERCENTAGE_DIVISOR,
       0
     );
 
     const breakdown = investments.map((i) => {
-      const monthlyReturn = (i.investmentAmount * i.interestRate) / 100 / 12;
-      const annualReturn = (i.investmentAmount * i.interestRate) / 100;
+      const annualReturn =
+        (i.investmentAmount * i.interestRate) / PERCENTAGE_DIVISOR;
+      const monthlyReturn = annualReturn / MONTHS_PER_YEAR;
       return {
         ...i,
         monthlyReturn,
@@ -134,7 +141,7 @@ export const getInvestmentStatement = query({
     return {
       totalInvested,
       totalReturns,
-      weightedAvgRate: Math.round(weightedRate * 100) / 100,
+      weightedAvgRate: roundCents(weightedRate),
       estAnnualIncome,
       breakdown,
     };

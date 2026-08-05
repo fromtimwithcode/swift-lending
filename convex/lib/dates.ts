@@ -16,6 +16,25 @@ export function parseUsDate(value: string): Date | null {
   return date;
 }
 
+export function formatUsDate(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+export function getMaturityDate(closeDate: string, termMonths: number) {
+  const date = parseUsDate(closeDate);
+  if (!date || !Number.isInteger(termMonths) || termMonths < 1) return "";
+
+  const targetMonth = date.getMonth() + termMonths;
+  const lastDay = new Date(date.getFullYear(), targetMonth + 1, 0).getDate();
+  return formatUsDate(
+    new Date(
+      date.getFullYear(),
+      targetMonth,
+      Math.min(date.getDate(), lastDay)
+    )
+  );
+}
+
 export function validateUsDate(value: string, label: string, options?: { allowFuture?: boolean }) {
   const date = parseUsDate(value);
   if (!date) {

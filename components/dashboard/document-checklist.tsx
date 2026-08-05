@@ -324,7 +324,7 @@ export function DocumentChecklist({
           <div className="border-t border-border bg-muted/30 px-4 py-2">
             <div className="space-y-1">
               {docs.map((doc) => (
-                <DocumentPreviewRow key={doc._id} document={doc} compact>
+                <DocumentPreviewRow key={doc._id} document={doc} previewDocuments={docs} compact>
                   {isArticlesRow && (
                     <span className="hidden text-[10px] text-muted-foreground sm:inline">
                       {DOC_TYPE_LABELS[doc.type] || doc.type}

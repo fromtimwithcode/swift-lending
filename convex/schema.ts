@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { appConfigurationValidator } from "./lib/appConfiguration";
 
 const schema = defineSchema({
   ...authTables,
@@ -45,6 +46,9 @@ const schema = defineSchema({
     monthlyPayment: v.number(),
     paymentDueDay: v.optional(v.number()),
     pointsEarned: v.number(),
+    pointsPercentage: v.optional(v.number()),
+    loanTermMonths: v.optional(v.number()),
+    configurationVersion: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
     status: v.union(
       v.literal("submitted"),
@@ -156,6 +160,45 @@ const schema = defineSchema({
     updatedAt: v.number(),
     updatedBy: v.optional(v.id("userProfiles")),
   }).index("by_key", ["key"]),
+
+  appConfiguration: defineTable({
+    scope: v.literal("global"),
+    version: v.number(),
+    comparablesVersion: v.optional(v.number()),
+    configuration: appConfigurationValidator,
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("userProfiles")),
+  }).index("by_scope", ["scope"]),
+
+  appConfigurationHistory: defineTable({
+    version: v.number(),
+    beforeConfiguration: appConfigurationValidator,
+    afterConfiguration: appConfigurationValidator,
+    changedKeys: v.array(v.string()),
+    reason: v.optional(v.string()),
+    changedAt: v.number(),
+    changedBy: v.id("userProfiles"),
+  })
+    .index("by_version", ["version"])
+    .index("by_changedAt", ["changedAt"]),
+
+  configurationJobs: defineTable({
+    type: v.literal("rebuild_comparables"),
+    configurationVersion: v.number(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("superseded"),
+      v.literal("failed")
+    ),
+    processedLoans: v.number(),
+    requestedAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    cursor: v.optional(v.string()),
+  }).index("by_type", ["type"]),
 
   drawRequests: defineTable({
     loanId: v.id("loans"),
@@ -334,6 +377,7 @@ const schema = defineSchema({
     rehabBudgetTotal: v.optional(v.number()),
     loanAmount: v.optional(v.number()),
     similarityScore: v.optional(v.number()),
+    configurationVersion: v.optional(v.number()),
     fetchedAt: v.optional(v.number()),
     source: v.string(),
   })

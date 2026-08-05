@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthenticatedNextjs } from "@convex-dev/auth/nextjs/server";
 
 type PlacePrediction = {
   placeId?: string;
@@ -22,6 +23,10 @@ type AutocompleteResponse = {
 };
 
 export async function GET(request: NextRequest) {
+  if (!(await isAuthenticatedNextjs())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const input = request.nextUrl.searchParams.get("input");
   if (!input || input.trim().length < 3 || input.length > 200) {
     return NextResponse.json({ predictions: [] });

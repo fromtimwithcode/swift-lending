@@ -1,3 +1,14 @@
+import {
+  MAX_MONTHLY_INTEREST_PERIODS,
+  MONTHS_PER_YEAR,
+  PERCENTAGE_DIVISOR,
+  roundCents,
+} from "./financialRules";
+import {
+  DEFAULT_PAYMENT_DUE_DAY,
+  DEFAULT_POINTS_PERCENTAGE,
+} from "./constants";
+
 function parseUsDate(value: string): Date | null {
   const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
@@ -19,9 +30,7 @@ function getDueDate(year: number, monthIndex: number, paymentDueDay: number) {
   return new Date(year, monthIndex, Math.min(paymentDueDay, lastDay));
 }
 
-export function roundCents(value: number) {
-  return Math.round(value * 100) / 100;
-}
+export { roundCents } from "./financialRules";
 
 export function formatUsDate(date: Date) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
@@ -38,7 +47,31 @@ export function getCurrentPrincipalOut(args: {
 
 export function calculateMonthlyInterest(principalOut: number, annualRate: number) {
   if (principalOut <= 0 || annualRate <= 0) return 0;
-  return roundCents((principalOut * annualRate) / 100 / 12);
+  return roundCents(
+    (principalOut * annualRate) / PERCENTAGE_DIVISOR / MONTHS_PER_YEAR
+  );
+}
+
+export function calculatePoints(loanAmount: number, pointsPercentage: number) {
+  if (loanAmount <= 0 || pointsPercentage <= 0) return 0;
+  return roundCents((loanAmount * pointsPercentage) / PERCENTAGE_DIVISOR);
+}
+
+export function getEffectivePointsPercentage(args: {
+  loanAmount: number;
+  pointsEarned: number;
+  fallback?: number;
+}) {
+  if (
+    !Number.isFinite(args.loanAmount) ||
+    args.loanAmount <= 0 ||
+    !Number.isFinite(args.pointsEarned) ||
+    args.pointsEarned < 0
+  ) {
+    return args.fallback ?? DEFAULT_POINTS_PERCENTAGE;
+  }
+
+  return (args.pointsEarned / args.loanAmount) * PERCENTAGE_DIVISOR;
 }
 
 export function calculateMonthlyPaymentDue(args: {
@@ -62,21 +95,6 @@ export function getMonthEnd(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-export function getFirstMonthlyInterestPeriod(closeDate: string) {
-  const close = parseUsDate(closeDate);
-  if (!close) return null;
-
-  const periodStart = new Date(close.getFullYear(), close.getMonth() + 1, 1);
-  const periodEnd = getMonthEnd(periodStart);
-  const dueDate = new Date(close.getFullYear(), close.getMonth() + 2, 1);
-
-  return {
-    periodStart: formatUsDate(periodStart),
-    periodEnd: formatUsDate(periodEnd),
-    dueDate: formatUsDate(dueDate),
-  };
-}
-
 export function getMonthlyInterestPeriods(args: {
   closeDate: string;
   windowEnd: Date;
@@ -89,8 +107,8 @@ export function getMonthlyInterestPeriods(args: {
 
   const maturity = args.maturityDate ? parseUsDate(args.maturityDate) : null;
   const effectiveEnd = maturity && maturity < args.windowEnd ? maturity : args.windowEnd;
-  const paymentDueDay = args.paymentDueDay ?? 1;
-  const maxPeriods = args.maxPeriods ?? 120;
+  const paymentDueDay = args.paymentDueDay ?? DEFAULT_PAYMENT_DUE_DAY;
+  const maxPeriods = args.maxPeriods ?? MAX_MONTHLY_INTEREST_PERIODS;
   const periods: Array<{
     periodStart: string;
     periodEnd: string;
@@ -122,7 +140,7 @@ export function getMonthlyInterestPeriodForDate(args: {
   date: Date;
   paymentDueDay?: number;
 }) {
-  const paymentDueDay = args.paymentDueDay ?? 1;
+  const paymentDueDay = args.paymentDueDay ?? DEFAULT_PAYMENT_DUE_DAY;
   const periodStart = new Date(args.date.getFullYear(), args.date.getMonth(), 1);
   const periodEnd = getMonthEnd(periodStart);
   const dueDate = getDueDate(periodStart.getFullYear(), periodStart.getMonth() + 1, paymentDueDay);
@@ -162,6 +180,7 @@ export function calculateDrawProration(args: {
   drawAmount: number;
   annualRate: number;
   wireDate: string;
+  paymentDueDay?: number;
 }) {
   const wire = parseUsDate(args.wireDate);
   if (!wire) return null;
@@ -170,7 +189,11 @@ export function calculateDrawProration(args: {
   const daysCharged = daysInMonth - wire.getDate() + 1;
   const perDiem = calculateMonthlyPerDiem(args.drawAmount, args.annualRate, wire);
   const periodEnd = getMonthEnd(wire);
-  const dueDate = new Date(wire.getFullYear(), wire.getMonth() + 1, 1);
+  const dueDate = getDueDate(
+    wire.getFullYear(),
+    wire.getMonth() + 1,
+    args.paymentDueDay ?? DEFAULT_PAYMENT_DUE_DAY
+  );
 
   return {
     amount: roundCents(perDiem * daysCharged),

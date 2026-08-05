@@ -373,7 +373,11 @@ export default function AdminBorrowerDetailPage() {
                 {documents.length > 0 ? (
                   <div className="divide-y divide-border">
                     {documents.map((document) => (
-                      <DocumentPreviewRow key={document._id} document={document} />
+                      <DocumentPreviewRow
+                        key={document._id}
+                        document={document}
+                        previewDocuments={documents}
+                      />
                     ))}
                   </div>
                 ) : (

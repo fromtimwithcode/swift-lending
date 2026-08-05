@@ -5,7 +5,11 @@ import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireRole } from "./lib/auth";
 import { formatCurrencyPlain } from "./lib/constants";
-import { parseUsDate, validateUsDate } from "./lib/dates";
+import { parseUsDate } from "./lib/dates";
+import {
+  getDrawWireDateError,
+  validateDrawWireDateForLoan,
+} from "./lib/drawDates";
 import {
   calculateDrawProration,
   calculateMonthlyInterest,
@@ -15,9 +19,12 @@ import {
   getMonthlyInterestPeriodForDate,
   getMonthlyInterestPeriods,
 } from "./lib/loanCalculations";
+import {
+  isCombinedInterestChargeType,
+  MAX_MONTHLY_INTEREST_PERIODS,
+} from "./lib/financialRules";
+import { getAppConfiguration } from "./lib/settings";
 
-const MONTHLY_CHARGE_WINDOW_DAYS = 14;
-const MAX_MONTHLY_INTEREST_CHARGES = 120;
 const SYNC_BATCH_SIZE = 25;
 
 const chargeStatusValidator = v.union(
@@ -26,10 +33,10 @@ const chargeStatusValidator = v.union(
   v.literal("waived")
 );
 
-function getChargeWindowEnd() {
+function getChargeWindowEnd(windowDays: number) {
   const windowEnd = new Date();
   windowEnd.setHours(0, 0, 0, 0);
-  windowEnd.setDate(windowEnd.getDate() + MONTHLY_CHARGE_WINDOW_DAYS);
+  windowEnd.setDate(windowEnd.getDate() + windowDays);
   return windowEnd;
 }
 
@@ -98,7 +105,7 @@ async function upsertSingleLoanCharge(
   };
 
   if (existing) {
-    if (existing.status !== "waived") {
+    if (existing.status === "scheduled") {
       await ctx.db.patch(existing._id, {
         ...charge,
         status: args.status ?? existing.status,
@@ -182,6 +189,7 @@ async function upsertDrawProrationCharge(
     drawAmount: args.draw.amountRequested,
     annualRate: args.loan.interestRate,
     wireDate: args.wireDate,
+    paymentDueDay: args.loan.paymentDueDay,
   });
   if (!proration || proration.amount <= 0) return null;
 
@@ -209,7 +217,7 @@ async function upsertDrawProrationCharge(
   };
 
   if (existing) {
-    if (existing.status !== "waived") {
+    if (existing.status === "scheduled") {
       await ctx.db.patch(existing._id, {
         ...charge,
         status: existing.status,
@@ -229,6 +237,7 @@ export const syncInitialInterestCharges = internalMutation({
   handler: async (ctx, args) => {
     const loan = await ctx.db.get(args.loanId);
     if (!loan || !loan.closeDate) return null;
+    const configuration = await getAppConfiguration(ctx);
 
     const currentPrincipalOut = getCurrentPrincipalOut(loan);
     const monthlyInterest = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
@@ -254,8 +263,10 @@ export const syncInitialInterestCharges = internalMutation({
       closeDate: loan.closeDate,
       maturityDate: loan.maturityDate,
       paymentDueDay: loan.paymentDueDay,
-      windowEnd: getChargeWindowEnd(),
-      maxPeriods: MAX_MONTHLY_INTEREST_CHARGES,
+      windowEnd: getChargeWindowEnd(
+        configuration.operations.interestChargeWindowDays
+      ),
+      maxPeriods: MAX_MONTHLY_INTEREST_PERIODS,
     });
 
     await ctx.db.patch(loan._id, { monthlyPayment });
@@ -305,6 +316,7 @@ export const syncInitialInterestCharges = internalMutation({
 
       for (const draw of drawRequests) {
         if (draw.status !== "approved" || !draw.wireDate) continue;
+        if (getDrawWireDateError(loan, draw.wireDate)) continue;
 
         const wireDate = parseUsDate(draw.wireDate);
         if (!wireDate) continue;
@@ -363,10 +375,9 @@ export const recordDrawProration = internalMutation({
     createdBy: v.id("userProfiles"),
   },
   handler: async (ctx, args) => {
-    validateUsDate(args.wireDate, "Wire date", { allowFuture: true });
-
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
+    validateDrawWireDateForLoan(loan, args.wireDate);
     const draw = await ctx.db.get(args.drawRequestId);
     if (!draw) throw new ConvexError("Draw request not found");
     if (draw.loanId !== loan._id) throw new ConvexError("Draw does not belong to loan");
@@ -460,8 +471,27 @@ export const removeCharge = mutation({
       .query("loanPayments")
       .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
       .collect();
+    const relatedChargeIds = new Set([charge._id]);
+    if (isCombinedInterestChargeType(charge.type)) {
+      const charges = await ctx.db
+        .query("loanCharges")
+        .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
+        .collect();
+      for (const candidate of charges) {
+        if (
+          candidate.dueDate === charge.dueDate &&
+          candidate.status !== "waived" &&
+          isCombinedInterestChargeType(candidate.type)
+        ) {
+          relatedChargeIds.add(candidate._id);
+        }
+      }
+    }
     const hasRelatedPayment = relatedPayments.some(
-      (payment) => payment.chargeId === args.id || (!payment.chargeId && payment.dueDate === charge.dueDate)
+      (payment) =>
+        payment.chargeId
+          ? relatedChargeIds.has(payment.chargeId)
+          : payment.dueDate === charge.dueDate
     );
     if (hasRelatedPayment) {
       throw new ConvexError("Remove related payment records before deleting this charge");

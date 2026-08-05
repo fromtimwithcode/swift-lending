@@ -5,7 +5,6 @@ import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
 import {
-  DEFAULT_POINTS_PERCENTAGE,
   MAX_BULK_OPERATION_SIZE,
   LOAN_STATUS_LABELS,
   formatCurrencyPlain,
@@ -14,10 +13,17 @@ import {
   isPipelineLoanStatus,
   isPreFundingLoanStatus,
 } from "./lib/constants";
-import { parseUsDate, validateUsDate } from "./lib/dates";
-import { calculateMonthlyInterest, calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
-import { getDefaultInterestRate } from "./lib/settings";
+import { getMaturityDate, parseUsDate, validateUsDate } from "./lib/dates";
+import {
+  calculateMonthlyInterest,
+  calculateMonthlyPaymentDue,
+  calculatePoints,
+  getCurrentPrincipalOut,
+  getEffectivePointsPercentage,
+  roundCents,
+} from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
+import { getAppConfigurationState } from "./lib/settings";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -97,8 +103,8 @@ function changedFieldSummary(keys: string[]) {
   return keys.map((key) => LOAN_UPDATE_FIELD_LABELS[key] ?? key).join(", ");
 }
 
-function getPointsEarned(totalLoanAmount: number) {
-  return Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * totalLoanAmount * 100) / 100;
+function getPointsEarned(totalLoanAmount: number, pointsPercentage: number) {
+  return calculatePoints(totalLoanAmount, pointsPercentage);
 }
 
 async function saveBorrowerTitleContact(
@@ -187,7 +193,6 @@ export const getOverviewStats = query({
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const defaultInterestRate = await getDefaultInterestRate(ctx);
     const activeLoans = allLoans.filter((loan) => {
       if (loan.returnedDate) return false;
       if (loan.status === "funded" || loan.status === "sent_to_title") return true;
@@ -203,13 +208,28 @@ export const getOverviewStats = query({
       const principalOut = getCurrentPrincipalOut(loan);
       return {
         principalOut,
+        interestRate: loan.interestRate,
         drawRemaining: Math.max(0, (loan.drawFundsTotal ?? 0) - (loan.drawFundsUsed ?? 0)),
-        monthlyCashFlow: calculateMonthlyInterest(principalOut, defaultInterestRate),
+        monthlyCashFlow: calculateMonthlyInterest(principalOut, loan.interestRate),
       };
     });
-    const monthlyCashFlow = Math.round(activeCashFlow.reduce((sum, l) => sum + l.monthlyCashFlow, 0) * 100) / 100;
-    const totalPrincipalOut = Math.round(activeCashFlow.reduce((sum, l) => sum + l.principalOut, 0) * 100) / 100;
-    const totalDrawRemaining = Math.round(activeCashFlow.reduce((sum, l) => sum + l.drawRemaining, 0) * 100) / 100;
+    const monthlyCashFlow = roundCents(
+      activeCashFlow.reduce((sum, loan) => sum + loan.monthlyCashFlow, 0)
+    );
+    const totalPrincipalOut = roundCents(
+      activeCashFlow.reduce((sum, loan) => sum + loan.principalOut, 0)
+    );
+    const totalDrawRemaining = roundCents(
+      activeCashFlow.reduce((sum, loan) => sum + loan.drawRemaining, 0)
+    );
+    const cashFlowInterestRate = totalPrincipalOut > 0
+      ? roundCents(
+          activeCashFlow.reduce(
+            (sum, loan) => sum + loan.principalOut * loan.interestRate,
+            0
+          ) / totalPrincipalOut
+        )
+      : 0;
 
     const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
     const pipelineValue = pipelineLoans.reduce(
@@ -251,7 +271,7 @@ export const getOverviewStats = query({
       capitalCurrentlyOut,
       closedLoanRevenue,
       monthlyCashFlow,
-      cashFlowInterestRate: defaultInterestRate,
+      cashFlowInterestRate,
       totalPrincipalOut,
       totalDrawRemaining,
       pipelineValue,
@@ -407,6 +427,7 @@ export const createLoan = mutation({
     rehabBudgetTotal: v.optional(v.number()),
     closeDate: v.optional(v.string()),
     maturityDate: v.optional(v.string()),
+    useDefaultMaturityDate: v.optional(v.boolean()),
     terms: v.string(),
     interestRate: v.number(),
     monthlyPayment: v.number(),
@@ -431,6 +452,9 @@ export const createLoan = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
+    const { configuration, version: configurationVersion } =
+      await getAppConfigurationState(ctx);
+    const { loanDefaults } = configuration;
 
     // Validate borrower exists and has borrower role
     const borrower = await ctx.db.get(args.borrowerId);
@@ -448,7 +472,10 @@ export const createLoan = mutation({
     const titleCompanyContactPhone = optionalString(args.titleCompanyContactPhone);
     const notes = optionalString(args.notes);
     const closeDate = optionalString(args.closeDate);
-    const maturityDate = optionalString(args.maturityDate);
+    const maturityDate =
+      (args.useDefaultMaturityDate && closeDate
+        ? getMaturityDate(closeDate, loanDefaults.loanTermMonths)
+        : optionalString(args.maturityDate));
 
     if (closeDate) validateUsDate(closeDate, "Close date", { allowFuture: true });
     if (maturityDate) validateUsDate(maturityDate, "Maturity date", { allowFuture: true });
@@ -459,7 +486,10 @@ export const createLoan = mutation({
     if (!terms) throw new ConvexError("Terms cannot be empty");
 
     const loanAmount = args.loanAmount;
-    const canonicalPointsEarned = getPointsEarned(loanAmount);
+    const canonicalPointsEarned = getPointsEarned(
+      loanAmount,
+      loanDefaults.originationPointsPercentage
+    );
 
     // Validate financial fields
     if (loanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
@@ -492,7 +522,10 @@ export const createLoan = mutation({
       throw new ConvexError("After repair value should not be less than purchase price");
     }
 
-    const { rehabBudgetItems, ...loanFields } = args;
+    const rehabBudgetItems = args.rehabBudgetItems;
+    const loanFields = { ...args };
+    delete loanFields.rehabBudgetItems;
+    delete loanFields.useDefaultMaturityDate;
     const paymentType = args.paymentType ?? "monthly";
     const principalOut = getCurrentPrincipalOut({
       loanAmount,
@@ -510,6 +543,9 @@ export const createLoan = mutation({
       loanAmount,
       monthlyPayment,
       pointsEarned: canonicalPointsEarned,
+      pointsPercentage: loanDefaults.originationPointsPercentage,
+      loanTermMonths: loanDefaults.loanTermMonths,
+      configurationVersion,
       borrowerName,
       entityName,
       propertyAddress,
@@ -521,6 +557,7 @@ export const createLoan = mutation({
       notes,
       closeDate,
       maturityDate,
+      paymentDueDay: args.paymentDueDay ?? loanDefaults.paymentDueDay,
       paymentType,
       createdBy: admin._id,
     });
@@ -717,12 +754,17 @@ export const updateLoan = mutation({
       }
     }
 
-    if (
-      fields.loanAmount !== undefined ||
-      fields.pointsEarned !== undefined
-    ) {
+    delete updates.pointsEarned;
+    if (effectiveLoanAmount !== existing.loanAmount) {
+      const pointsPercentage = existing.pointsPercentage ?? getEffectivePointsPercentage({
+        loanAmount: existing.loanAmount,
+        pointsEarned: existing.pointsEarned,
+      });
       updates.loanAmount = effectiveLoanAmount;
-      updates.pointsEarned = getPointsEarned(effectiveLoanAmount);
+      updates.pointsEarned = getPointsEarned(effectiveLoanAmount, pointsPercentage);
+      if (existing.pointsPercentage === undefined) {
+        updates.pointsPercentage = pointsPercentage;
+      }
     }
 
     if (

@@ -29,10 +29,23 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
-import { formatUsDate, getSixMonthMaturityDate, parseUsDate } from "@/lib/dates";
+import { formatUsDate, getMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
-import { calculateMonthlyInterest, calculateMonthlyPerDiem, getCurrentPrincipalOut, getDaysInMonth } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, DEFAULT_POINTS_PERCENTAGE, isDrawEligibleLoan } from "@/convex/lib/constants";
+import {
+  calculateMonthlyInterest,
+  calculateMonthlyPaymentDue,
+  calculateMonthlyPerDiem,
+  getEffectivePointsPercentage,
+  getCurrentPrincipalOut,
+  getDaysInMonth,
+} from "@/convex/lib/loanCalculations";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, isDrawEligibleLoan } from "@/convex/lib/constants";
+import {
+  isCombinedInterestChargeType,
+  DEFAULT_LOAN_TERM_MONTHS,
+  PAYMENT_MATCH_TOLERANCE,
+  roundCents,
+} from "@/convex/lib/financialRules";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -40,6 +53,8 @@ import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
 import { BorrowerEmailDialog } from "@/components/dashboard/borrower-email-dialog";
+import { ContextTooltip } from "@/components/dashboard/context-tooltip";
+import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 
 const STATUSES = [
   "submitted",
@@ -77,6 +92,23 @@ type TitleContactOption = {
   titleCompanyContactPhone?: string;
 };
 
+type ScheduledChargeGroup = {
+  key: string;
+  chargeId?: Id<"loanCharges">;
+  chargeIds: Id<"loanCharges">[];
+  recordChargeId: Id<"loanCharges">;
+  scheduledChargeCount: number;
+  dueDate: string;
+  remainingAmount: number;
+  types: string[];
+};
+
+const CHARGE_TYPE_LABELS: Record<string, string> = {
+  prepaid_interest: "Prepaid Interest",
+  monthly_interest: "Monthly Interest",
+  draw_proration: "Draw Proration",
+};
+
 function getLoanAmountFromPurchaseAndRehab(purchasePrice: string, rehabBudgetTotal: string) {
   return (Number(purchasePrice) || 0) + (Number(rehabBudgetTotal) || 0);
 }
@@ -84,16 +116,19 @@ function getLoanAmountFromPurchaseAndRehab(purchasePrice: string, rehabBudgetTot
 function DetailRow({
   label,
   value,
+  tooltip,
 }: {
   label: string;
   value: string | number | undefined | null;
+  tooltip?: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
-      <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
-        {label}
+      <span className="flex items-center text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
+        <span>{label}</span>
+        {tooltip && <ContextTooltip label={label} content={tooltip} />}
       </span>
-      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm tabular-nums [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -147,6 +182,7 @@ export default function LoanDetailPage() {
     notes: "",
   });
   const [paymentData, setPaymentData] = useState({
+    chargeGroupKey: "",
     chargeId: "",
     amount: "",
     paymentDate: "",
@@ -174,9 +210,17 @@ export default function LoanDetailPage() {
   }
 
   const selectedBorrower = borrowers?.find((b) => b._id === loan.borrowerId);
+  const loanPointsPercentage =
+    loan.pointsPercentage ?? getEffectivePointsPercentage(loan);
+  const loanTermMonths = loan.loanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
-  const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const currentMonthlyInterest = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const currentMonthlyPayment = calculateMonthlyPaymentDue({
+    principalOut: currentPrincipalOut,
+    annualRate: loan.interestRate,
+    paymentType: loan.paymentType,
+  });
   const canEstimatePayoff = Boolean(["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate);
   const getTotalPaymentsReceivedThrough = (asOfDate: Date) =>
     (payments ?? []).reduce((sum, payment) => {
@@ -192,7 +236,6 @@ export default function LoanDetailPage() {
           loan.interestRate,
           loan.closeDate,
           asOfDate,
-          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
           getTotalPaymentsReceivedThrough(asOfDate)
         )
       : null;
@@ -233,36 +276,95 @@ export default function LoanDetailPage() {
     : undefined;
   const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
   const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);
-  const getChargePaidAmount = (charge: { _id: Id<"loanCharges">; dueDate: string }) => {
-    const sameDueDateCharges = (charges ?? []).filter(
-      (item) => item.status !== "waived" && item.dueDate === charge.dueDate
-    );
-    const canCountUnlinkedDueDatePayments = sameDueDateCharges.length === 1;
-
-    return (payments ?? []).reduce((sum, payment) => {
-      if (payment.status === "missed") return sum;
-      if (payment.chargeId === charge._id) return sum + payment.amount;
-      if (canCountUnlinkedDueDatePayments && !payment.chargeId && payment.dueDate === charge.dueDate) {
-        return sum + payment.amount;
+  const hasRelatedPaymentForCharge = (charge: {
+    _id: Id<"loanCharges">;
+    dueDate: string;
+    type: string;
+  }) => {
+    const relatedChargeIds = new Set<Id<"loanCharges">>([charge._id]);
+    if (isCombinedInterestChargeType(charge.type)) {
+      for (const candidate of charges ?? []) {
+        if (
+          candidate.dueDate === charge.dueDate &&
+          candidate.status !== "waived" &&
+          isCombinedInterestChargeType(candidate.type)
+        ) {
+          relatedChargeIds.add(candidate._id);
+        }
       }
-      return sum;
-    }, 0);
+    }
+    return (
+      payments?.some((payment) =>
+        payment.chargeId
+          ? relatedChargeIds.has(payment.chargeId)
+          : payment.dueDate === charge.dueDate
+      ) ?? false
+    );
   };
-  const getChargeRemainingAmount = (charge: { _id: Id<"loanCharges">; dueDate: string; amount: number }) =>
-    Math.max(0, Math.round((charge.amount - getChargePaidAmount(charge)) * 100) / 100);
-  const hasRelatedPaymentForCharge = (charge: { _id: Id<"loanCharges">; dueDate: string }) =>
-    payments?.some(
-      (payment) => payment.chargeId === charge._id || (!payment.chargeId && payment.dueDate === charge.dueDate)
-    ) ?? false;
-  const scheduledCharges = [...(charges ?? [])]
-    .filter((charge) => charge.status === "scheduled")
-    .filter((charge) => getChargeRemainingAmount(charge) > 0.01)
-    .sort((a, b) => {
-      const aTime = parseUsDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const bTime = parseUsDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return aTime - bTime;
-    });
-  const nextScheduledCharge = scheduledCharges[0];
+  const scheduledChargeGroups = payments === undefined ? [] : (() => {
+    const grouped = new Map<string, NonNullable<typeof charges>>();
+
+    for (const charge of charges ?? []) {
+      if (charge.status === "waived") continue;
+      const combinesByDueDate = isCombinedInterestChargeType(charge.type);
+      const key = combinesByDueDate ? `interest:${charge.dueDate}` : `charge:${charge._id}`;
+      const existing = grouped.get(key);
+      if (existing) existing.push(charge);
+      else grouped.set(key, [charge]);
+    }
+
+    return [...grouped.entries()]
+      .filter(([, groupedCharges]) => groupedCharges.some((charge) => charge.status === "scheduled"))
+      .map(([key, groupedCharges]): ScheduledChargeGroup | null => {
+        const totalAmount = groupedCharges.reduce((sum, charge) => sum + charge.amount, 0);
+        const dueDate = groupedCharges[0].dueDate;
+        const combinesByDueDate = key.startsWith("interest:");
+        const paidAmount = (payments ?? []).reduce((sum, payment) => {
+          if (payment.status === "missed") return sum;
+          const belongsToGroup = groupedCharges.some(
+            (charge) => payment.chargeId === charge._id
+          );
+          if (combinesByDueDate) {
+            return payment.dueDate === dueDate &&
+              (!payment.chargeId || belongsToGroup)
+              ? sum + payment.amount
+              : sum;
+          }
+          if (belongsToGroup) return sum + payment.amount;
+          if (!payment.chargeId && payment.dueDate === dueDate) return sum + payment.amount;
+          return sum;
+        }, 0);
+        const remainingAmount = Math.max(0, roundCents(totalAmount - paidAmount));
+        if (remainingAmount <= PAYMENT_MATCH_TOLERANCE) return null;
+
+        const scheduledCharges = groupedCharges
+          .filter((charge) => charge.status === "scheduled")
+          .sort((a, b) => {
+            const priority = (type: string) => type === "monthly_interest" ? 0 : type === "draw_proration" ? 1 : 2;
+            return priority(a.type) - priority(b.type);
+          });
+        const recordChargeId = scheduledCharges[0]?._id;
+        if (!recordChargeId) return null;
+
+        return {
+          key,
+          chargeId: groupedCharges.length === 1 ? groupedCharges[0]._id : undefined,
+          chargeIds: groupedCharges.map((charge) => charge._id),
+          recordChargeId,
+          scheduledChargeCount: scheduledCharges.length,
+          dueDate,
+          remainingAmount,
+          types: [...new Set(groupedCharges.map((charge) => charge.type))],
+        };
+      })
+      .filter((group): group is ScheduledChargeGroup => group !== null)
+      .sort((a, b) => {
+        const aTime = parseUsDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bTime = parseUsDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+  })();
+  const nextScheduledCharge = scheduledChargeGroups[0];
 
   const getDefaultPaymentStatus = (dueDate: string) => {
     const parsedDueDate = parseUsDate(dueDate);
@@ -272,27 +374,33 @@ export default function LoanDetailPage() {
     return parsedDueDate < today ? "late" as const : "on_time" as const;
   };
 
-  const openPaymentFormForCharge = (charge?: { _id: Id<"loanCharges">; amount: number; dueDate: string }) => {
+  const openPaymentFormForCharge = (chargeGroup?: ScheduledChargeGroup) => {
     setPaymentFormOpen(true);
     setPaymentData((prev) => ({
       ...prev,
-      chargeId: charge?._id ?? "",
-      amount: charge ? String(charge.amount) : loan.monthlyPayment ? String(loan.monthlyPayment) : "",
-      dueDate: charge?.dueDate ?? prev.dueDate,
-      status: charge ? getDefaultPaymentStatus(charge.dueDate) : prev.status,
+      chargeGroupKey: chargeGroup?.key ?? "",
+      chargeId: chargeGroup?.chargeId ?? "",
+      amount: chargeGroup
+        ? String(chargeGroup.remainingAmount)
+        : currentMonthlyPayment
+          ? String(currentMonthlyPayment)
+          : "",
+      dueDate: chargeGroup?.dueDate ?? prev.dueDate,
+      status: chargeGroup ? getDefaultPaymentStatus(chargeGroup.dueDate) : prev.status,
     }));
   };
 
-  const handleScheduledChargeSelect = (chargeId: string) => {
-    const charge = scheduledCharges.find((item) => item._id === chargeId);
+  const handleScheduledChargeSelect = (chargeGroupKey: string) => {
+    const chargeGroup = scheduledChargeGroups.find((item) => item.key === chargeGroupKey);
     setPaymentData((prev) => ({
       ...prev,
-      chargeId,
-      ...(charge
+      chargeGroupKey,
+      chargeId: chargeGroup?.chargeId ?? "",
+      ...(chargeGroup
         ? {
-            amount: String(getChargeRemainingAmount(charge)),
-            dueDate: charge.dueDate,
-            status: getDefaultPaymentStatus(charge.dueDate),
+            amount: String(chargeGroup.remainingAmount),
+            dueDate: chargeGroup.dueDate,
+            status: getDefaultPaymentStatus(chargeGroup.dueDate),
           }
         : {}),
     }));
@@ -414,8 +522,6 @@ export default function LoanDetailPage() {
         toast.error("Construction holdback cannot exceed total loan amount");
         return;
       }
-      const pointsEarned = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
-
       await updateLoan({
         id,
         borrowerName: editData.borrowerName,
@@ -428,7 +534,6 @@ export default function LoanDetailPage() {
         terms: editData.terms,
         interestRate: Number(editData.interestRate),
         monthlyPayment: Number(editData.monthlyPayment),
-        pointsEarned,
         monthlyInterestEarned: editData.monthlyInterestEarned ? Number(editData.monthlyInterestEarned) : undefined,
         paymentType: editData.paymentType as "balloon" | "monthly",
         drawFundsTotal: editData.drawFundsTotal ? Number(editData.drawFundsTotal) : undefined,
@@ -498,8 +603,11 @@ export default function LoanDetailPage() {
 
   const handleCloseDateChange = (closeDate: string) => {
     setEditData((prev) => {
-      const previousAutoMaturity = getSixMonthMaturityDate(prev.closeDate ?? "");
-      const nextAutoMaturity = getSixMonthMaturityDate(closeDate);
+      const previousAutoMaturity = getMaturityDate(
+        prev.closeDate ?? "",
+        loanTermMonths
+      );
+      const nextAutoMaturity = getMaturityDate(closeDate, loanTermMonths);
       const shouldUpdateMaturity = !prev.maturityDate || prev.maturityDate === previousAutoMaturity;
 
       return {
@@ -545,12 +653,14 @@ export default function LoanDetailPage() {
         drawFundsUsed: Number(next.drawFundsUsed) || undefined,
       });
       const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-      const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+      const loanAmountChanged = Object.prototype.hasOwnProperty.call(updates, "loanAmount");
 
       return {
         ...next,
         monthlyPayment: monthly ? String(monthly) : "",
-        pointsEarned: points ? String(points) : "",
+        ...(loanAmountChanged
+          ? { pointsEarned: String(calculatePoints(loanAmount, loanPointsPercentage)) }
+          : {}),
       };
     });
   };
@@ -569,7 +679,7 @@ export default function LoanDetailPage() {
         drawFundsUsed: Number(next.drawFundsUsed) || undefined,
       });
       const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-      const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+      const points = calculatePoints(loanAmount, loanPointsPercentage);
 
       return {
         ...next,
@@ -630,8 +740,9 @@ export default function LoanDetailPage() {
       });
       setPaymentFormOpen(false);
       setPaymentData({
+        chargeGroupKey: "",
         chargeId: "",
-        amount: loan.monthlyPayment ? String(loan.monthlyPayment) : "",
+        amount: currentMonthlyPayment ? String(currentMonthlyPayment) : "",
         paymentDate: "",
         dueDate: "",
         method: "ach",
@@ -640,9 +751,9 @@ export default function LoanDetailPage() {
       });
       toast.success(
         result.chargeMarkedPaid
-          ? "Payment recorded and scheduled charge marked paid."
-          : paymentData.chargeId
-            ? "Payment recorded. Scheduled charge remains open for follow-up."
+          ? "Payment recorded and scheduled charges reconciled."
+          : paymentData.chargeGroupKey
+            ? "Payment recorded. The remaining scheduled balance stays open."
             : "Payment recorded"
       );
     } catch (err) {
@@ -730,31 +841,27 @@ export default function LoanDetailPage() {
       render: (row) => {
         const chargeId = row._id as Id<"loanCharges">;
         const dueDate = row.dueDate as string;
-        const remainingAmount = row.status === "scheduled" ? getChargeRemainingAmount({
+        const chargeGroup = scheduledChargeGroups.find((group) => group.chargeIds.includes(chargeId));
+        const canRecordCharge = chargeGroup?.recordChargeId === chargeId;
+        const hasRelatedPayment = hasRelatedPaymentForCharge({
           _id: chargeId,
-          amount: row.amount as number,
           dueDate,
-        }) : 0;
-        const canRecordCharge = row.status === "scheduled" && remainingAmount > 0.01;
-        const hasRelatedPayment = hasRelatedPaymentForCharge({ _id: chargeId, dueDate });
+          type: row.type as string,
+        });
         const deleteDisabled = payments === undefined || hasRelatedPayment;
 
         return (
           <div className="flex flex-wrap justify-end gap-2">
-            {canRecordCharge && (
+            {canRecordCharge && chargeGroup && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openPaymentFormForCharge({
-                    _id: chargeId,
-                    amount: remainingAmount,
-                    dueDate,
-                  });
+                  openPaymentFormForCharge(chargeGroup);
                 }}
-                className="rounded-lg border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-10 rounded-lg border border-border px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                Record
+                {chargeGroup.scheduledChargeCount > 1 ? "Record combined" : "Record"}
               </button>
             )}
             <button
@@ -1041,9 +1148,16 @@ export default function LoanDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Monthly Payment</label>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <label htmlFor="loan-monthly-payment">Monthly Payment</label>
+                    <ContextTooltip
+                      label="Monthly Payment"
+                      content={FINANCIAL_CONTEXT.currentMonthlyPayment}
+                    />
+                  </div>
                   <input
                     {...field("monthlyPayment")}
+                    id="loan-monthly-payment"
                     type="number"
                     readOnly
                     className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
@@ -1059,8 +1173,18 @@ export default function LoanDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Monthly Interest Earned</label>
-                  <input {...field("monthlyInterestEarned")} type="number" />
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <label htmlFor="loan-total-interest-earned">Total Interest Earned</label>
+                    <ContextTooltip
+                      label="Total Interest Earned"
+                      content={FINANCIAL_CONTEXT.totalInterestEarned}
+                    />
+                  </div>
+                  <input
+                    {...field("monthlyInterestEarned")}
+                    id="loan-total-interest-earned"
+                    type="number"
+                  />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground">Payment Type</label>
@@ -1085,14 +1209,23 @@ export default function LoanDetailPage() {
                   value={loan.rehabBudgetTotal ? formatCurrency(loan.rehabBudgetTotal) : undefined}
                 />
                 <DetailRow label="Total Loan Amount" value={formatCurrency(loan.loanAmount)} />
-                <DetailRow label="Current Principal Out" value={formatCurrency(currentPrincipalOut)} />
+                <DetailRow
+                  label="Current Principal Out"
+                  value={formatCurrency(currentPrincipalOut)}
+                  tooltip={FINANCIAL_CONTEXT.currentPrincipalOut}
+                />
                 <DetailRow label="Terms" value={loan.terms} />
                 <DetailRow label="Interest Rate" value={`${loan.interestRate}%`} />
-                <DetailRow label="Current Monthly Payment" value={formatCurrency(currentMonthlyPayment)} />
+                <DetailRow
+                  label="Current Monthly Payment"
+                  value={formatCurrency(currentMonthlyPayment)}
+                  tooltip={FINANCIAL_CONTEXT.currentMonthlyPayment}
+                />
                 <DetailRow label="Points Earned" value={formatCurrency(loan.pointsEarned)} />
                 <DetailRow
-                  label="Monthly Interest"
-                  value={loan.monthlyInterestEarned ? formatCurrency(loan.monthlyInterestEarned) : undefined}
+                  label="Current Monthly Interest"
+                  value={formatCurrency(currentMonthlyInterest)}
+                  tooltip={FINANCIAL_CONTEXT.currentMonthlyInterest}
                 />
                 <DetailRow
                   label="Payment Type"
@@ -1413,8 +1546,12 @@ export default function LoanDetailPage() {
       {/* Payoff Estimate */}
       {payoffEstimate && (
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-            Payoff Estimate
+          <h3 className="mb-4 flex items-center text-sm font-medium text-muted-foreground">
+            <span>Payoff Estimate</span>
+            <ContextTooltip
+              label="Payoff Estimate"
+              content={FINANCIAL_CONTEXT.payoffEstimate}
+            />
           </h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg bg-muted/50 p-3">
@@ -1461,16 +1598,30 @@ export default function LoanDetailPage() {
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Charges / Interest Schedule
+            <h3 className="flex items-center text-sm font-medium text-muted-foreground">
+              <span>Charges / Interest Schedule</span>
+              <ContextTooltip
+                label="Charges and Interest Schedule"
+                content={FINANCIAL_CONTEXT.chargeSchedule}
+              />
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Charges owed are tracked separately from payments received.
+              Monthly interest uses opening principal. Same-date draw prorations are collected in one payment.
             </p>
           </div>
           <div className="w-fit rounded-lg bg-muted/50 px-3 py-2 text-left sm:text-right">
-            <p className="text-xs text-muted-foreground">Current Monthly</p>
-            <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
+            <p className="flex items-center text-xs text-muted-foreground">
+              <span>
+                {(loan.paymentType ?? "monthly") === "balloon" ? "Monthly Accrual" : "Next Full-Month Interest"}
+              </span>
+              <ContextTooltip
+                label={(loan.paymentType ?? "monthly") === "balloon" ? "Monthly Accrual" : "Next Full-Month Interest"}
+                content={(loan.paymentType ?? "monthly") === "balloon"
+                  ? FINANCIAL_CONTEXT.monthlyAccrual
+                  : FINANCIAL_CONTEXT.currentMonthlyInterest}
+              />
+            </p>
+            <p className="text-sm font-semibold tabular-nums">{formatCurrency(currentMonthlyInterest)}</p>
           </div>
         </div>
         {charges && charges.length > 0 ? (
@@ -1541,18 +1692,18 @@ export default function LoanDetailPage() {
         {paymentFormOpen && (
           <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              {scheduledCharges.length > 0 && (
+              {scheduledChargeGroups.length > 0 && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Scheduled Charge</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Scheduled Payment</label>
                   <select
-                    value={paymentData.chargeId}
+                    value={paymentData.chargeGroupKey}
                     onChange={(e) => handleScheduledChargeSelect(e.target.value)}
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
                     <option value="">No scheduled charge</option>
-                    {scheduledCharges.map((charge) => (
-                      <option key={charge._id} value={charge._id}>
-                        {charge.dueDate} - {formatCurrency(getChargeRemainingAmount(charge))}
+                    {scheduledChargeGroups.map((chargeGroup) => (
+                      <option key={chargeGroup.key} value={chargeGroup.key}>
+                        {chargeGroup.dueDate} - {formatCurrency(chargeGroup.remainingAmount)} - {chargeGroup.types.map((type) => CHARGE_TYPE_LABELS[type] ?? type).join(" + ")}
                       </option>
                     ))}
                   </select>
@@ -1669,7 +1820,11 @@ export default function LoanDetailPage() {
           {loanLevelDocuments.length > 0 ? (
             <div className="divide-y divide-border">
               {loanLevelDocuments.map((doc) => (
-                <DocumentPreviewRow key={doc._id} document={doc} />
+                <DocumentPreviewRow
+                  key={doc._id}
+                  document={doc}
+                  previewDocuments={loanLevelDocuments}
+                />
               ))}
             </div>
           ) : (

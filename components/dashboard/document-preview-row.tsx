@@ -2,11 +2,20 @@
 
 /* eslint-disable @next/next/no-img-element -- Convex storage URLs are signed runtime URLs, so native images avoid Next remote allowlist churn. */
 
-import { useEffect, useId, useState, type ReactNode } from "react";
-import { Download, ExternalLink, Eye, FileText, ImageIcon, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
+  ImageIcon,
+  X,
+} from "lucide-react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 
-type PreviewDocument = {
+export type PreviewDocument = {
   _id: string;
   fileName: string;
   type: string;
@@ -18,6 +27,7 @@ type PreviewDocument = {
 
 type DocumentPreviewRowProps = {
   document: PreviewDocument;
+  previewDocuments?: readonly PreviewDocument[];
   compact?: boolean;
   children?: ReactNode;
 };
@@ -29,28 +39,89 @@ export function isPreviewableImage(document: Pick<PreviewDocument, "fileName" | 
   return document.type === "property_photo" || IMAGE_EXTENSIONS.some((extension) => fileName.endsWith(extension));
 }
 
-export function DocumentPreviewRow({ document, compact = false, children }: DocumentPreviewRowProps) {
+export function DocumentPreviewRow({
+  document,
+  previewDocuments,
+  compact = false,
+  children,
+}: DocumentPreviewRowProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const isImage = Boolean(document.url) && isPreviewableImage(document);
+  const galleryDocuments = useMemo(
+    () => (previewDocuments ?? [document]).filter(
+      (item) => Boolean(item.url) && isPreviewableImage(item)
+    ),
+    [document, previewDocuments]
+  );
+  const activeDocument = galleryDocuments[previewIndex] ?? document;
+  const hasPrevious = previewIndex > 0;
+  const hasNext = previewIndex < galleryDocuments.length - 1;
   const thumbnailSize = compact ? "size-10" : "h-16 w-24 sm:h-20 sm:w-28";
+
+  const openPreview = () => {
+    previousFocusRef.current = globalThis.document.activeElement as HTMLElement | null;
+    const initialIndex = galleryDocuments.findIndex((item) => item._id === document._id);
+    setPreviewIndex(Math.max(0, initialIndex));
+    setPreviewOpen(true);
+  };
+
+  const closePreview = () => setPreviewOpen(false);
 
   useEffect(() => {
     if (!previewOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreviewOpen(false);
+      if (event.key === "Escape") {
+        closePreview();
+        return;
+      }
+
+      if (galleryDocuments.length > 1) {
+        if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+          event.preventDefault();
+          setPreviewIndex((current) => Math.max(0, current - 1));
+          return;
+        }
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+          event.preventDefault();
+          setPreviewIndex((current) => Math.min(galleryDocuments.length - 1, current + 1));
+          return;
+        }
+      }
+
+      if (event.key === "Tab") {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable?.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && globalThis.document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && globalThis.document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
 
     const previousOverflow = documentBodyOverflow();
     globalThis.document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
+    closeButtonRef.current?.focus();
 
     return () => {
       globalThis.document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      previousFocusRef.current?.focus();
     };
-  }, [previewOpen]);
+  }, [galleryDocuments.length, previewOpen]);
 
   return (
     <>
@@ -59,7 +130,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
           {isImage ? (
             <button
               type="button"
-              onClick={() => setPreviewOpen(true)}
+              onClick={openPreview}
               aria-label={`Preview ${document.fileName}`}
               className={`${thumbnailSize} group relative shrink-0 overflow-hidden rounded-xl border border-border bg-muted shadow-sm ring-offset-background transition hover:-translate-y-0.5 hover:shadow-md hover:ring-2 hover:ring-ring/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
             >
@@ -88,8 +159,8 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
               {isImage && (
                 <button
                   type="button"
-                  onClick={() => setPreviewOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary transition hover:bg-primary/15"
+                  onClick={openPreview}
+                  className="inline-flex min-h-10 items-center gap-1 rounded-full bg-primary/10 px-3 text-[11px] font-medium text-primary transition-[background-color,transform] hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
                 >
                   <ImageIcon className="size-3" />
                   Preview
@@ -113,7 +184,7 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
           {document.url && isImage && (
             <button
               type="button"
-              onClick={() => setPreviewOpen(true)}
+              onClick={openPreview}
               className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               aria-label={`Preview ${document.fileName}`}
             >
@@ -143,43 +214,52 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
           aria-labelledby={titleId}
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setPreviewOpen(false);
+            if (event.target === event.currentTarget) closePreview();
           }}
         >
-          <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl">
+          <div
+            ref={dialogRef}
+            className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl"
+          >
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:items-center sm:px-5">
               <div className="min-w-0 flex-1">
                 <h2 id={titleId} className="truncate text-sm font-semibold sm:text-base">
-                  {document.fileName}
+                  {activeDocument.fileName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <StatusBadge status={document.type} />
-                  {(document.propertyAddress || document.entityName) && (
-                    <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
-                      {[document.propertyAddress, document.entityName].filter(Boolean).join(" / ")}
+                  <StatusBadge status={activeDocument.type} />
+                  {galleryDocuments.length > 1 && (
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {previewIndex + 1} of {galleryDocuments.length} · Use arrow keys
                     </span>
                   )}
-                  {document.drawWorkDescription && (
+                  {(activeDocument.propertyAddress || activeDocument.entityName) && (
                     <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
-                      Draw: {document.drawWorkDescription}
+                      {[activeDocument.propertyAddress, activeDocument.entityName].filter(Boolean).join(" / ")}
+                    </span>
+                  )}
+                  {activeDocument.drawWorkDescription && (
+                    <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">
+                      Draw: {activeDocument.drawWorkDescription}
                     </span>
                   )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <a
-                  href={document.url}
+                  href={activeDocument.url ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  download={document.fileName}
+                  download={activeDocument.fileName}
                   className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                  aria-label={`Download ${document.fileName}`}
+                  aria-label={`Download ${activeDocument.fileName}`}
                 >
                   <Download className="size-4" />
                 </a>
                 <button
+                  ref={closeButtonRef}
                   type="button"
-                  onClick={() => setPreviewOpen(false)}
+                  onClick={closePreview}
                   className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   aria-label="Close preview"
                 >
@@ -187,12 +267,34 @@ export function DocumentPreviewRow({ document, compact = false, children }: Docu
                 </button>
               </div>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center bg-black/95 p-2 sm:p-4">
+            <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black/95 p-2 sm:p-4">
+              {galleryDocuments.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewIndex((current) => Math.max(0, current - 1))}
+                  disabled={!hasPrevious}
+                  className="absolute left-2 z-10 inline-flex size-11 items-center justify-center rounded-full bg-black/60 text-white shadow-lg transition-[background-color,transform] hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-30 sm:left-4"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+              )}
               <img
-                src={document.url}
-                alt={document.fileName}
+                src={activeDocument.url ?? undefined}
+                alt={activeDocument.fileName}
                 className="image-outline max-h-[78dvh] max-w-full rounded-lg object-contain shadow-2xl"
               />
+              {galleryDocuments.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewIndex((current) => Math.min(galleryDocuments.length - 1, current + 1))}
+                  disabled={!hasNext}
+                  className="absolute right-2 z-10 inline-flex size-11 items-center justify-center rounded-full bg-black/60 text-white shadow-lg transition-[background-color,transform] hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-30 sm:right-4"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="size-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>

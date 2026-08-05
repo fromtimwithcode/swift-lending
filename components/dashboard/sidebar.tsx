@@ -106,6 +106,9 @@ export function Sidebar({
       case "/dashboard/admin/activity":
         convex.prewarmQuery({ query: api.activityLog.getRecentActivity, args: {}, extendSubscriptionFor });
         break;
+      case "/dashboard/admin/calculation-guide":
+        convex.prewarmQuery({ query: api.calculationGuide.get, args: {}, extendSubscriptionFor });
+        break;
       case "/dashboard/borrower":
         convex.prewarmQuery({ query: api.borrower.getMyLoans, args: {}, extendSubscriptionFor });
         convex.prewarmQuery({ query: api.borrower.getMyDrawRequests, args: {}, extendSubscriptionFor });

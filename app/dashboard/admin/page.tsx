@@ -30,6 +30,7 @@ import {
   isFundsReturnedLoan,
 } from "@/lib/loan-display";
 import { useEffect, useState } from "react";
+import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 
 const LoanOverviewCharts = dynamic(
   () => import("@/components/dashboard/admin-overview-charts").then((mod) => mod.LoanOverviewCharts),
@@ -298,30 +299,35 @@ export default function AdminOverviewPage() {
           label="Capital Out"
           value={formatCurrencyShort(stats.capitalCurrentlyOut)}
           subtitle="Current principal outstanding"
+          tooltip={FINANCIAL_CONTEXT.capitalOut}
           icon={DollarSign}
         />
         <KpiCard
           label="Draws Remaining"
           value={formatCurrencyShort(stats.totalDrawRemaining)}
           subtitle="Available on active loans"
+          tooltip={FINANCIAL_CONTEXT.drawsRemaining}
           icon={Hammer}
         />
         <KpiCard
           label="Closed Loan Revenue"
           value={formatCurrencyShort(stats.closedLoanRevenue)}
           subtitle="Points + interest (closed)"
+          tooltip={FINANCIAL_CONTEXT.closedLoanRevenue}
           icon={TrendingUp}
         />
         <KpiCard
           label="Monthly Cash Flow"
           value={formatCurrency(stats.monthlyCashFlow)}
-          subtitle={`${stats.cashFlowInterestRate}% IO on ${formatCurrencyShort(stats.totalPrincipalOut)} out`}
+          subtitle={`${stats.cashFlowInterestRate}% weighted IO on ${formatCurrencyShort(stats.totalPrincipalOut)} out`}
+          tooltip={FINANCIAL_CONTEXT.monthlyCashFlow}
           icon={Wallet}
         />
         <KpiCard
           label="Pipeline Value"
           value={formatCurrencyShort(stats.pipelineValue)}
-          subtitle="Non-closed loans"
+          subtitle="Submission through title"
+          tooltip={FINANCIAL_CONTEXT.pipelineValue}
           icon={BarChart3}
         />
       </motion.div>
