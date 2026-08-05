@@ -5,6 +5,10 @@ import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
 import { MAX_BULK_OPERATION_SIZE, DRAW_STATUS_LABELS, formatCurrencyPlain, isDrawEligibleLoan } from "./lib/constants";
 import { validateUsDate } from "./lib/dates";
+import {
+  getDrawWireDateError,
+  validateDrawWireDateForLoan,
+} from "./lib/drawDates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
 
@@ -310,7 +314,7 @@ export const bulkReviewDrawRequests = mutation({
     if (args.status === "approved" && !wireDate) {
       throw new ConvexError("Wire date is required to approve draws");
     }
-    if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
+    if (wireDate) validateUsDate(wireDate, "Wire date");
 
     const results: { drawId: string; success: boolean; error?: string }[] = [];
     const approvedLoanIdsToSync = new Set<Id<"loans">>();
@@ -336,6 +340,11 @@ export const bulkReviewDrawRequests = mutation({
         }
         if (!isDrawEligibleLoan(loan)) {
           results.push({ drawId, success: false, error: "Loan is not eligible for draw requests" });
+          continue;
+        }
+        const wireDateError = getDrawWireDateError(loan, wireDate!);
+        if (wireDateError) {
+          results.push({ drawId, success: false, error: wireDateError });
           continue;
         }
         const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
@@ -451,13 +460,13 @@ export const reviewDrawRequest = mutation({
     if (args.status === "approved" && !wireDate) {
       throw new ConvexError("Wire date is required to approve a draw");
     }
-    if (wireDate) validateUsDate(wireDate, "Wire date", { allowFuture: true });
     if (args.status === "approved") {
       const loan = await ctx.db.get(draw.loanId);
       if (!loan) throw new ConvexError("Loan not found");
       if (!isDrawEligibleLoan(loan)) {
         throw new ConvexError("Loan is not eligible for draw requests");
       }
+      validateDrawWireDateForLoan(loan, wireDate!);
       const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
       if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
         throw new ConvexError("Draw would exceed fund limit");

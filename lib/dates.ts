@@ -22,11 +22,11 @@ export function isValidUsDate(value: string) {
   return parseUsDate(value) !== null;
 }
 
-export function getSixMonthMaturityDate(closeDate: string) {
+export function getMaturityDate(closeDate: string, termMonths: number) {
   const date = parseUsDate(closeDate);
-  if (!date) return "";
+  if (!date || !Number.isInteger(termMonths) || termMonths < 1) return "";
 
-  const targetMonth = date.getMonth() + 6;
+  const targetMonth = date.getMonth() + termMonths;
   const lastDay = new Date(date.getFullYear(), targetMonth + 1, 0).getDate();
   return formatUsDate(new Date(date.getFullYear(), targetMonth, Math.min(date.getDate(), lastDay)));
 }

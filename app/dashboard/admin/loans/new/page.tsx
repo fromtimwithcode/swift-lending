@@ -12,11 +12,14 @@ import { useState, useEffect, type FormEvent } from "react";
 import { calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
+import { DEFAULT_LOAN_TERM_MONTHS } from "@/convex/lib/financialRules";
 import { formatCurrency } from "@/lib/format";
-import { getSixMonthMaturityDate } from "@/lib/dates";
+import { getMaturityDate } from "@/lib/dates";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
+import { ContextTooltip } from "@/components/dashboard/context-tooltip";
+import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 
 type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
 type RehabItem = {
@@ -40,6 +43,7 @@ export default function NewLoanPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [interestRateEdited, setInterestRateEdited] = useState(false);
+  const [maturityDateEdited, setMaturityDateEdited] = useState(false);
   const loanDefaultsLoading = loanDefaults === undefined;
 
   const [form, setForm] = useState({
@@ -81,6 +85,10 @@ export default function NewLoanPage() {
   );
   const defaultLoanAmount = (Number(form.purchasePrice) || 0) + (rehabItemsTotal || Number(form.rehabBudgetTotal) || 0);
   const [loanAmountEdited, setLoanAmountEdited] = useState(false);
+  const defaultPointsPercentage =
+    loanDefaults?.defaultPointsPercentage ?? DEFAULT_POINTS_PERCENTAGE;
+  const defaultLoanTermMonths =
+    loanDefaults?.defaultLoanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
 
   // Default loan amount to purchase + rehab, but let admins override it for larger down payments.
   useEffect(() => {
@@ -92,7 +100,7 @@ export default function NewLoanPage() {
       drawFundsUsed: Number(form.drawFundsUsed) || undefined,
     });
     const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-    const points = calculatePoints(loanAmount, DEFAULT_POINTS_PERCENTAGE);
+    const points = calculatePoints(loanAmount, defaultPointsPercentage);
     const nextLoanAmount = loanAmountEdited ? form.loanAmount : defaultLoanAmount ? String(defaultLoanAmount) : "";
     const nextMonthlyPayment = monthly ? String(monthly) : "";
     const nextPointsEarned = points ? String(points) : "";
@@ -113,14 +121,21 @@ export default function NewLoanPage() {
         pointsEarned: nextPointsEarned,
       };
     });
-  }, [defaultLoanAmount, form.loanAmount, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, loanAmountEdited]);
+  }, [defaultLoanAmount, defaultPointsPercentage, form.loanAmount, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, loanAmountEdited]);
 
   useEffect(() => {
     if (!loanDefaults || interestRateEdited) return;
 
     setForm((prev) => {
       const defaultRate = String(loanDefaults.defaultInterestRate);
-      return prev.interestRate === defaultRate ? prev : { ...prev, interestRate: defaultRate };
+      const defaultDueDay = String(loanDefaults.defaultPaymentDueDay);
+      const paymentDueDay =
+        prev.paymentDueDay === String(DEFAULT_PAYMENT_DUE_DAY)
+          ? defaultDueDay
+          : prev.paymentDueDay;
+      return prev.interestRate === defaultRate && prev.paymentDueDay === paymentDueDay
+        ? prev
+        : { ...prev, interestRate: defaultRate, paymentDueDay };
     });
   }, [loanDefaults, interestRateEdited]);
 
@@ -154,9 +169,18 @@ export default function NewLoanPage() {
 
   const handleCloseDateChange = (closeDate: string) => {
     setForm((prev) => {
-      const previousAutoMaturity = getSixMonthMaturityDate(prev.closeDate);
-      const nextAutoMaturity = getSixMonthMaturityDate(closeDate);
-      const shouldUpdateMaturity = !prev.maturityDate || prev.maturityDate === previousAutoMaturity;
+      const previousAutoMaturity = getMaturityDate(
+        prev.closeDate,
+        defaultLoanTermMonths
+      );
+      const nextAutoMaturity = getMaturityDate(
+        closeDate,
+        defaultLoanTermMonths
+      );
+      const shouldUpdateMaturity =
+        !maturityDateEdited ||
+        !prev.maturityDate ||
+        prev.maturityDate === previousAutoMaturity;
 
       return {
         ...prev,
@@ -276,6 +300,7 @@ export default function NewLoanPage() {
         rehabBudgetTotal: rehabTotal,
         closeDate: form.closeDate || undefined,
         maturityDate: form.maturityDate || undefined,
+        useDefaultMaturityDate: !maturityDateEdited,
         terms: form.terms || "N/A",
         interestRate: Number(form.interestRate) || 0,
         monthlyPayment: Number(form.monthlyPayment) || 0,
@@ -489,8 +514,15 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Monthly Payment</label>
+              <div className="mb-1.5 flex items-center">
+                <label htmlFor="new-loan-monthly-payment" className="text-sm font-medium text-muted-foreground">Monthly Payment</label>
+                <ContextTooltip
+                  label="Monthly Payment"
+                  content={FINANCIAL_CONTEXT.currentMonthlyPayment}
+                />
+              </div>
               <input
+                id="new-loan-monthly-payment"
                 className={`${inputClass} bg-muted/40 font-medium`}
                 type="number"
                 value={form.monthlyPayment}
@@ -521,8 +553,15 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Monthly Interest Earned</label>
+              <div className="mb-1.5 flex items-center">
+                <label htmlFor="new-loan-total-interest-earned" className="text-sm font-medium text-muted-foreground">Total Interest Earned</label>
+                <ContextTooltip
+                  label="Total Interest Earned"
+                  content={FINANCIAL_CONTEXT.totalInterestEarned}
+                />
+              </div>
               <input
+                id="new-loan-total-interest-earned"
                 className={inputClass}
                 type="number"
                 value={form.monthlyInterestEarned}
@@ -721,12 +760,15 @@ export default function NewLoanPage() {
               <label className={labelClass}>Maturity Date</label>
               <DatePickerField
                 value={form.maturityDate}
-                onChange={(value) => update("maturityDate", value)}
+                onChange={(value) => {
+                  setMaturityDateEdited(true);
+                  update("maturityDate", value);
+                }}
                 placeholder="Select maturity date"
                 ariaLabel="Maturity Date"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Auto-fills six months after close date. You can still edit it.
+                Auto-fills {defaultLoanTermMonths} months after close date. You can still edit it.
               </p>
             </div>
             {titleContacts.length > 0 && (

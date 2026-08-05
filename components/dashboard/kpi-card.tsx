@@ -5,6 +5,7 @@ import { type LucideIcon } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { staggerItem } from "@/lib/animations";
+import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 
 function AnimatedValue({ value }: { value: string | number }) {
   const isNumber = typeof value === "number";
@@ -69,6 +70,7 @@ interface KpiCardProps {
   label: string;
   value: string | number;
   subtitle?: string;
+  tooltip?: string;
   icon?: LucideIcon;
   trend?: { value: number; label: string };
   className?: string;
@@ -78,6 +80,7 @@ export function KpiCard({
   label,
   value,
   subtitle,
+  tooltip,
   icon: Icon,
   trend,
   className,
@@ -98,8 +101,9 @@ export function KpiCard({
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
 
       <div className="relative flex items-start justify-between gap-3">
-        <p className="min-w-0 flex-1 text-xs font-semibold uppercase leading-5 tracking-[0.14em] text-muted-foreground [overflow-wrap:anywhere]">
-          {label}
+        <p className="min-w-0 flex flex-1 items-center text-xs font-semibold uppercase leading-5 tracking-[0.14em] text-muted-foreground [overflow-wrap:anywhere]">
+          <span>{label}</span>
+          {tooltip && <ContextTooltip label={label} content={tooltip} />}
         </p>
         {Icon && (
           <div className="shrink-0 rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12">

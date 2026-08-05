@@ -148,7 +148,12 @@ export function DrawDocumentFolders({
                     {drawDocs.length > 0 ? (
                       <div className="divide-y divide-border/70">
                         {drawDocs.map((doc) => (
-                          <DocumentPreviewRow key={doc._id} document={doc} compact />
+                          <DocumentPreviewRow
+                            key={doc._id}
+                            document={doc}
+                            previewDocuments={drawDocs}
+                            compact
+                          />
                         ))}
                       </div>
                     ) : (

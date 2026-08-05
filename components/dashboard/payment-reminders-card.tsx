@@ -4,6 +4,8 @@ import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { ContextTooltip } from "@/components/dashboard/context-tooltip";
+import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 
 type PaymentReminder = {
   loanId: string;
@@ -43,6 +45,13 @@ const TYPE_LABELS: Record<string, string> = {
 
 function statusLabel(status: PaymentReminder["status"]) {
   return status === "past_due" ? "Past Due" : "Due Soon";
+}
+
+function typeLabel(type: string) {
+  return type
+    .split("+")
+    .map((part) => TYPE_LABELS[part] ?? part)
+    .join(" + ");
 }
 
 function dueText(daysUntilDue: number) {
@@ -123,7 +132,10 @@ export function PaymentRemindersCard({
               <p className="text-lg font-bold tabular-nums">{data.dueSoonCount}</p>
             </button>
             <div className="rounded-lg bg-muted/60 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total Due</p>
+              <p className="flex items-center justify-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span>Total Due</span>
+                <ContextTooltip label="Total Due" content={FINANCIAL_CONTEXT.totalDue} />
+              </p>
               <p className="text-lg font-bold tabular-nums">{formatCurrency(data.totalAmountDue)}</p>
             </div>
           </div>
@@ -177,7 +189,7 @@ export function PaymentRemindersCard({
                         {statusLabel(reminder.status)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {TYPE_LABELS[reminder.type] ?? reminder.type}
+                        {typeLabel(reminder.type)}
                       </span>
                     </div>
                     <p className="mt-2 break-words text-sm font-semibold [overflow-wrap:anywhere] sm:truncate">

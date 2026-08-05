@@ -2,17 +2,10 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, isDrawEligibleLoan } from "./lib/constants";
-import { getDefaultInterestRate } from "./lib/settings";
+import { formatCurrencyPlain, isDrawEligibleLoan } from "./lib/constants";
+import { getAppConfigurationState } from "./lib/settings";
 import { notifyTeam } from "./lib/notifications";
-
-function getMonthlyPayment(loanAmount: number, interestRate: number) {
-  return Math.round((interestRate / 100 / 12) * loanAmount * 100) / 100;
-}
-
-function getPointsEarned(loanAmount: number) {
-  return Math.round((DEFAULT_POINTS_PERCENTAGE / 100) * loanAmount * 100) / 100;
-}
+import { calculateMonthlyInterest, calculatePoints } from "./lib/loanCalculations";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -134,9 +127,15 @@ export const submitApplication = mutation({
     }
 
     // Calculate default financial fields
-    const interestRate = await getDefaultInterestRate(ctx);
-    const monthlyPayment = getMonthlyPayment(totalLoanAmount, interestRate);
-    const pointsEarned = getPointsEarned(totalLoanAmount);
+    const { configuration, version: configurationVersion } =
+      await getAppConfigurationState(ctx);
+    const { loanDefaults } = configuration;
+    const interestRate = loanDefaults.annualInterestRate;
+    const monthlyPayment = calculateMonthlyInterest(totalLoanAmount, interestRate);
+    const pointsEarned = calculatePoints(
+      totalLoanAmount,
+      loanDefaults.originationPointsPercentage
+    );
 
     const id = await ctx.db.insert("loans", {
       borrowerId: profile._id,
@@ -150,8 +149,11 @@ export const submitApplication = mutation({
       terms,
       interestRate,
       monthlyPayment,
-      paymentDueDay: DEFAULT_PAYMENT_DUE_DAY,
+      paymentDueDay: loanDefaults.paymentDueDay,
       pointsEarned,
+      pointsPercentage: loanDefaults.originationPointsPercentage,
+      loanTermMonths: loanDefaults.loanTermMonths,
+      configurationVersion,
       paymentType: "monthly",
       status: "submitted",
       notes,

@@ -4,14 +4,23 @@
  */
 
 import { parseUsDate } from "./dates";
+import {
+  calculateMonthlyInterest,
+  calculatePoints as calculateCanonicalPoints,
+  roundCents,
+} from "@/convex/lib/loanCalculations";
+import {
+  MONTHS_PER_YEAR,
+  PAYOFF_DAYS_PER_MONTH,
+  PERCENTAGE_DIVISOR,
+} from "@/convex/lib/financialRules";
 
 /** Calculate interest-only monthly payment */
 export function calculateMonthlyPayment(
   loanAmount: number,
   annualRate: number
 ): number {
-  if (loanAmount <= 0 || annualRate <= 0) return 0;
-  return Math.round((annualRate / 100 / 12) * loanAmount * 100) / 100;
+  return calculateMonthlyInterest(loanAmount, annualRate);
 }
 
 /** Calculate origination points (fee) */
@@ -19,8 +28,7 @@ export function calculatePoints(
   loanAmount: number,
   pointsPercentage: number
 ): number {
-  if (loanAmount <= 0 || pointsPercentage <= 0) return 0;
-  return Math.round((pointsPercentage / 100) * loanAmount * 100) / 100;
+  return calculateCanonicalPoints(loanAmount, pointsPercentage);
 }
 
 export interface PayoffEstimate {
@@ -35,14 +43,13 @@ export interface PayoffEstimate {
  * Returns null if data is insufficient.
  */
 export function calculatePayoffEstimate(
-  loanAmount: number,
+  principalOut: number,
   annualRate: number,
   closeDate: string | undefined,
   asOfDate: Date,
-  paymentType: "balloon" | "monthly",
   totalPaymentsReceived: number
 ): PayoffEstimate | null {
-  if (!closeDate || loanAmount <= 0 || annualRate <= 0) return null;
+  if (!closeDate || principalOut <= 0 || annualRate <= 0) return null;
 
   const parsedCloseDate = parseUsDate(closeDate);
   if (!parsedCloseDate || parsedCloseDate > asOfDate) return null;
@@ -57,26 +64,25 @@ export function calculatePayoffEstimate(
 
   // 30/360 day count: months = (Y2-Y1)*12 + (M2-M1) + (D2-D1)/30
   const monthsAccrued =
-    (asOfYear - closeYear) * 12 +
+    (asOfYear - closeYear) * MONTHS_PER_YEAR +
     (asOfMonth - closeMonth) +
-    (asOfDay - closeDay) / 30;
+    (asOfDay - closeDay) / PAYOFF_DAYS_PER_MONTH;
 
   if (monthsAccrued <= 0) return null;
 
-  const monthlyRate = annualRate / 100 / 12;
-  const totalInterest = monthlyRate * loanAmount * monthsAccrued;
+  const monthlyRate = annualRate / PERCENTAGE_DIVISOR / MONTHS_PER_YEAR;
+  const totalInterest = monthlyRate * principalOut * monthsAccrued;
 
-  // For balloon: all interest accrues, minus any payments already made
-  // For monthly: only unpaid interest (total interest minus payments received)
+  // Payment history reduces unpaid interest for both payment structures.
   const accruedInterest = Math.max(
     0,
-    Math.round((totalInterest - totalPaymentsReceived) * 100) / 100
+    roundCents(totalInterest - totalPaymentsReceived)
   );
 
-  const totalPayoff = Math.round((loanAmount + accruedInterest) * 100) / 100;
+  const totalPayoff = roundCents(principalOut + accruedInterest);
 
   return {
-    principal: loanAmount,
+    principal: principalOut,
     accruedInterest,
     totalPayoff,
     monthsAccrued: Math.round(monthsAccrued * 10) / 10,

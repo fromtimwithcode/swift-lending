@@ -132,7 +132,7 @@ export default function BorrowerDocumentsPage() {
               key={doc._id}
               className="px-4 py-2"
             >
-              <DocumentPreviewRow document={doc}>
+              <DocumentPreviewRow document={doc} previewDocuments={filtered}>
                 {doc.canDelete && (
                   <button
                     onClick={() => setConfirmDeleteId(doc._id)}

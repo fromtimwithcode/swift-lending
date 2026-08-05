@@ -74,6 +74,8 @@ export default function LoanApplicationPage() {
   const defaultLoanAmount = purchasePrice + rehabBudgetTotal;
   const totalLoanAmount = Number(form.loanAmount) || 0;
   const defaultInterestRate = loanDefaults?.defaultInterestRate ?? DEFAULT_INTEREST_RATE;
+  const defaultPointsPercentage =
+    loanDefaults?.defaultPointsPercentage ?? DEFAULT_POINTS_PERCENTAGE;
 
   useEffect(() => {
     if (loanAmountEdited) return;
@@ -501,10 +503,10 @@ export default function LoanApplicationPage() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-blue-600 dark:text-blue-400">Est. Origination Points ({DEFAULT_POINTS_PERCENTAGE}%)</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Est. Origination Points ({defaultPointsPercentage}%)</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                   {formatCurrency(
-                    calculatePoints(totalLoanAmount, DEFAULT_POINTS_PERCENTAGE)
+                    calculatePoints(totalLoanAmount, defaultPointsPercentage)
                   )}
                 </p>
               </div>

@@ -357,7 +357,11 @@ export default function AdminDrawDetailPage() {
         {draw.documents && draw.documents.length > 0 ? (
           <div className="divide-y divide-border">
             {draw.documents.map((doc) => (
-              <DocumentPreviewRow key={doc._id} document={doc} />
+              <DocumentPreviewRow
+                key={doc._id}
+                document={doc}
+                previewDocuments={draw.documents}
+              />
             ))}
           </div>
         ) : (

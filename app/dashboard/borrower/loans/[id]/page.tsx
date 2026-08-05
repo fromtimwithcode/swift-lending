@@ -15,26 +15,36 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { parseUsDate } from "@/lib/dates";
 import { calculatePayoffEstimate } from "@/lib/loan-calc";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
+import {
+  calculateMonthlyInterest,
+  calculateMonthlyPaymentDue,
+  getCurrentPrincipalOut,
+} from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { ContextTooltip } from "@/components/dashboard/context-tooltip";
+import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 
 function DetailRow({
   label,
   value,
+  tooltip,
 }: {
   label: string;
   value: string | number | undefined | null;
+  tooltip?: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
-      <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
-        {label}
+      <span className="flex items-center text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
+        <span>{label}</span>
+        {tooltip && <ContextTooltip label={label} content={tooltip} />}
       </span>
-      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm tabular-nums [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -85,7 +95,12 @@ export default function BorrowerLoanDetailPage() {
     },
   ];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
-  const currentMonthlyPayment = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const currentMonthlyInterest = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
+  const currentMonthlyPayment = calculateMonthlyPaymentDue({
+    principalOut: currentPrincipalOut,
+    annualRate: loan.interestRate,
+    paymentType: loan.paymentType,
+  });
   const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && draws === undefined;
   const pendingDrawTotal = (draws ?? [])
     .filter((draw) => draw.status === "pending" || draw.status === "under_review")
@@ -219,6 +234,7 @@ export default function BorrowerLoanDetailPage() {
             <DetailRow
               label="Current Principal Out"
               value={formatCurrency(currentPrincipalOut)}
+              tooltip={FINANCIAL_CONTEXT.currentPrincipalOut}
             />
             <DetailRow label="Terms" value={loan.terms} />
             <DetailRow
@@ -232,6 +248,7 @@ export default function BorrowerLoanDetailPage() {
             <DetailRow
               label="Current Monthly Payment"
               value={formatCurrency(currentMonthlyPayment)}
+              tooltip={FINANCIAL_CONTEXT.currentMonthlyPayment}
             />
             <DetailRow
               label="Points / Origination Fee"
@@ -419,22 +436,31 @@ export default function BorrowerLoanDetailPage() {
 
       {/* Payoff Estimate */}
       {["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate && (() => {
+        const asOfDate = new Date();
         const totalPaymentsReceived = loanPayments
-          ? loanPayments.filter((p) => p.status !== "missed").reduce((sum, p) => sum + p.amount, 0)
+          ? loanPayments.reduce((sum, payment) => {
+              if (payment.status === "missed") return sum;
+              const paymentDate = parseUsDate(payment.paymentDate);
+              if (!paymentDate || paymentDate > asOfDate) return sum;
+              return sum + payment.amount;
+            }, 0)
           : 0;
         const payoff = calculatePayoffEstimate(
-          loan.loanAmount,
+          currentPrincipalOut,
           loan.interestRate,
           loan.closeDate,
-          new Date(),
-          (loan.paymentType as "balloon" | "monthly") ?? "monthly",
+          asOfDate,
           totalPaymentsReceived
         );
         if (!payoff) return null;
         return (
           <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-              Payoff Estimate
+            <h3 className="mb-4 flex items-center text-sm font-medium text-muted-foreground">
+              <span>Payoff Estimate</span>
+              <ContextTooltip
+                label="Payoff Estimate"
+                content={FINANCIAL_CONTEXT.payoffEstimate}
+              />
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-lg bg-muted/50 p-3">
@@ -465,16 +491,30 @@ export default function BorrowerLoanDetailPage() {
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Charges / Interest Schedule
+            <h3 className="flex items-center text-sm font-medium text-muted-foreground">
+              <span>Charges / Interest Schedule</span>
+              <ContextTooltip
+                label="Charges and Interest Schedule"
+                content={FINANCIAL_CONTEXT.chargeSchedule}
+              />
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Interest charges are shown separately from payments received.
+              Monthly interest uses opening principal. Same-date draw prorations are collected in one payment.
             </p>
           </div>
           <div className="w-fit rounded-lg bg-muted/50 px-3 py-2 text-left sm:text-right">
-            <p className="text-xs text-muted-foreground">Current Monthly</p>
-            <p className="text-sm font-semibold">{formatCurrency(currentMonthlyPayment)}</p>
+            <p className="flex items-center text-xs text-muted-foreground">
+              <span>
+                {(loan.paymentType ?? "monthly") === "balloon" ? "Monthly Accrual" : "Next Full-Month Interest"}
+              </span>
+              <ContextTooltip
+                label={(loan.paymentType ?? "monthly") === "balloon" ? "Monthly Accrual" : "Next Full-Month Interest"}
+                content={(loan.paymentType ?? "monthly") === "balloon"
+                  ? FINANCIAL_CONTEXT.monthlyAccrual
+                  : FINANCIAL_CONTEXT.currentMonthlyInterest}
+              />
+            </p>
+            <p className="text-sm font-semibold tabular-nums">{formatCurrency(currentMonthlyInterest)}</p>
           </div>
         </div>
         {charges && charges.length > 0 ? (
