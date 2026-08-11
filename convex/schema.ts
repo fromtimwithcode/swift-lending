@@ -2,6 +2,10 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { appConfigurationValidator } from "./lib/appConfiguration";
+import {
+  propertyTypeValidator,
+  propertyUnitDetailsValidator,
+} from "./lib/propertyValidators";
 
 const schema = defineSchema({
   ...authTables,
@@ -69,6 +73,12 @@ const schema = defineSchema({
     titlePreference: v.optional(v.string()),
     isUnderContract: v.optional(v.boolean()),
     strategy: v.optional(v.union(v.literal("flip_and_resell"), v.literal("brrrr"))),
+    propertyType: v.optional(propertyTypeValidator),
+    bedrooms: v.optional(v.number()),
+    bathrooms: v.optional(v.number()),
+    squareFeetAboveGrade: v.optional(v.number()),
+    squareFeetBelowGrade: v.optional(v.number()),
+    unitDetails: v.optional(propertyUnitDetailsValidator),
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
     desiredCloseDate: v.optional(v.string()),
     closingStatementFileId: v.optional(v.id("_storage")),

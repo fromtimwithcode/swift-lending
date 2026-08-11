@@ -24,6 +24,11 @@ import {
 } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
 import { getAppConfigurationState } from "./lib/settings";
+import { getPropertyDetailsError } from "./lib/propertyDetails";
+import {
+  propertyTypeValidator,
+  propertyUnitDetailsValidator,
+} from "./lib/propertyValidators";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -64,6 +69,18 @@ function optionalEmail(value: string | undefined, label: string) {
   return email;
 }
 
+function requiredString(value: string, label: string) {
+  const normalized = optionalString(value);
+  if (!normalized) throw new ConvexError(`${label} is required`);
+  return normalized;
+}
+
+function requiredEmail(value: string, label: string) {
+  const email = optionalEmail(value, label);
+  if (!email) throw new ConvexError(`${label} is required`);
+  return email;
+}
+
 function optionalCurrency(value: number | undefined) {
   return value === undefined ? "Not provided" : formatCurrencyPlain(value);
 }
@@ -89,6 +106,12 @@ const LOAN_UPDATE_FIELD_LABELS: Record<string, string> = {
   pointsEarned: "Points earned",
   monthlyInterestEarned: "Monthly interest earned",
   strategy: "Strategy",
+  propertyType: "Property type",
+  bedrooms: "Bedrooms",
+  bathrooms: "Bathrooms",
+  squareFeetAboveGrade: "Square feet above grade",
+  squareFeetBelowGrade: "Square feet below grade",
+  unitDetails: "Unit details",
   paymentType: "Payment type",
   titleCompany: "Title company",
   titleCompanyContact: "Title contact",
@@ -425,7 +448,7 @@ export const createLoan = mutation({
     loanAmount: v.number(),
     afterRepairValue: v.optional(v.number()),
     rehabBudgetTotal: v.optional(v.number()),
-    closeDate: v.optional(v.string()),
+    closeDate: v.string(),
     maturityDate: v.optional(v.string()),
     useDefaultMaturityDate: v.optional(v.boolean()),
     terms: v.string(),
@@ -435,11 +458,17 @@ export const createLoan = mutation({
     pointsEarned: v.number(),
     monthlyInterestEarned: v.optional(v.number()),
     status: loanStatusValidator,
-    titleCompany: v.optional(v.string()),
-    titleCompanyContact: v.optional(v.string()),
-    titleCompanyContactEmail: v.optional(v.string()),
-    titleCompanyContactPhone: v.optional(v.string()),
-    strategy: v.optional(strategyValidator),
+    titleCompany: v.string(),
+    titleCompanyContact: v.string(),
+    titleCompanyContactEmail: v.string(),
+    titleCompanyContactPhone: v.string(),
+    strategy: strategyValidator,
+    propertyType: propertyTypeValidator,
+    bedrooms: v.number(),
+    bathrooms: v.number(),
+    squareFeetAboveGrade: v.number(),
+    squareFeetBelowGrade: v.number(),
+    unitDetails: propertyUnitDetailsValidator,
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
@@ -466,24 +495,27 @@ export const createLoan = mutation({
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
     const terms = args.terms.trim();
-    const titleCompany = optionalString(args.titleCompany);
-    const titleCompanyContact = optionalString(args.titleCompanyContact);
-    const titleCompanyContactEmail = optionalEmail(args.titleCompanyContactEmail, "Title contact email");
-    const titleCompanyContactPhone = optionalString(args.titleCompanyContactPhone);
+    const titleCompany = requiredString(args.titleCompany, "Title company");
+    const titleCompanyContact = requiredString(args.titleCompanyContact, "Title contact");
+    const titleCompanyContactEmail = requiredEmail(args.titleCompanyContactEmail, "Title contact email");
+    const titleCompanyContactPhone = requiredString(args.titleCompanyContactPhone, "Title contact phone");
     const notes = optionalString(args.notes);
-    const closeDate = optionalString(args.closeDate);
+    const closeDate = requiredString(args.closeDate, "Close date");
     const maturityDate =
       (args.useDefaultMaturityDate && closeDate
         ? getMaturityDate(closeDate, loanDefaults.loanTermMonths)
         : optionalString(args.maturityDate));
 
-    if (closeDate) validateUsDate(closeDate, "Close date", { allowFuture: true });
+    validateUsDate(closeDate, "Close date", { allowFuture: true });
     if (maturityDate) validateUsDate(maturityDate, "Maturity date", { allowFuture: true });
 
     if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
+
+    const propertyDetailsError = getPropertyDetailsError(args);
+    if (propertyDetailsError) throw new ConvexError(propertyDetailsError);
 
     const loanAmount = args.loanAmount;
     const canonicalPointsEarned = getPointsEarned(
@@ -656,6 +688,12 @@ export const updateLoan = mutation({
     pointsEarned: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
     strategy: v.optional(strategyValidator),
+    propertyType: v.optional(propertyTypeValidator),
+    bedrooms: v.optional(v.number()),
+    bathrooms: v.optional(v.number()),
+    squareFeetAboveGrade: v.optional(v.number()),
+    squareFeetBelowGrade: v.optional(v.number()),
+    unitDetails: v.optional(propertyUnitDetailsValidator),
     paymentType: v.optional(v.union(v.literal("balloon"), v.literal("monthly"))),
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
@@ -671,6 +709,26 @@ export const updateLoan = mutation({
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new ConvexError("Loan not found");
+
+    const propertyFieldsChanged = [
+      fields.propertyType,
+      fields.bedrooms,
+      fields.bathrooms,
+      fields.squareFeetAboveGrade,
+      fields.squareFeetBelowGrade,
+      fields.unitDetails,
+    ].some((value) => value !== undefined);
+    if (propertyFieldsChanged) {
+      const propertyDetailsError = getPropertyDetailsError({
+        propertyType: fields.propertyType ?? existing.propertyType,
+        bedrooms: fields.bedrooms ?? existing.bedrooms,
+        bathrooms: fields.bathrooms ?? existing.bathrooms,
+        squareFeetAboveGrade: fields.squareFeetAboveGrade ?? existing.squareFeetAboveGrade,
+        squareFeetBelowGrade: fields.squareFeetBelowGrade ?? existing.squareFeetBelowGrade,
+        unitDetails: fields.unitDetails ?? existing.unitDetails,
+      });
+      if (propertyDetailsError) throw new ConvexError(propertyDetailsError);
+    }
 
     // Validate financial fields if provided
     if (fields.purchasePrice !== undefined && fields.purchasePrice < 0)
@@ -721,11 +779,12 @@ export const updateLoan = mutation({
 
     // Trim string fields and validate required ones
     const requiredStringFields = new Set([
-      "borrowerName", "entityName", "propertyAddress", "terms",
+      "borrowerName", "entityName", "propertyAddress", "terms", "closeDate",
+      "titleCompany", "titleCompanyContact", "titleCompanyContactEmail",
+      "titleCompanyContactPhone",
     ]);
     const optionalStringFields = new Set([
-      "closeDate", "maturityDate", "titleCompany", "titleCompanyContact",
-      "titleCompanyContactEmail", "titleCompanyContactPhone", "notes",
+      "maturityDate", "notes",
     ]);
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -733,8 +792,12 @@ export const updateLoan = mutation({
         if (typeof value === "string") {
           const trimmed = value.trim();
           if (requiredStringFields.has(key)) {
-            if (!trimmed) throw new ConvexError(`${key} cannot be empty`);
-            updates[key] = trimmed;
+            const label = LOAN_UPDATE_FIELD_LABELS[key] ?? key;
+            if (!trimmed) throw new ConvexError(`${label} is required`);
+            if (key === "closeDate") validateUsDate(trimmed, "Close date", { allowFuture: true });
+            updates[key] = key === "titleCompanyContactEmail"
+              ? requiredEmail(trimmed, "Title contact email")
+              : trimmed;
           } else if (optionalStringFields.has(key)) {
             if (!trimmed) {
               updates[key] = undefined;

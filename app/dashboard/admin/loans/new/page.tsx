@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, type FormEvent } from "react";
 import { calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
-import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, STRATEGY_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
+import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
 import { DEFAULT_LOAN_TERM_MONTHS } from "@/convex/lib/financialRules";
 import { formatCurrency } from "@/lib/format";
 import { getMaturityDate } from "@/lib/dates";
@@ -20,6 +20,11 @@ import { getErrorMessage } from "@/lib/errors";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
 import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
+import {
+  createEmptyLoanPropertyForm,
+  LoanPropertyFields,
+  parseLoanPropertyForm,
+} from "@/components/dashboard/loan-property-fields";
 
 type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
 type RehabItem = {
@@ -63,7 +68,6 @@ export default function NewLoanPage() {
     paymentDueDay: String(DEFAULT_PAYMENT_DUE_DAY),
     pointsEarned: "",
     monthlyInterestEarned: "",
-    strategy: "" as "" | "flip_and_resell" | "brrrr",
     paymentType: "monthly" as "balloon" | "monthly",
     status: "submitted" as const,
     titleCompany: "",
@@ -74,6 +78,7 @@ export default function NewLoanPage() {
     drawFundsUsed: "",
     notes: "",
   });
+  const [propertyDetails, setPropertyDetails] = useState(createEmptyLoanPropertyForm);
 
   const [rehabItems, setRehabItems] = useState<RehabItem[]>([]);
   const selectedBorrower = borrowers?.find((b) => b._id === form.borrowerId);
@@ -270,6 +275,31 @@ export default function NewLoanPage() {
       toast.error("Payment due day must be between 1 and 31");
       return;
     }
+    const parsedPropertyDetails = parseLoanPropertyForm(propertyDetails);
+    if ("error" in parsedPropertyDetails) {
+      toast.error(parsedPropertyDetails.error);
+      return;
+    }
+    if (!form.closeDate) {
+      toast.error("Close date is required");
+      return;
+    }
+    if (!form.titleCompany.trim()) {
+      toast.error("Title company is required");
+      return;
+    }
+    if (!form.titleCompanyContact.trim()) {
+      toast.error("Title contact is required");
+      return;
+    }
+    if (!form.titleCompanyContactEmail.trim()) {
+      toast.error("Title contact email is required");
+      return;
+    }
+    if (!form.titleCompanyContactPhone.trim()) {
+      toast.error("Title contact phone is required");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -298,7 +328,7 @@ export default function NewLoanPage() {
           ? Number(form.afterRepairValue)
           : undefined,
         rehabBudgetTotal: rehabTotal,
-        closeDate: form.closeDate || undefined,
+        closeDate: form.closeDate,
         maturityDate: form.maturityDate || undefined,
         useDefaultMaturityDate: !maturityDateEdited,
         terms: form.terms || "N/A",
@@ -311,13 +341,13 @@ export default function NewLoanPage() {
         monthlyInterestEarned: form.monthlyInterestEarned
           ? Number(form.monthlyInterestEarned)
           : undefined,
-        strategy: form.strategy || undefined,
+        ...parsedPropertyDetails.data,
         paymentType: form.paymentType,
         status: form.status,
-        titleCompany: form.titleCompany || undefined,
-        titleCompanyContact: form.titleCompanyContact || undefined,
-        titleCompanyContactEmail: form.titleCompanyContactEmail || undefined,
-        titleCompanyContactPhone: form.titleCompanyContactPhone || undefined,
+        titleCompany: form.titleCompany,
+        titleCompanyContact: form.titleCompanyContact,
+        titleCompanyContactEmail: form.titleCompanyContactEmail,
+        titleCompanyContactPhone: form.titleCompanyContactPhone,
         drawFundsTotal: form.drawFundsTotal
           ? Number(form.drawFundsTotal)
           : undefined,
@@ -391,31 +421,15 @@ export default function NewLoanPage() {
           </div>
         </div>
 
-        {/* Strategy */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Loan Strategy</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Object.entries(STRATEGY_LABELS).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => update("strategy", form.strategy === value ? "" : value)}
-                className={`rounded-xl border-2 px-5 py-4 text-left text-sm font-medium transition-[background-color,border-color,color] ${
-                  form.strategy === value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background text-foreground hover:border-muted-foreground/40"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Property Details */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="mb-4 text-base font-semibold">Property Details</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <LoanPropertyFields
+            idPrefix="new-loan-property"
+            value={propertyDetails}
+            onChange={setPropertyDetails}
+          />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelClass}>Property Address</label>
               <AddressInput
@@ -748,12 +762,15 @@ export default function NewLoanPage() {
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Close Date</label>
+              <label className={labelClass}>
+                Close Date <span className="text-destructive">*</span>
+              </label>
               <DatePickerField
                 value={form.closeDate}
                 onChange={handleCloseDateChange}
                 placeholder="Select close date"
                 ariaLabel="Close Date"
+                required
               />
             </div>
             <div>
@@ -792,41 +809,61 @@ export default function NewLoanPage() {
               </div>
             )}
             <div>
-              <label className={labelClass}>Title Company</label>
+              <label htmlFor="new-loan-title-company" className={labelClass}>
+                Title Company <span className="text-destructive">*</span>
+              </label>
               <input
+                id="new-loan-title-company"
+                required
                 className={inputClass}
                 value={form.titleCompany}
                 onChange={(e) => update("titleCompany", e.target.value)}
-                placeholder="Optional"
+                placeholder="Title company name"
+                autoComplete="organization"
               />
             </div>
             <div>
-              <label className={labelClass}>Title Company Contact</label>
+              <label htmlFor="new-loan-title-contact" className={labelClass}>
+                Title Company Contact <span className="text-destructive">*</span>
+              </label>
               <input
+                id="new-loan-title-contact"
+                required
                 className={inputClass}
                 value={form.titleCompanyContact}
                 onChange={(e) => update("titleCompanyContact", e.target.value)}
-                placeholder="Optional"
+                placeholder="Contact name"
+                autoComplete="name"
               />
             </div>
             <div>
-              <label className={labelClass}>Title Contact Email</label>
+              <label htmlFor="new-loan-title-contact-email" className={labelClass}>
+                Title Contact Email <span className="text-destructive">*</span>
+              </label>
               <input
+                id="new-loan-title-contact-email"
+                required
                 className={inputClass}
                 value={form.titleCompanyContactEmail}
                 onChange={(e) => update("titleCompanyContactEmail", e.target.value)}
                 type="email"
-                placeholder="Optional"
+                placeholder="name@example.com"
+                autoComplete="email"
               />
             </div>
             <div>
-              <label className={labelClass}>Title Contact Phone</label>
+              <label htmlFor="new-loan-title-contact-phone" className={labelClass}>
+                Title Contact Phone <span className="text-destructive">*</span>
+              </label>
               <input
+                id="new-loan-title-contact-phone"
+                required
                 className={inputClass}
                 value={form.titleCompanyContactPhone}
                 onChange={(e) => update("titleCompanyContactPhone", e.target.value)}
                 type="tel"
-                placeholder="Optional"
+                placeholder="(555) 555-5555"
+                autoComplete="tel"
               />
             </div>
           </div>

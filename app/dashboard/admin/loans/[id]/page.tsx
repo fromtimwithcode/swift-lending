@@ -55,6 +55,13 @@ import { DatePickerField } from "@/components/dashboard/date-picker-field";
 import { BorrowerEmailDialog } from "@/components/dashboard/borrower-email-dialog";
 import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
+import {
+  createEmptyLoanPropertyForm,
+  createLoanPropertyFormFromLoan,
+  LoanPropertyFields,
+  parseLoanPropertyForm,
+} from "@/components/dashboard/loan-property-fields";
+import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 
 const STATUSES = [
   "submitted",
@@ -157,6 +164,9 @@ export default function LoanDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
+  const [editPropertyDetails, setEditPropertyDetails] = useState(
+    createEmptyLoanPropertyForm
+  );
   const [uploadOpen, setUploadOpen] = useState(false);
   const [drawUploadId, setDrawUploadId] = useState<Id<"drawRequests"> | undefined>();
   const [closingUploading, setClosingUploading] = useState(false);
@@ -483,6 +493,7 @@ export default function LoanDetailPage() {
   const startEditing = () => {
     setDrawFormOpen(false);
     setEditing(true);
+    setEditPropertyDetails(createLoanPropertyFormFromLoan(loan));
     setEditData({
       borrowerName: loan.borrowerName,
       entityName: loan.entityName,
@@ -499,13 +510,12 @@ export default function LoanDetailPage() {
       paymentType: loan.paymentType ?? "monthly",
       drawFundsTotal: loan.drawFundsTotal ? String(loan.drawFundsTotal) : "",
       drawFundsUsed: loan.drawFundsUsed ? String(loan.drawFundsUsed) : "",
-      closeDate: loan.closeDate ?? "",
+      closeDate: loan.closeDate ?? loan.desiredCloseDate ?? "",
       maturityDate: loan.maturityDate ?? "",
       titleCompany: loan.titleCompany ?? loan.titleCompanyName ?? "",
       titleCompanyContact: loan.titleCompanyContact ?? "",
       titleCompanyContactEmail: loan.titleCompanyContactEmail ?? "",
       titleCompanyContactPhone: loan.titleCompanyContactPhone ?? "",
-      strategy: loan.strategy ?? "",
       notes: loan.notes ?? "",
     });
   };
@@ -520,6 +530,31 @@ export default function LoanDetailPage() {
       }
       if (editData.drawFundsTotal && Number(editData.drawFundsTotal) > loanAmount) {
         toast.error("Construction holdback cannot exceed total loan amount");
+        return;
+      }
+      const parsedPropertyDetails = parseLoanPropertyForm(editPropertyDetails);
+      if ("error" in parsedPropertyDetails) {
+        toast.error(parsedPropertyDetails.error);
+        return;
+      }
+      if (!editData.closeDate) {
+        toast.error("Close date is required");
+        return;
+      }
+      if (!editData.titleCompany?.trim()) {
+        toast.error("Title company is required");
+        return;
+      }
+      if (!editData.titleCompanyContact?.trim()) {
+        toast.error("Title contact is required");
+        return;
+      }
+      if (!editData.titleCompanyContactEmail?.trim()) {
+        toast.error("Title contact email is required");
+        return;
+      }
+      if (!editData.titleCompanyContactPhone?.trim()) {
+        toast.error("Title contact phone is required");
         return;
       }
       await updateLoan({
@@ -538,13 +573,13 @@ export default function LoanDetailPage() {
         paymentType: editData.paymentType as "balloon" | "monthly",
         drawFundsTotal: editData.drawFundsTotal ? Number(editData.drawFundsTotal) : undefined,
         drawFundsUsed: editData.drawFundsUsed ? Number(editData.drawFundsUsed) : undefined,
-        closeDate: editData.closeDate || undefined,
+        closeDate: editData.closeDate,
         maturityDate: editData.maturityDate || undefined,
         titleCompany: editData.titleCompany,
         titleCompanyContact: editData.titleCompanyContact,
         titleCompanyContactEmail: editData.titleCompanyContactEmail,
         titleCompanyContactPhone: editData.titleCompanyContactPhone,
-        strategy: (editData.strategy || undefined) as "flip_and_resell" | "brrrr" | undefined,
+        ...parsedPropertyDetails.data,
         notes: editData.notes || undefined,
       });
       setEditing(false);
@@ -1050,21 +1085,11 @@ export default function LoanDetailPage() {
           <div className="space-y-3">
             {editing ? (
               <>
-                <div>
-                  <label className="text-sm text-muted-foreground">Strategy</label>
-                  <select
-                    className={field("strategy").className}
-                    value={editData.strategy}
-                    onChange={(e) => setEditData((p) => ({ ...p, strategy: e.target.value }))}
-                  >
-                    <option value="">— None —</option>
-                    {Object.entries(STRATEGY_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <LoanPropertyFields
+                  idPrefix="edit-loan-property"
+                  value={editPropertyDetails}
+                  onChange={setEditPropertyDetails}
+                />
                 <div>
                   <label className="text-sm text-muted-foreground">Address</label>
                   <AddressInput {...field("propertyAddress")} />
@@ -1080,7 +1105,22 @@ export default function LoanDetailPage() {
                   label="Strategy"
                   value={loan.strategy ? STRATEGY_LABELS[loan.strategy] : undefined}
                 />
+                <DetailRow
+                  label="Property Type"
+                  value={loan.propertyType ? PROPERTY_TYPE_LABELS[loan.propertyType] : undefined}
+                />
                 <DetailRow label="Address" value={loan.propertyAddress} />
+                <DetailRow label="Bedrooms" value={loan.bedrooms} />
+                <DetailRow label="Bathrooms" value={loan.bathrooms} />
+                <DetailRow label="Square Feet Above Grade" value={loan.squareFeetAboveGrade} />
+                <DetailRow label="Square Feet Below Grade" value={loan.squareFeetBelowGrade} />
+                {loan.unitDetails?.map((unit) => (
+                  <DetailRow
+                    key={unit.unitNumber}
+                    label={`Unit ${unit.unitNumber}`}
+                    value={`${unit.bedrooms} bd / ${unit.bathrooms} ba`}
+                  />
+                ))}
                 <DetailRow
                   label="After Repair Value"
                   value={loan.afterRepairValue ? formatCurrency(loan.afterRepairValue) : undefined}
@@ -1244,12 +1284,15 @@ export default function LoanDetailPage() {
             {editing ? (
               <>
                 <div>
-                  <label className="text-sm text-muted-foreground">Close Date</label>
+                  <label className="text-sm text-muted-foreground">
+                    Close Date <span className="text-destructive">*</span>
+                  </label>
                   <DatePickerField
                     value={editData.closeDate ?? ""}
                     onChange={handleCloseDateChange}
                     placeholder="Select close date"
                     ariaLabel="Close Date"
+                    required
                   />
                 </div>
                 <div>
@@ -1285,20 +1328,28 @@ export default function LoanDetailPage() {
                   </div>
                 )}
                 <div>
-                  <label className="text-sm text-muted-foreground">Title Company</label>
-                  <input {...field("titleCompany")} />
+                  <label htmlFor="edit-loan-title-company" className="text-sm text-muted-foreground">
+                    Title Company <span className="text-destructive">*</span>
+                  </label>
+                  <input id="edit-loan-title-company" {...field("titleCompany")} required autoComplete="organization" />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Title Contact</label>
-                  <input {...field("titleCompanyContact")} />
+                  <label htmlFor="edit-loan-title-contact" className="text-sm text-muted-foreground">
+                    Title Contact <span className="text-destructive">*</span>
+                  </label>
+                  <input id="edit-loan-title-contact" {...field("titleCompanyContact")} required autoComplete="name" />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Title Contact Email</label>
-                  <input {...field("titleCompanyContactEmail")} type="email" />
+                  <label htmlFor="edit-loan-title-contact-email" className="text-sm text-muted-foreground">
+                    Title Contact Email <span className="text-destructive">*</span>
+                  </label>
+                  <input id="edit-loan-title-contact-email" {...field("titleCompanyContactEmail")} type="email" required autoComplete="email" />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Title Contact Phone</label>
-                  <input {...field("titleCompanyContactPhone")} type="tel" />
+                  <label htmlFor="edit-loan-title-contact-phone" className="text-sm text-muted-foreground">
+                    Title Contact Phone <span className="text-destructive">*</span>
+                  </label>
+                  <input id="edit-loan-title-contact-phone" {...field("titleCompanyContactPhone")} type="tel" required autoComplete="tel" />
                 </div>
               </>
             ) : (

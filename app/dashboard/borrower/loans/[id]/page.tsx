@@ -22,12 +22,13 @@ import {
   calculateMonthlyPaymentDue,
   getCurrentPrincipalOut,
 } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, isDrawEligibleLoan } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
+import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 
 function DetailRow({
   label,
@@ -206,7 +207,26 @@ export default function BorrowerLoanDetailPage() {
             Property Details
           </h3>
           <div className="space-y-3">
+            <DetailRow
+              label="Strategy"
+              value={loan.strategy ? STRATEGY_LABELS[loan.strategy] : undefined}
+            />
+            <DetailRow
+              label="Property Type"
+              value={loan.propertyType ? PROPERTY_TYPE_LABELS[loan.propertyType] : undefined}
+            />
             <DetailRow label="Address" value={loan.propertyAddress} />
+            <DetailRow label="Bedrooms" value={loan.bedrooms} />
+            <DetailRow label="Bathrooms" value={loan.bathrooms} />
+            <DetailRow label="Square Feet Above Grade" value={loan.squareFeetAboveGrade} />
+            <DetailRow label="Square Feet Below Grade" value={loan.squareFeetBelowGrade} />
+            {loan.unitDetails?.map((unit) => (
+              <DetailRow
+                key={unit.unitNumber}
+                label={`Unit ${unit.unitNumber}`}
+                value={`${unit.bedrooms} bd / ${unit.bathrooms} ba`}
+              />
+            ))}
             <DetailRow
               label="Purchase Price"
               value={formatCurrency(loan.purchasePrice)}

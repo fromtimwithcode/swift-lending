@@ -17,6 +17,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
+import {
+  createEmptyLoanPropertyForm,
+  LoanPropertyFields,
+  parseLoanPropertyForm,
+} from "@/components/dashboard/loan-property-fields";
 
 interface UploadedPhoto {
   storageId: Id<"_storage">;
@@ -49,16 +54,15 @@ export default function LoanApplicationPage() {
     loanAmount: "",
     terms: "12 months",
     notes: "",
-    isTitleOpen: "" as "" | "yes" | "no",
     titleCompanyName: "",
     titleCompanyContact: "",
     titleCompanyContactEmail: "",
     titleCompanyContactPhone: "",
-    titlePreference: "",
     isUnderContract: "" as "" | "yes" | "no",
     acquisitionType: "" as "" | "wholesaler" | "direct_to_seller",
     desiredCloseDate: "",
   });
+  const [propertyDetails, setPropertyDetails] = useState(createEmptyLoanPropertyForm);
   const [loanAmountEdited, setLoanAmountEdited] = useState(false);
 
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
@@ -230,7 +234,12 @@ export default function LoanApplicationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.entityName || !form.propertyAddress || !form.purchasePrice) {
+    if (
+      !form.entityName ||
+      !form.propertyAddress ||
+      !form.purchasePrice ||
+      !form.afterRepairValue
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -250,6 +259,31 @@ export default function LoanApplicationPage() {
       toast.error("At least one property photo is required");
       return;
     }
+    const parsedPropertyDetails = parseLoanPropertyForm(propertyDetails);
+    if ("error" in parsedPropertyDetails) {
+      toast.error(parsedPropertyDetails.error);
+      return;
+    }
+    if (!form.desiredCloseDate) {
+      toast.error("Close date is required");
+      return;
+    }
+    if (!form.titleCompanyName.trim()) {
+      toast.error("Title company is required");
+      return;
+    }
+    if (!form.titleCompanyContact.trim()) {
+      toast.error("Title contact is required");
+      return;
+    }
+    if (!form.titleCompanyContactEmail.trim()) {
+      toast.error("Title contact email is required");
+      return;
+    }
+    if (!form.titleCompanyContactPhone.trim()) {
+      toast.error("Title contact phone is required");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -258,22 +292,21 @@ export default function LoanApplicationPage() {
         propertyAddress: form.propertyAddress,
         purchasePrice,
         loanAmount: totalLoanAmount,
-        afterRepairValue: form.afterRepairValue ? Number(form.afterRepairValue) : undefined,
+        afterRepairValue: Number(form.afterRepairValue),
         rehabBudgetTotal: rehabBudgetTotal || undefined,
         terms: form.terms,
         notes: form.notes || undefined,
-        isTitleOpen: form.isTitleOpen === "yes" ? true : form.isTitleOpen === "no" ? false : undefined,
-        titleCompanyName: form.isTitleOpen === "yes" ? form.titleCompanyName || undefined : undefined,
-        titleCompanyContact: form.isTitleOpen === "yes" ? form.titleCompanyContact || undefined : undefined,
-        titleCompanyContactEmail: form.isTitleOpen === "yes" ? form.titleCompanyContactEmail || undefined : undefined,
-        titleCompanyContactPhone: form.isTitleOpen === "yes" ? form.titleCompanyContactPhone || undefined : undefined,
-        titlePreference: form.isTitleOpen === "no" ? form.titlePreference || undefined : undefined,
+        titleCompanyName: form.titleCompanyName,
+        titleCompanyContact: form.titleCompanyContact,
+        titleCompanyContactEmail: form.titleCompanyContactEmail,
+        titleCompanyContactPhone: form.titleCompanyContactPhone,
         isUnderContract: form.isUnderContract === "yes" ? true : form.isUnderContract === "no" ? false : undefined,
         acquisitionType:
           form.isUnderContract === "yes" && form.acquisitionType
             ? (form.acquisitionType as "wholesaler" | "direct_to_seller")
             : undefined,
-        desiredCloseDate: form.desiredCloseDate || undefined,
+        desiredCloseDate: form.desiredCloseDate,
+        ...parsedPropertyDetails.data,
         photoFileIds: uploadedPhotos.map((p) => ({
           storageId: p.storageId,
           fileName: p.fileName,
@@ -395,7 +428,12 @@ export default function LoanApplicationPage() {
           <h3 className="mb-4 text-sm font-medium text-muted-foreground">
             Property Details
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <LoanPropertyFields
+            idPrefix="loan-application-property"
+            value={propertyDetails}
+            onChange={setPropertyDetails}
+          />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-sm font-medium">
                 Property Address <span className="text-red-500">*</span>
@@ -415,10 +453,15 @@ export default function LoanApplicationPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                After Repair Value (ARV)
+              <label
+                htmlFor="application-after-repair-value"
+                className="mb-1.5 block text-sm font-medium"
+              >
+                After Repair Value (ARV) <span className="text-destructive">*</span>
               </label>
               <input
+                id="application-after-repair-value"
+                required
                 {...field("afterRepairValue", { type: "number", placeholder: "0" })}
               />
             </div>
@@ -523,75 +566,52 @@ export default function LoanApplicationPage() {
             Title & Contract Info
           </h3>
           <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Is title open for this property?
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => update("isTitleOpen", form.isTitleOpen === "yes" ? "" : "yes")}
-                  className={toggleBtnClass(form.isTitleOpen === "yes")}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => update("isTitleOpen", form.isTitleOpen === "no" ? "" : "no")}
-                  className={toggleBtnClass(form.isTitleOpen === "no")}
-                >
-                  No
-                </button>
-              </div>
-            </div>
-
-            {form.isTitleOpen === "yes" && (
-              <div className="grid gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Title Company
-                  </label>
-                  <input
-                    {...field("titleCompanyName", { placeholder: "Title company name" })}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Title Contact
-                  </label>
-                  <input
-                    {...field("titleCompanyContact", { placeholder: "Contact name" })}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Contact Email
-                  </label>
-                  <input
-                    {...field("titleCompanyContactEmail", { type: "email", placeholder: "name@example.com" })}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Contact Phone
-                  </label>
-                  <input
-                    {...field("titleCompanyContactPhone", { type: "tel", placeholder: "(555) 555-5555" })}
-                  />
-                </div>
-              </div>
-            )}
-
-            {form.isTitleOpen === "no" && (
+            <div className="grid gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Do you have a preference on what title company to use?
+                <label htmlFor="application-title-company" className="mb-1.5 block text-sm font-medium">
+                  Title Company <span className="text-destructive">*</span>
                 </label>
                 <input
-                  {...field("titlePreference", { placeholder: "Preferred title company or 'No preference'" })}
+                  id="application-title-company"
+                  required
+                  autoComplete="organization"
+                  {...field("titleCompanyName", { placeholder: "Title company name" })}
                 />
               </div>
-            )}
+              <div>
+                <label htmlFor="application-title-contact" className="mb-1.5 block text-sm font-medium">
+                  Title Contact <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="application-title-contact"
+                  required
+                  autoComplete="name"
+                  {...field("titleCompanyContact", { placeholder: "Contact name" })}
+                />
+              </div>
+              <div>
+                <label htmlFor="application-title-contact-email" className="mb-1.5 block text-sm font-medium">
+                  Contact Email <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="application-title-contact-email"
+                  required
+                  autoComplete="email"
+                  {...field("titleCompanyContactEmail", { type: "email", placeholder: "name@example.com" })}
+                />
+              </div>
+              <div>
+                <label htmlFor="application-title-contact-phone" className="mb-1.5 block text-sm font-medium">
+                  Contact Phone <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="application-title-contact-phone"
+                  required
+                  autoComplete="tel"
+                  {...field("titleCompanyContactPhone", { type: "tel", placeholder: "(555) 555-5555" })}
+                />
+              </div>
+            </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium">
@@ -653,13 +673,14 @@ export default function LoanApplicationPage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                What is the desired close date?
+                Close Date <span className="text-destructive">*</span>
               </label>
               <DatePickerField
                 value={form.desiredCloseDate}
                 onChange={(value) => update("desiredCloseDate", value)}
                 placeholder="Select desired close date"
                 ariaLabel="Desired Close Date"
+                required
               />
             </div>
           </div>
@@ -671,9 +692,11 @@ export default function LoanApplicationPage() {
             Property Photos <span className="text-red-500">*</span>
           </h3>
           <div className="space-y-4">
-            <div
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+              disabled={uploading}
+              className="flex min-h-28 w-full cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               {uploading ? (
                 <Loader2 className="size-8 animate-spin" />
@@ -684,15 +707,15 @@ export default function LoanApplicationPage() {
                 {uploading ? "Uploading..." : "Click to upload property photos"}
               </p>
               <p className="text-xs">PNG, JPG, JPEG, or WebP (max {formatFileSize(MAX_FILE_SIZE_BYTES)} each)</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".png,.jpg,.jpeg,.webp"
-                multiple
-                onChange={(e) => handlePhotoUpload(e.target.files)}
-                className="hidden"
-              />
-            </div>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp"
+              multiple
+              onChange={(e) => handlePhotoUpload(e.target.files)}
+              className="hidden"
+            />
 
             {uploadedPhotos.length > 0 && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

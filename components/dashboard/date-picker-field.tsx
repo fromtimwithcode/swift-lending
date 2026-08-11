@@ -69,6 +69,7 @@ function DatePickerField({
           type="button"
           disabled={disabled}
           aria-label={ariaLabel ?? placeholder}
+          aria-required={required || undefined}
           className={cn(
             "group/date-picker flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.03)] outline-none transition-[border-color,box-shadow,background-color,scale] duration-200 ease-out hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[popup-open]:border-ring data-[popup-open]:ring-2 data-[popup-open]:ring-ring/20",
             !value && "text-muted-foreground",
