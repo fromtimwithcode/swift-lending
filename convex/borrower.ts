@@ -2,10 +2,19 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, isDrawEligibleLoan } from "./lib/constants";
+import { formatCurrencyPlain, isDrawEligibleLoan, STRATEGY_LABELS } from "./lib/constants";
 import { getAppConfigurationState } from "./lib/settings";
 import { notifyTeam } from "./lib/notifications";
 import { calculateMonthlyInterest, calculatePoints } from "./lib/loanCalculations";
+import { getMaturityDate, validateUsDate } from "./lib/dates";
+import {
+  getPropertyDetailsError,
+  PROPERTY_TYPE_LABELS,
+} from "./lib/propertyDetails";
+import {
+  propertyTypeValidator,
+  propertyUnitDetailsValidator,
+} from "./lib/propertyValidators";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -19,8 +28,16 @@ function optionalEmail(value: string | undefined, label: string) {
   return email;
 }
 
-function optionalCurrency(value: number | undefined) {
-  return value === undefined ? "Not provided" : formatCurrencyPlain(value);
+function requiredString(value: string, label: string) {
+  const normalized = optionalString(value);
+  if (!normalized) throw new ConvexError(`${label} is required`);
+  return normalized;
+}
+
+function requiredEmail(value: string, label: string) {
+  const email = optionalEmail(value, label);
+  if (!email) throw new ConvexError(`${label} is required`);
+  return email;
 }
 
 function optionalDetail(value: string | undefined) {
@@ -55,19 +72,26 @@ export const submitApplication = mutation({
     propertyAddress: v.string(),
     purchasePrice: v.number(),
     loanAmount: v.number(),
-    afterRepairValue: v.optional(v.number()),
+    afterRepairValue: v.number(),
     rehabBudgetTotal: v.optional(v.number()),
     terms: v.string(),
     notes: v.optional(v.string()),
     isTitleOpen: v.optional(v.boolean()),
-    titleCompanyName: v.optional(v.string()),
-    titleCompanyContact: v.optional(v.string()),
-    titleCompanyContactEmail: v.optional(v.string()),
-    titleCompanyContactPhone: v.optional(v.string()),
+    titleCompanyName: v.string(),
+    titleCompanyContact: v.string(),
+    titleCompanyContactEmail: v.string(),
+    titleCompanyContactPhone: v.string(),
     titlePreference: v.optional(v.string()),
     isUnderContract: v.optional(v.boolean()),
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
-    desiredCloseDate: v.optional(v.string()),
+    desiredCloseDate: v.string(),
+    strategy: v.union(v.literal("flip_and_resell"), v.literal("brrrr")),
+    propertyType: propertyTypeValidator,
+    bedrooms: v.number(),
+    bathrooms: v.number(),
+    squareFeetAboveGrade: v.number(),
+    squareFeetBelowGrade: v.number(),
+    unitDetails: propertyUnitDetailsValidator,
     photoFileIds: v.array(v.object({
       storageId: v.id("_storage"),
       fileName: v.string(),
@@ -87,18 +111,19 @@ export const submitApplication = mutation({
     const propertyAddress = args.propertyAddress.trim();
     const terms = args.terms.trim();
     const notes = optionalString(args.notes);
-    const titleCompanyName = args.isTitleOpen ? optionalString(args.titleCompanyName) : undefined;
-    const titleCompanyContact = args.isTitleOpen ? optionalString(args.titleCompanyContact) : undefined;
-    const titleCompanyContactEmail = args.isTitleOpen
-      ? optionalEmail(args.titleCompanyContactEmail, "Title contact email")
-      : undefined;
-    const titleCompanyContactPhone = args.isTitleOpen ? optionalString(args.titleCompanyContactPhone) : undefined;
-    const titlePreference = args.isTitleOpen === false ? optionalString(args.titlePreference) : undefined;
-    const desiredCloseDate = optionalString(args.desiredCloseDate);
+    const titleCompanyName = requiredString(args.titleCompanyName, "Title company");
+    const titleCompanyContact = requiredString(args.titleCompanyContact, "Title contact");
+    const titleCompanyContactEmail = requiredEmail(args.titleCompanyContactEmail, "Title contact email");
+    const titleCompanyContactPhone = requiredString(args.titleCompanyContactPhone, "Title contact phone");
+    const desiredCloseDate = requiredString(args.desiredCloseDate, "Close date");
 
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
     if (!terms) throw new ConvexError("Terms cannot be empty");
+    validateUsDate(desiredCloseDate, "Close date", { allowFuture: true });
+
+    const propertyDetailsError = getPropertyDetailsError(args);
+    if (propertyDetailsError) throw new ConvexError(propertyDetailsError);
 
     const totalLoanAmount = args.loanAmount;
 
@@ -107,7 +132,7 @@ export const submitApplication = mutation({
     if (args.rehabBudgetTotal !== undefined && args.rehabBudgetTotal < 0) {
       throw new ConvexError("Rehab budget cannot be negative");
     }
-    if (args.afterRepairValue !== undefined && args.afterRepairValue < args.purchasePrice) {
+    if (args.afterRepairValue < args.purchasePrice) {
       throw new ConvexError("After repair value should not be less than purchase price");
     }
     if (args.photoFileIds.length === 0) {
@@ -161,11 +186,19 @@ export const submitApplication = mutation({
       titleCompanyContact,
       titleCompanyContactEmail,
       titleCompanyContactPhone,
-      isTitleOpen: args.isTitleOpen,
+      isTitleOpen: true,
       titleCompanyName,
-      titlePreference,
       isUnderContract: args.isUnderContract,
       acquisitionType: args.acquisitionType,
+      strategy: args.strategy,
+      propertyType: args.propertyType,
+      bedrooms: args.bedrooms,
+      bathrooms: args.bathrooms,
+      squareFeetAboveGrade: args.squareFeetAboveGrade,
+      squareFeetBelowGrade: args.squareFeetBelowGrade,
+      unitDetails: args.unitDetails,
+      closeDate: desiredCloseDate,
+      maturityDate: getMaturityDate(desiredCloseDate, loanDefaults.loanTermMonths),
       desiredCloseDate,
       createdBy: profile._id,
     });
@@ -192,22 +225,23 @@ export const submitApplication = mutation({
       });
     }
 
-    const titleCompanyDisplay = titleCompanyName ?? titlePreference;
     const applicationDetails = [
       { label: "Borrower", value: profile.displayName },
       { label: "Property address", value: propertyAddress },
       { label: "Purchase price", value: formatCurrencyPlain(args.purchasePrice) },
       { label: "Rehab amount", value: formatCurrencyPlain(args.rehabBudgetTotal ?? 0) },
-      { label: "ARV", value: optionalCurrency(args.afterRepairValue) },
+      { label: "ARV", value: formatCurrencyPlain(args.afterRepairValue) },
       { label: "Total loan amount", value: formatCurrencyPlain(totalLoanAmount) },
+      { label: "Strategy", value: STRATEGY_LABELS[args.strategy] },
+      { label: "Property type", value: PROPERTY_TYPE_LABELS[args.propertyType] },
       { label: "Desired close date", value: optionalDetail(desiredCloseDate) },
-      { label: "Title company", value: optionalDetail(titleCompanyDisplay) },
+      { label: "Title company", value: titleCompanyName },
     ];
 
     const teamProfileEmails = await notifyTeam(ctx, {
       type: "application_submitted",
       title: "New Loan Application",
-      body: `${profile.displayName} submitted a loan application for ${propertyAddress}. Purchase price: ${formatCurrencyPlain(args.purchasePrice)}. Rehab: ${formatCurrencyPlain(args.rehabBudgetTotal ?? 0)}. ARV: ${optionalCurrency(args.afterRepairValue)}. Desired close: ${optionalDetail(desiredCloseDate)}. Title company: ${optionalDetail(titleCompanyDisplay)}.`,
+      body: `${profile.displayName} submitted a loan application for ${propertyAddress}. Purchase price: ${formatCurrencyPlain(args.purchasePrice)}. Rehab: ${formatCurrencyPlain(args.rehabBudgetTotal ?? 0)}. ARV: ${formatCurrencyPlain(args.afterRepairValue)}. Desired close: ${desiredCloseDate}. Title company: ${titleCompanyName}.`,
       loanId: id,
       details: applicationDetails,
       actionPath: `/dashboard/admin/loans/${id}`,
@@ -234,7 +268,7 @@ export const submitApplication = mutation({
       rehabBudgetTotal: args.rehabBudgetTotal ?? 0,
       afterRepairValue: args.afterRepairValue,
       desiredCloseDate,
-      titleCompany: titleCompanyDisplay,
+      titleCompany: titleCompanyName,
       loanAmount: totalLoanAmount,
       loanId: id,
       excludeEmails: teamProfileEmails,
