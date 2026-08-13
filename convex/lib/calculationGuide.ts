@@ -195,8 +195,8 @@ export function getCalculationGuide(configuration: AppConfiguration) {
     },
     {
       id: "payoff",
-      title: "Payoff planning estimate",
-      description: "A planning figure shown on loan details. It is not a formal payoff statement.",
+      title: "Dated payoff statements",
+      description: "How the formal payoff amount and downloadable statement are calculated for a selected good-through date.",
       rules: [
         {
           name: "Time used for interest",
@@ -204,19 +204,24 @@ export function getCalculationGuide(configuration: AppConfiguration) {
           detail: "This is the 30/360 method: each month is treated as 30 days and each year as 360 days.",
         },
         {
-          name: "Estimated interest since closing",
-          formula: "Current principal outstanding × monthly interest rate × elapsed months",
-          detail: "This simplified estimate uses today’s principal for the full period. Loans with draws funded after closing may require a manual payoff review.",
+          name: "Interest as principal changes",
+          formula: "Each principal balance × annual rate ÷ 360 × days at that balance",
+          detail: "Interest is calculated in separate periods at every funded draw, so later advances are not treated as outstanding from closing.",
         },
         {
-          name: "Payments included",
-          formula: "Non-missed payments received on or before the estimate date",
-          detail: "Future-dated and missed payments are excluded from the estimate.",
+          name: "Interest credits",
+          formula: "Recorded payments + paid closing interest + waived interest through the good-through date",
+          detail: "Missed and future-dated payments are excluded. Paid charge status is reconciled with logged payments so the same interest is not credited twice.",
         },
         {
-          name: "Estimated payoff amount",
-          formula: "Current principal outstanding + unpaid estimated interest",
-          detail: "The result is rounded to cents. Confirm the exact amount before issuing a payoff statement.",
+          name: "Payoff amount",
+          formula: "Principal outstanding + accrued interest − interest credits",
+          detail: "Unpaid interest cannot fall below $0. The final payoff is rounded to cents.",
+        },
+        {
+          name: "Per diem after the good-through date",
+          formula: "Principal outstanding × annual rate ÷ 100 ÷ 360",
+          detail: "The statement shows the rounded daily interest to add after its good-through date.",
         },
       ],
     },

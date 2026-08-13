@@ -15,8 +15,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
-import { parseUsDate } from "@/lib/dates";
-import { calculatePayoffEstimate } from "@/lib/loan-calc";
 import {
   calculateMonthlyInterest,
   calculateMonthlyPaymentDue,
@@ -29,6 +27,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
+import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
 
 function DetailRow({
   label,
@@ -454,58 +453,11 @@ export default function BorrowerLoanDetailPage() {
         </div>
       )}
 
-      {/* Payoff Estimate */}
-      {["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate && (() => {
-        const asOfDate = new Date();
-        const totalPaymentsReceived = loanPayments
-          ? loanPayments.reduce((sum, payment) => {
-              if (payment.status === "missed") return sum;
-              const paymentDate = parseUsDate(payment.paymentDate);
-              if (!paymentDate || paymentDate > asOfDate) return sum;
-              return sum + payment.amount;
-            }, 0)
-          : 0;
-        const payoff = calculatePayoffEstimate(
-          currentPrincipalOut,
-          loan.interestRate,
-          loan.closeDate,
-          asOfDate,
-          totalPaymentsReceived
-        );
-        if (!payoff) return null;
-        return (
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 flex items-center text-sm font-medium text-muted-foreground">
-              <span>Payoff Estimate</span>
-              <ContextTooltip
-                label="Payoff Estimate"
-                content={FINANCIAL_CONTEXT.payoffEstimate}
-              />
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Principal</p>
-                <p className="text-sm font-semibold">{formatCurrency(payoff.principal)}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
-                <p className="text-sm font-semibold">{formatCurrency(payoff.accruedInterest)}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Total Payoff</p>
-                <p className="text-lg font-bold text-primary">{formatCurrency(payoff.totalPayoff)}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">Months Since Close</p>
-                <p className="text-sm font-semibold">{payoff.monthsAccrued}</p>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              This is an estimate. Contact your loan officer for the exact payoff amount.
-            </p>
-          </div>
-        );
-      })()}
+      {!loan.returnedDate &&
+        ["funded", "sent_to_title", "closed"].includes(loan.status) &&
+        loan.closeDate && (
+          <PayoffStatementPanel loanId={id} maturityDate={loan.maturityDate} />
+        )}
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">

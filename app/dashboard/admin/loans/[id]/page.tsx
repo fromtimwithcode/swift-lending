@@ -30,14 +30,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { formatUsDate, getMaturityDate, parseUsDate } from "@/lib/dates";
-import { calculatePayoffEstimate, calculatePoints } from "@/lib/loan-calc";
+import { calculatePoints } from "@/lib/loan-calc";
 import {
   calculateMonthlyInterest,
   calculateMonthlyPaymentDue,
-  calculateMonthlyPerDiem,
   getEffectivePointsPercentage,
   getCurrentPrincipalOut,
-  getDaysInMonth,
 } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, isDrawEligibleLoan } from "@/convex/lib/constants";
 import {
@@ -62,6 +60,8 @@ import {
   parseLoanPropertyForm,
 } from "@/components/dashboard/loan-property-fields";
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
+import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
+import { usePayoffStatement } from "@/hooks/use-payoff-statement";
 
 const STATUSES = [
   "submitted",
@@ -191,6 +191,12 @@ export default function LoanDetailPage() {
     returnedAmount: "",
     notes: "",
   });
+  const parsedReturnDate = parseUsDate(returnData.returnedDate);
+  const returnPayoff = usePayoffStatement(
+    id,
+    returnData.returnedDate,
+    returnFormOpen && parsedReturnDate !== null
+  );
   const [paymentData, setPaymentData] = useState({
     chargeGroupKey: "",
     chargeId: "",
@@ -231,46 +237,12 @@ export default function LoanDetailPage() {
     annualRate: loan.interestRate,
     paymentType: loan.paymentType,
   });
-  const canEstimatePayoff = Boolean(["funded", "sent_to_title", "closed"].includes(loan.status) && loan.closeDate);
-  const getTotalPaymentsReceivedThrough = (asOfDate: Date) =>
-    (payments ?? []).reduce((sum, payment) => {
-      if (payment.status === "missed") return sum;
-      const paymentDate = parseUsDate(payment.paymentDate);
-      if (!paymentDate || paymentDate > asOfDate) return sum;
-      return sum + payment.amount;
-    }, 0);
-  const getPayoffEstimateForDate = (asOfDate: Date) =>
-    canEstimatePayoff
-      ? calculatePayoffEstimate(
-          currentPrincipalOut,
-          loan.interestRate,
-          loan.closeDate,
-          asOfDate,
-          getTotalPaymentsReceivedThrough(asOfDate)
-        )
-      : null;
-  const payoffEstimate = getPayoffEstimateForDate(new Date());
-  const parsedReturnDate = parseUsDate(returnData.returnedDate);
-  const returnDateForInterest = parsedReturnDate ?? new Date();
-  const selectedReturnPayoffEstimate = parsedReturnDate
-    ? getPayoffEstimateForDate(parsedReturnDate)
-    : null;
-  const selectedReturnPayoffAmount = selectedReturnPayoffEstimate
-    ? String(selectedReturnPayoffEstimate.totalPayoff)
+  const selectedReturnPayoffAmount = returnPayoff.data
+    ? String(returnPayoff.data.totalPayoff)
     : "";
   const effectiveReturnedAmount = returnAmountManuallyEdited
     ? returnData.returnedAmount
     : selectedReturnPayoffAmount;
-  const returnMonthDailyInterest = calculateMonthlyPerDiem(
-    currentPrincipalOut,
-    loan.interestRate,
-    returnDateForInterest
-  );
-  const returnMonthDays = getDaysInMonth(returnDateForInterest);
-  const returnMonthLabel = returnDateForInterest.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
   const returnedAmountValue = Number(effectiveReturnedAmount);
   const canSaveReturn = Boolean(
     returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
@@ -430,33 +402,25 @@ export default function LoanDetailPage() {
 
   const openReturnForm = () => {
     const today = new Date();
-    const todayPayoffEstimate = getPayoffEstimateForDate(today);
     setReturnAmountManuallyEdited(false);
     setReturnData({
       returnedDate: formatUsDate(today),
-      returnedAmount: todayPayoffEstimate ? String(todayPayoffEstimate.totalPayoff) : "",
+      returnedAmount: "",
       notes: "",
     });
     setReturnFormOpen(true);
   };
 
   const handleReturnDateChange = (returnedDate: string) => {
-    const selectedDate = parseUsDate(returnedDate);
-    const estimate = selectedDate ? getPayoffEstimateForDate(selectedDate) : null;
-
     setReturnData((prev) => ({
       ...prev,
       returnedDate,
-      returnedAmount: returnAmountManuallyEdited
-        ? prev.returnedAmount
-        : estimate
-          ? String(estimate.totalPayoff)
-          : "",
+      returnedAmount: returnAmountManuallyEdited ? prev.returnedAmount : "",
     }));
   };
 
   const applySelectedReturnPayoffEstimate = () => {
-    if (!selectedReturnPayoffEstimate) return;
+    if (!returnPayoff.data) return;
     setReturnAmountManuallyEdited(false);
     setReturnData((prev) => ({
       ...prev,
@@ -1594,50 +1558,11 @@ export default function LoanDetailPage() {
         )}
       </div>
 
-      {/* Payoff Estimate */}
-      {payoffEstimate && (
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 flex items-center text-sm font-medium text-muted-foreground">
-            <span>Payoff Estimate</span>
-            <ContextTooltip
-              label="Payoff Estimate"
-              content={FINANCIAL_CONTEXT.payoffEstimate}
-            />
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Principal Out</p>
-              <p className="text-sm font-semibold tabular-nums">{formatCurrency(payoffEstimate.principal)}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Accrued / Unpaid Interest</p>
-              <p className="text-sm font-semibold tabular-nums">{formatCurrency(payoffEstimate.accruedInterest)}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Total Payoff</p>
-              <p className="text-lg font-bold text-primary tabular-nums">{formatCurrency(payoffEstimate.totalPayoff)}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Months Since Close</p>
-              <p className="text-sm font-semibold tabular-nums">{payoffEstimate.monthsAccrued}</p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold">Daily Interest for {returnMonthLabel}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Based on {formatCurrency(currentPrincipalOut)} principal out at {loan.interestRate}% over {returnMonthDays} days.
-                </p>
-              </div>
-              <div className="text-left sm:text-right">
-                <p className="text-2xl font-bold tabular-nums text-primary">{formatCurrency(returnMonthDailyInterest)}</p>
-                <p className="text-xs text-muted-foreground">per day</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {!loan.returnedDate &&
+        ["funded", "sent_to_title", "closed"].includes(loan.status) &&
+        loan.closeDate && (
+          <PayoffStatementPanel loanId={id} maturityDate={loan.maturityDate} />
+        )}
 
       {/* Property Comps */}
       <PropertyComps loanId={id} />
@@ -1973,8 +1898,9 @@ export default function LoanDetailPage() {
             </p>
             <div className="mt-5 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-muted-foreground">Return Date</label>
+                <label htmlFor="return-date" className="mb-1 block text-sm font-medium text-muted-foreground">Return Date</label>
                 <DatePickerField
+                  id="return-date"
                   value={returnData.returnedDate}
                   onChange={handleReturnDateChange}
                   required
@@ -1982,12 +1908,12 @@ export default function LoanDetailPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-muted-foreground">Amount Returned</label>
+                <label htmlFor="returned-amount" className="mb-1 block text-sm font-medium text-muted-foreground">Amount Returned</label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  id="returned-amount"
+                  type="text"
                   inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]{0,2}"
                   value={effectiveReturnedAmount}
                   onChange={(event) => {
                     setReturnAmountManuallyEdited(true);
@@ -1995,12 +1921,30 @@ export default function LoanDetailPage() {
                   }}
                   className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   placeholder="0.00"
+                  autoComplete="off"
                   required
                 />
-                {selectedReturnPayoffEstimate && (
+                {returnPayoff.isLoading && !returnAmountManuallyEdited && (
+                  <p className="mt-1 text-xs text-muted-foreground" aria-live="polite">
+                    Calculating payoff for the selected date...
+                  </p>
+                )}
+                {returnPayoff.error && !returnAmountManuallyEdited && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" role="alert">
+                    <p className="text-destructive">{returnPayoff.error}</p>
+                    <button
+                      type="button"
+                      onClick={returnPayoff.retry}
+                      className="min-h-10 rounded-lg px-2 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {returnPayoff.data && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <p>
-                      Estimated payoff for selected date: <span className="tabular-nums">{formatCurrency(selectedReturnPayoffEstimate.totalPayoff)}</span>
+                      Calculated payoff for selected date: <span className="tabular-nums">{formatCurrency(returnPayoff.data.totalPayoff)}</span>
                     </p>
                     {returnAmountManuallyEdited && (
                       <button
@@ -2008,7 +1952,7 @@ export default function LoanDetailPage() {
                         onClick={applySelectedReturnPayoffEstimate}
                         className="font-medium text-primary underline-offset-4 hover:underline"
                       >
-                        Use estimate
+                        Use calculated payoff
                       </button>
                     )}
                   </div>
@@ -2016,16 +1960,19 @@ export default function LoanDetailPage() {
               </div>
               <div className="rounded-lg bg-muted/40 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-muted-foreground">Daily interest for {returnMonthLabel}</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatCurrency(returnMonthDailyInterest)}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Per diem after the return date</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {returnPayoff.data ? formatCurrency(returnPayoff.data.perDiemInterest) : "—"}
+                  </p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {formatCurrency(currentMonthlyPayment)} monthly interest divided by {returnMonthDays} days.
+                  Uses the same 30/360 calculation as the formal payoff statement.
                 </p>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-muted-foreground">Notes</label>
+                <label htmlFor="return-notes" className="mb-1 block text-sm font-medium text-muted-foreground">Notes</label>
                 <textarea
+                  id="return-notes"
                   value={returnData.notes}
                   onChange={(event) => setReturnData((prev) => ({ ...prev, notes: event.target.value }))}
                   rows={3}

@@ -33,6 +33,7 @@ import type * as lib_drawDates from "../lib/drawDates.js";
 import type * as lib_financialRules from "../lib/financialRules.js";
 import type * as lib_loanCalculations from "../lib/loanCalculations.js";
 import type * as lib_notifications from "../lib/notifications.js";
+import type * as lib_payoffCalculations from "../lib/payoffCalculations.js";
 import type * as lib_propertyDetails from "../lib/propertyDetails.js";
 import type * as lib_propertyValidators from "../lib/propertyValidators.js";
 import type * as lib_sensitiveData from "../lib/sensitiveData.js";
@@ -42,6 +43,7 @@ import type * as loanPayments from "../loanPayments.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
+import type * as payoffs from "../payoffs.js";
 import type * as settings from "../settings.js";
 import type * as users from "../users.js";
 
@@ -77,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/financialRules": typeof lib_financialRules;
   "lib/loanCalculations": typeof lib_loanCalculations;
   "lib/notifications": typeof lib_notifications;
+  "lib/payoffCalculations": typeof lib_payoffCalculations;
   "lib/propertyDetails": typeof lib_propertyDetails;
   "lib/propertyValidators": typeof lib_propertyValidators;
   "lib/sensitiveData": typeof lib_sensitiveData;
@@ -86,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   migrations: typeof migrations;
   notifications: typeof notifications;
+  payoffs: typeof payoffs;
   settings: typeof settings;
   users: typeof users;
 }>;
