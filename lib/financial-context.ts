@@ -9,8 +9,6 @@ export const FINANCIAL_CONTEXT = {
     "Estimated interest accruing for the next full month using today’s principal and saved annual rate. It is collected at payoff, not as a monthly payment.",
   chargeSchedule:
     "A billed monthly-interest charge uses principal outstanding on the first day of its billed month. Draw proration includes the funded draw’s wire date through month-end; charges sharing a due date combine into one payment.",
-  payoffEstimate:
-    "Planning estimate: today’s principal plus 30/360 accrued interest, less logged payments. Because today’s principal is applied across the elapsed period, loans with later draws need an exact payoff review.",
   totalInterestEarned:
     "The recorded lifetime interest received for this loan. This value is included in closed-loan revenue reporting.",
   capitalOut:
