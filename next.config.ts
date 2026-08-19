@@ -5,7 +5,7 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  "img-src 'self' blob: data: https://api.swiftcapitallenders.com https://*.convex.cloud",
   "font-src 'self' data:",
   `connect-src 'self' https://api.swiftcapitallenders.com wss://api.swiftcapitallenders.com https://*.convex.cloud wss://*.convex.cloud https://*.convex.site wss://*.convex.site${isDevelopment ? " http: ws:" : ""}`,
   "media-src 'self' https://mach1lending.com",
