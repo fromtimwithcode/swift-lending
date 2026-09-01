@@ -172,7 +172,7 @@ describe("dated payoff calculation", () => {
         charges: [],
         goodThroughDate: "02/01/2026",
       })
-    ).toThrow("Funded draw records do not match the loan balance");
+    ).toThrow("Funding history needs reconciliation");
   });
 });
 

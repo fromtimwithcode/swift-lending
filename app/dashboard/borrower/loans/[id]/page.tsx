@@ -28,6 +28,7 @@ import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
+import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 function DetailRow({
   label,
@@ -101,12 +102,20 @@ export default function BorrowerLoanDetailPage() {
     annualRate: loan.interestRate,
     paymentType: loan.paymentType,
   });
+  const fundingLedgerStatus = draws === undefined
+    ? undefined
+    : getFundingLedgerStatus({
+        savedDrawFundsUsed: loan.drawFundsUsed,
+        draws,
+      });
+  const drawRequestsAvailable = fundingLedgerStatus?.isReconciled === true;
   const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && draws === undefined;
   const pendingDrawTotal = (draws ?? [])
     .filter((draw) => draw.status === "pending" || draw.status === "under_review")
     .reduce((sum, draw) => sum + draw.amountRequested, 0);
   const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
-    ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingDrawTotal
+    && fundingLedgerStatus?.isReconciled
+    ? loan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingDrawTotal
     : undefined;
   const openDrawUpload = (draw: DrawFolderDraw) => setUploadDrawId(draw._id);
 
@@ -307,7 +316,7 @@ export default function BorrowerLoanDetailPage() {
             <h3 className="text-sm font-medium text-muted-foreground">
               Draw Funds
             </h3>
-            {isDrawEligibleLoan(loan) && (
+            {isDrawEligibleLoan(loan) && drawRequestsAvailable && (
               <button
                 type="button"
                 onClick={() => setDrawFormOpen((open) => !open)}
@@ -355,6 +364,11 @@ export default function BorrowerLoanDetailPage() {
               <DetailRow label="Available" value="Loading..." />
             ) : (
               <DetailRow label="Available" value={undefined} />
+            )}
+            {fundingLedgerStatus?.isReconciled === false && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 text-pretty dark:text-amber-200">
+                Draw requests are temporarily unavailable. Contact your lending team.
+              </p>
             )}
           </div>
           {drawFormOpen && (

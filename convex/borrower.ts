@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
@@ -15,6 +16,7 @@ import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
 } from "./lib/propertyValidators";
+import { getFundingLedgerStatus } from "./lib/fundingLedger";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -345,16 +347,28 @@ export const submitDrawRequest = mutation({
     const trimmedDescription = args.workDescription.trim();
     if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
 
-    // Validate amount against available funds (total - used - pending)
+    const existingDraws: Doc<"drawRequests">[] = [];
+    for await (const draw of ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))) {
+      existingDraws.push(draw);
+    }
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws: existingDraws,
+    });
+    if (!ledgerStatus.isReconciled) {
+      throw new ConvexError(
+        "Draw requests are temporarily unavailable. Contact your lending team."
+      );
+    }
+
+    // Validate amount against available funds (total - used - pending).
     if (loan.drawFundsTotal !== undefined) {
-      const existingDraws = await ctx.db
-        .query("drawRequests")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-        .collect();
       const pendingTotal = existingDraws
         .filter((d) => d.status === "pending" || d.status === "under_review")
         .reduce((sum, d) => sum + d.amountRequested, 0);
-      const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal;
+      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - pendingTotal;
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(available)}`
@@ -368,6 +382,7 @@ export const submitDrawRequest = mutation({
       amountRequested: args.amountRequested,
       workDescription: trimmedDescription,
       status: "pending",
+      source: "request",
     });
 
     await notifyTeam(ctx, {

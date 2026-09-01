@@ -1,5 +1,6 @@
 import { internalMutation, internalQuery } from "./_generated/server";
-import { v } from "convex/values";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
   DEFAULT_LOAN_TERM_MONTHS,
@@ -7,7 +8,7 @@ import {
   PAYMENT_MATCH_TOLERANCE,
   roundCents,
 } from "./lib/financialRules";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   calculateMonthlyPaymentDue,
   getCurrentPrincipalOut,
@@ -16,8 +17,13 @@ import {
 import { DEFAULT_PAYMENT_DUE_DAY } from "./lib/constants";
 import { APP_CONFIGURATION_SCOPE } from "./lib/appConfiguration";
 import { getAppConfigurationState } from "./lib/settings";
+import { getFundingLedgerStatus } from "./lib/fundingLedger";
+import { validateDrawWireDateForLoan } from "./lib/drawDates";
+import { parseUsDate } from "./lib/dates";
+import { isAdminLike } from "./lib/auth";
 
 const BATCH_SIZE = 100;
+const MAX_RECONCILIATION_ENTRIES = 50;
 
 type LoanChargeDoc = Doc<"loanCharges">;
 type LoanPaymentDoc = Doc<"loanPayments">;
@@ -111,6 +117,19 @@ function getFullyFundedCombinedInterestGroups(
 
     return [{ dueDate, scheduledCharges, totalAmount, paidAmount }];
   });
+}
+
+async function getLoanDraws(
+  ctx: Pick<MutationCtx | QueryCtx, "db">,
+  loanId: Id<"loans">
+) {
+  const draws: Doc<"drawRequests">[] = [];
+  for await (const draw of ctx.db
+    .query("drawRequests")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))) {
+    draws.push(draw);
+  }
+  return draws;
 }
 
 /**
@@ -216,6 +235,182 @@ export const auditLoanConfigurationSnapshots = internalQuery({
       incompleteLoanIds,
       isDone: results.isDone,
       continueCursor: results.isDone ? null : results.continueCursor,
+    };
+  },
+});
+
+/**
+ * Find loans whose cached funded total or approved-draw dates disagree with
+ * the authoritative funding ledger. Paginate until isDone is true.
+ */
+export const auditFundingLedgers = internalQuery({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("loans")
+      .paginate({ numItems: BATCH_SIZE, cursor: args.cursor ?? null });
+    const discrepancies = [];
+
+    for (const loan of results.page) {
+      const draws = await getLoanDraws(ctx, loan._id);
+      const status = getFundingLedgerStatus({
+        savedDrawFundsUsed: loan.drawFundsUsed,
+        draws,
+      });
+      if (status.isReconciled) continue;
+
+      discrepancies.push({
+        loanId: loan._id,
+        savedTotal: status.savedTotal,
+        recordedTotal: status.recordedTotal,
+        difference: status.difference,
+        undatedApprovedDrawIds: draws
+          .filter(
+            (draw) =>
+              draw.status === "approved" &&
+              (!draw.wireDate || !parseUsDate(draw.wireDate))
+          )
+          .map((draw) => draw._id),
+      });
+    }
+
+    return {
+      discrepancies,
+      isDone: results.isDone,
+      continueCursor: results.isDone ? null : results.continueCursor,
+    };
+  },
+});
+
+/**
+ * Add dated historical funding entries when the saved total is greater than
+ * the recorded ledger total. Run with dryRun first and use verified wire dates.
+ */
+export const reconcileFundingLedger = internalMutation({
+  args: {
+    loanId: v.id("loans"),
+    verifiedBy: v.id("userProfiles"),
+    reason: v.string(),
+    entries: v.array(v.object({
+      amount: v.number(),
+      wireDate: v.string(),
+      description: v.optional(v.string()),
+    })),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new ConvexError("Loan not found");
+    const verifier = await ctx.db.get(args.verifiedBy);
+    if (!verifier || !verifier.isActive || !isAdminLike(verifier.role)) {
+      throw new ConvexError("An active administrator must verify the reconciliation");
+    }
+    const reason = args.reason.trim();
+    if (!reason) throw new ConvexError("Reconciliation reason is required");
+    if (
+      args.entries.length === 0 ||
+      args.entries.length > MAX_RECONCILIATION_ENTRIES
+    ) {
+      throw new ConvexError(
+        `Provide between 1 and ${MAX_RECONCILIATION_ENTRIES} funding entries`
+      );
+    }
+
+    const draws = await getLoanDraws(ctx, loan._id);
+    const before = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws,
+    });
+    if (before.isReconciled) {
+      return { dryRun: args.dryRun ?? false, alreadyReconciled: true, ...before };
+    }
+    if (before.undatedApprovedCount > 0) {
+      throw new ConvexError(
+        "Set valid wire dates on existing approved draws before adding reconciliation entries"
+      );
+    }
+    if (before.difference <= 0.01) {
+      throw new ConvexError(
+        "Approved draw records are not below the saved funded total; review the audit before changing data"
+      );
+    }
+
+    const entries = args.entries.map((entry) => {
+      if (!Number.isFinite(entry.amount) || entry.amount <= 0) {
+        throw new ConvexError("Each reconciliation amount must be greater than 0");
+      }
+      validateDrawWireDateForLoan(loan, entry.wireDate);
+      return {
+        amount: roundCents(entry.amount),
+        wireDate: entry.wireDate,
+        description: entry.description?.trim() || "Historical funding reconciliation.",
+      };
+    });
+    const entryTotal = roundCents(
+      entries.reduce((total, entry) => total + entry.amount, 0)
+    );
+    if (Math.abs(entryTotal - before.difference) > 0.01) {
+      throw new ConvexError(
+        `Reconciliation entries must total ${before.difference.toFixed(2)}`
+      );
+    }
+    const reconciledTotal = roundCents(before.recordedTotal + entryTotal);
+    if (
+      loan.drawFundsTotal !== undefined &&
+      reconciledTotal > loan.drawFundsTotal + 0.01
+    ) {
+      throw new ConvexError("Reconciled funding would exceed the construction holdback");
+    }
+
+    if (!args.dryRun) {
+      const now = Date.now();
+      for (const entry of entries) {
+        await ctx.db.insert("drawRequests", {
+          loanId: loan._id,
+          borrowerId: loan.borrowerId,
+          amountRequested: entry.amount,
+          workDescription: entry.description,
+          status: "approved",
+          reviewedBy: verifier._id,
+          reviewedAt: now,
+          wireDate: entry.wireDate,
+          source: "reconciliation",
+        });
+      }
+      await ctx.db.patch(loan._id, {
+        drawFundsUsed: reconciledTotal,
+        monthlyPayment: calculateMonthlyPaymentDue({
+          principalOut: getCurrentPrincipalOut({
+            ...loan,
+            drawFundsUsed: reconciledTotal,
+          }),
+          annualRate: loan.interestRate,
+          paymentType: loan.paymentType,
+        }),
+      });
+      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+        loanId: loan._id,
+        createdBy: verifier._id,
+      });
+      await ctx.runMutation(internal.activityLog.log, {
+        userId: verifier._id,
+        userName: verifier.displayName,
+        action: "loan.reconcileFundingLedger",
+        entityType: "loan",
+        entityId: loan._id,
+        details: `Added ${entries.length} verified funding entries totaling ${entryTotal.toFixed(2)}`,
+        metadata: JSON.stringify({ reason, entries }),
+      });
+    }
+
+    return {
+      dryRun: args.dryRun ?? false,
+      alreadyReconciled: false,
+      entries: entries.length,
+      entryTotal,
+      savedTotal: before.savedTotal,
+      recordedTotalBefore: before.recordedTotal,
+      recordedTotalAfter: reconciledTotal,
     };
   },
 });

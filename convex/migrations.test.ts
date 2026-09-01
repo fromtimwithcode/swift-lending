@@ -103,6 +103,102 @@ describe("loan configuration snapshot migration", () => {
   });
 });
 
+describe("funding ledger reconciliation", () => {
+  test("audits, dry-runs, applies, and idempotently verifies dated funding", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: "ledger-admin@example.com" });
+      const adminId = await ctx.db.insert("userProfiles", {
+        authUserId: userId,
+        role: "admin",
+        displayName: "Ledger Admin",
+        email: "ledger-admin@example.com",
+        isActive: true,
+      });
+      const borrowerId = await ctx.db.insert("userProfiles", {
+        role: "borrower",
+        displayName: "Ledger Borrower",
+        email: "ledger-borrower@example.com",
+        isActive: true,
+      });
+      const loanId = await ctx.db.insert("loans", {
+        borrowerId,
+        borrowerName: "Ledger Borrower",
+        entityName: "Ledger LLC",
+        propertyAddress: "30 Ledger Ave, Dallas, TX",
+        purchasePrice: 150_000,
+        loanAmount: 200_000,
+        closeDate: "01/15/2026",
+        maturityDate: "12/31/2026",
+        terms: "Ledger terms",
+        interestRate: 12,
+        monthlyPayment: 1_700,
+        pointsEarned: 6_000,
+        drawFundsTotal: 50_000,
+        drawFundsUsed: 20_000,
+        status: "funded",
+        createdBy: adminId,
+      });
+      await ctx.db.insert("drawRequests", {
+        loanId,
+        borrowerId,
+        amountRequested: 5_000,
+        workDescription: "Recorded funding",
+        status: "approved",
+        wireDate: "02/01/2026",
+        source: "request",
+      });
+      return { userId, adminId, loanId };
+    });
+
+    const auditBefore = await t.query(internal.migrations.auditFundingLedgers, {});
+    expect(auditBefore.discrepancies).toMatchObject([
+      {
+        loanId: fixture.loanId,
+        savedTotal: 20_000,
+        recordedTotal: 5_000,
+        difference: 15_000,
+      },
+    ]);
+
+    const args = {
+      loanId: fixture.loanId,
+      verifiedBy: fixture.adminId,
+      reason: "Verified against wire confirmations",
+      entries: [{ amount: 15_000, wireDate: "02/15/2026" }],
+    };
+    await expect(
+      t.mutation(internal.migrations.reconcileFundingLedger, {
+        ...args,
+        dryRun: true,
+      })
+    ).resolves.toMatchObject({ dryRun: true, entryTotal: 15_000 });
+    expect(
+      await t.run(async (ctx) =>
+        (await ctx.db
+          .query("drawRequests")
+          .withIndex("by_loanId", (q) => q.eq("loanId", fixture.loanId))
+          .collect()).length
+      )
+    ).toBe(1);
+
+    await t.mutation(internal.migrations.reconcileFundingLedger, args);
+    await expect(
+      t.mutation(internal.migrations.reconcileFundingLedger, args)
+    ).resolves.toMatchObject({ alreadyReconciled: true });
+
+    const auditAfter = await t.query(internal.migrations.auditFundingLedgers, {});
+    expect(auditAfter.discrepancies).toHaveLength(0);
+    const statement = await t
+      .withIdentity({ subject: fixture.userId })
+      .query(api.payoffs.getPayoffStatement, {
+        loanId: fixture.loanId,
+        goodThroughDate: "10/01/2026",
+      });
+    expect(statement.principal).toBe(170_000);
+  });
+});
+
 describe("combined interest charge reconciliation", () => {
   test("dry-runs and idempotently closes only fully funded charge groups", async () => {
     const t = convexTest(schema, modules);

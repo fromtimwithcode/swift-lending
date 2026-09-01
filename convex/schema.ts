@@ -225,6 +225,11 @@ const schema = defineSchema({
     reviewedBy: v.optional(v.id("userProfiles")),
     reviewedAt: v.optional(v.number()),
     wireDate: v.optional(v.string()),
+    source: v.optional(v.union(
+      v.literal("request"),
+      v.literal("opening_balance"),
+      v.literal("reconciliation")
+    )),
   })
     .index("by_loanId", ["loanId"])
     .index("by_borrowerId", ["borrowerId"])
