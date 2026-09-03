@@ -1,5 +1,7 @@
 import { ConvexError } from "convex/values";
 
+const BUSINESS_TIME_ZONE = "America/Chicago";
+
 export function parseUsDate(value: string): Date | null {
   const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
@@ -18,6 +20,23 @@ export function parseUsDate(value: string): Date | null {
 
 export function formatUsDate(date: Date) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+export function getBusinessDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+  return new Date(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day)
+  );
 }
 
 export function getMaturityDate(closeDate: string, termMonths: number) {

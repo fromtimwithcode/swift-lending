@@ -255,14 +255,60 @@ describe("payoff statement access", () => {
     const borrowerStatement = await t
       .withIdentity({ subject: fixture.borrowerUserId })
       .query(api.payoffs.getPayoffStatement, args);
+    const adminReadiness = await t
+      .withIdentity({ subject: fixture.adminUserId })
+      .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId });
+    const borrowerReadiness = await t
+      .withIdentity({ subject: fixture.borrowerUserId })
+      .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId });
 
     expect(borrowerStatement).toEqual(adminStatement);
+    expect(adminReadiness).toEqual(borrowerReadiness);
+    expect(adminReadiness).toMatchObject({
+      state: "ready",
+      maxGoodThroughDate: "12/31/2099",
+      statement: {
+        borrowerName: "Payoff Holdings LLC",
+        principal: 100_000,
+        perDiemInterest: 33.33,
+      },
+    });
     expect(adminStatement).toMatchObject({
       borrowerName: "Payoff Holdings LLC",
       propertyAddress: "524 E. Oak St., Juneau, WI 53039",
       principal: 100_000,
       perDiemInterest: 33.33,
       goodThroughDate: "12/31/2099",
+    });
+    await expect(
+      t.withIdentity({ subject: fixture.adminUserId }).query(
+        api.payoffs.getPayoffStatement,
+        { loanId: fixture.loanId, goodThroughDate: "01/01/2100" }
+      )
+    ).rejects.toMatchObject({
+      data: {
+        code: "GOOD_THROUGH_DATE_TOO_LATE",
+        publicMessage: "Good-through date cannot be after 12/31/2099.",
+      },
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(fixture.loanId, { drawFundsUsed: 10_000 });
+    });
+    const adminBlocked = await t
+      .withIdentity({ subject: fixture.adminUserId })
+      .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId });
+    const borrowerBlocked = await t
+      .withIdentity({ subject: fixture.borrowerUserId })
+      .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId });
+
+    expect(adminBlocked).toMatchObject({
+      state: "blocked",
+      reasons: [{ code: "FUNDING_LEDGER_MISMATCH" }],
+    });
+    expect(borrowerBlocked).toMatchObject({
+      state: "blocked",
+      reasons: [{ code: "LENDER_REVIEW_REQUIRED" }],
     });
 
     await expect(
@@ -274,6 +320,16 @@ describe("payoff statement access", () => {
       t
         .withIdentity({ subject: fixture.investorUserId })
         .query(api.payoffs.getPayoffStatement, args)
+    ).rejects.toThrow("Requires one of: admin, borrower");
+    await expect(
+      t
+        .withIdentity({ subject: fixture.otherUserId })
+        .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId })
+    ).rejects.toThrow("Not your loan");
+    await expect(
+      t
+        .withIdentity({ subject: fixture.investorUserId })
+        .query(api.payoffs.getPayoffReadiness, { loanId: fixture.loanId })
     ).rejects.toThrow("Requires one of: admin, borrower");
   });
 });

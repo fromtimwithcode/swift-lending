@@ -35,6 +35,7 @@ import type * as lib_fundingLedger from "../lib/fundingLedger.js";
 import type * as lib_loanCalculations from "../lib/loanCalculations.js";
 import type * as lib_notifications from "../lib/notifications.js";
 import type * as lib_payoffCalculations from "../lib/payoffCalculations.js";
+import type * as lib_payoffReadiness from "../lib/payoffReadiness.js";
 import type * as lib_propertyDetails from "../lib/propertyDetails.js";
 import type * as lib_propertyValidators from "../lib/propertyValidators.js";
 import type * as lib_sensitiveData from "../lib/sensitiveData.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "lib/loanCalculations": typeof lib_loanCalculations;
   "lib/notifications": typeof lib_notifications;
   "lib/payoffCalculations": typeof lib_payoffCalculations;
+  "lib/payoffReadiness": typeof lib_payoffReadiness;
   "lib/propertyDetails": typeof lib_propertyDetails;
   "lib/propertyValidators": typeof lib_propertyValidators;
   "lib/sensitiveData": typeof lib_sensitiveData;
