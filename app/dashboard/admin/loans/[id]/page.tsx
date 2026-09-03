@@ -1608,11 +1608,7 @@ export default function LoanDetailPage() {
         )}
       </div>
 
-      {!loan.returnedDate &&
-        ["funded", "sent_to_title", "closed"].includes(loan.status) &&
-        loan.closeDate && (
-          <PayoffStatementPanel loanId={id} maturityDate={loan.maturityDate} />
-        )}
+      <PayoffStatementPanel loanId={id} />
 
       {/* Property Comps */}
       <PropertyComps loanId={id} />

@@ -467,11 +467,7 @@ export default function BorrowerLoanDetailPage() {
         </div>
       )}
 
-      {!loan.returnedDate &&
-        ["funded", "sent_to_title", "closed"].includes(loan.status) &&
-        loan.closeDate && (
-          <PayoffStatementPanel loanId={id} maturityDate={loan.maturityDate} />
-        )}
+      <PayoffStatementPanel loanId={id} />
 
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">

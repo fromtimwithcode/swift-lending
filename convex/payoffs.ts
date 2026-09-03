@@ -1,11 +1,113 @@
 import { ConvexError, v } from "convex/values";
-import { query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { query, type QueryCtx } from "./_generated/server";
 import { requireAnyRole } from "./lib/auth";
-import { formatUsDate, parseUsDate, validateUsDate } from "./lib/dates";
+import { getBusinessDate, parseUsDate } from "./lib/dates";
 import { calculateDatedPayoff } from "./lib/payoffCalculations";
-import { isFundedLoanStatus } from "./lib/constants";
+import {
+  evaluatePayoffReadiness,
+  getPayoffCalculationBlocked,
+  MAX_PAYOFF_LEDGER_ITEMS,
+} from "./lib/payoffReadiness";
 
-const MAX_LEDGER_ITEMS = 1_000;
+async function getPayoffContext(ctx: QueryCtx, loanId: Id<"loans">) {
+  const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
+  const loan = await ctx.db.get(loanId);
+  if (!loan) throw new ConvexError("Loan not found");
+  if (profile.role === "borrower" && loan.borrowerId !== profile._id) {
+    throw new ConvexError("Not your loan");
+  }
+
+  const [draws, payments, charges] = await Promise.all([
+    ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+      .take(MAX_PAYOFF_LEDGER_ITEMS + 1),
+    ctx.db
+      .query("loanPayments")
+      .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+      .take(MAX_PAYOFF_LEDGER_ITEMS + 1),
+    ctx.db
+      .query("loanCharges")
+      .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+      .take(MAX_PAYOFF_LEDGER_ITEMS + 1),
+  ]);
+
+  const audience: "admin" | "borrower" =
+    profile.role === "borrower" ? "borrower" : "admin";
+  const readiness = evaluatePayoffReadiness({
+    loan,
+    draws,
+    payments,
+    charges,
+    issueDate: getBusinessDate(),
+    audience,
+  });
+
+  return { loan, draws, payments, charges, readiness, audience };
+}
+
+function publicError(code: string, publicMessage: string) {
+  return new ConvexError({ code, publicMessage });
+}
+
+function buildPayoffStatement(
+  context: Awaited<ReturnType<typeof getPayoffContext>>,
+  goodThroughDate: string
+) {
+  if (context.readiness.state !== "ready") {
+    throw new Error("Payoff is not ready");
+  }
+
+  const payoff = calculateDatedPayoff({
+    loan: context.loan,
+    draws: context.draws,
+    payments: context.payments,
+    charges: context.charges,
+    goodThroughDate,
+  });
+  if (
+    !Number.isFinite(payoff.totalPayoff) ||
+    payoff.principal <= 0 ||
+    payoff.principal > context.loan.loanAmount + 0.01
+  ) {
+    throw new Error("Loan principal balance is invalid");
+  }
+
+  return {
+    issuedDate: context.readiness.issuedDate,
+    goodThroughDate,
+    borrowerName:
+      context.loan.entityName.trim() || context.loan.borrowerName,
+    propertyAddress: context.loan.propertyAddress,
+    ...payoff,
+  };
+}
+
+export const getPayoffReadiness = query({
+  args: {
+    loanId: v.id("loans"),
+  },
+  handler: async (ctx, args) => {
+    const context = await getPayoffContext(ctx, args.loanId);
+    if (context.readiness.state !== "ready") return context.readiness;
+
+    try {
+      return {
+        ...context.readiness,
+        statement: buildPayoffStatement(
+          context,
+          context.readiness.defaultGoodThroughDate
+        ),
+      };
+    } catch {
+      return getPayoffCalculationBlocked(
+        context.readiness.issuedDate,
+        context.audience
+      );
+    }
+  },
+});
 
 export const getPayoffStatement = query({
   args: {
@@ -13,89 +115,59 @@ export const getPayoffStatement = query({
     goodThroughDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
-    const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new ConvexError("Loan not found");
-    if (profile.role === "borrower" && loan.borrowerId !== profile._id) {
-      throw new ConvexError("Not your loan");
-    }
-    if (!isFundedLoanStatus(loan.status) || !loan.closeDate) {
-      throw new ConvexError("A payoff is only available after the loan is funded");
-    }
-    if (loan.returnedDate) {
-      throw new ConvexError("This loan has already been paid off");
-    }
-    if (loan.loanAmount <= 0 || loan.interestRate <= 0) {
-      throw new ConvexError("Loan financial terms are incomplete");
-    }
-
-    const goodThroughDate = validateUsDate(
-      args.goodThroughDate,
-      "Good-through date",
-      { allowFuture: true }
-    );
-    const issueDate = new Date();
-    issueDate.setHours(0, 0, 0, 0);
-    if (goodThroughDate < issueDate) {
-      throw new ConvexError("Good-through date cannot be before today");
+    const { loan, draws, payments, charges, readiness, audience } =
+      await getPayoffContext(ctx, args.loanId);
+    if (readiness.state !== "ready") {
+      const reason =
+        readiness.state === "completed"
+          ? {
+              code: "PAYOFF_COMPLETED",
+              message: `This loan was paid off on ${readiness.returnedDate}.`,
+            }
+          : {
+              code: readiness.reasons[0]?.code ?? "PAYOFF_BLOCKED",
+              message:
+                readiness.reasons[0]?.message ??
+                "This payoff is not currently available.",
+            };
+      throw publicError(reason.code, reason.message);
     }
 
-    const closeDate = parseUsDate(loan.closeDate);
-    if (!closeDate) throw new ConvexError("Loan close date is invalid");
-    if (goodThroughDate < closeDate) {
-      throw new ConvexError("Good-through date cannot be before the close date");
-    }
-
-    if (loan.maturityDate) {
-      const maturityDate = parseUsDate(loan.maturityDate);
-      if (!maturityDate) throw new ConvexError("Loan maturity date is invalid");
-      if (goodThroughDate > maturityDate) {
-        throw new ConvexError("Good-through date cannot be after the maturity date");
-      }
-    }
-
-    const [draws, payments, charges] = await Promise.all([
-      ctx.db
-        .query("drawRequests")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-        .take(MAX_LEDGER_ITEMS + 1),
-      ctx.db
-        .query("loanPayments")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-        .take(MAX_LEDGER_ITEMS + 1),
-      ctx.db
-        .query("loanCharges")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-        .take(MAX_LEDGER_ITEMS + 1),
-    ]);
-    if ([draws, payments, charges].some((rows) => rows.length > MAX_LEDGER_ITEMS)) {
-      throw new ConvexError("This loan has too much ledger activity to calculate safely");
-    }
-
-    let payoff;
-    try {
-      payoff = calculateDatedPayoff({
-        loan,
-        draws,
-        payments,
-        charges,
-        goodThroughDate: args.goodThroughDate,
-      });
-      if (payoff.principal <= 0 || payoff.principal > loan.loanAmount + 0.01) {
-        throw new Error("Loan principal balance is invalid");
-      }
-    } catch (error) {
-      throw new ConvexError(
-        error instanceof Error ? error.message : "Unable to calculate payoff"
+    const goodThroughDate = parseUsDate(args.goodThroughDate);
+    if (!goodThroughDate) {
+      throw publicError(
+        "INVALID_GOOD_THROUGH_DATE",
+        "Enter a valid good-through date in MM/DD/YYYY format."
       );
     }
 
-    return {
-      issuedDate: formatUsDate(issueDate),
-      goodThroughDate: args.goodThroughDate,
-      borrowerName: loan.entityName.trim() || loan.borrowerName,
-      propertyAddress: loan.propertyAddress,
-      ...payoff,
-    };
+    const minDate = parseUsDate(readiness.minGoodThroughDate);
+    const maxDate = readiness.maxGoodThroughDate
+      ? parseUsDate(readiness.maxGoodThroughDate)
+      : null;
+    if (!minDate || goodThroughDate < minDate) {
+      throw publicError(
+        "GOOD_THROUGH_DATE_TOO_EARLY",
+        `Good-through date must be ${readiness.minGoodThroughDate} or later.`
+      );
+    }
+    if (maxDate && goodThroughDate > maxDate) {
+      throw publicError(
+        "GOOD_THROUGH_DATE_TOO_LATE",
+        `Good-through date cannot be after ${readiness.maxGoodThroughDate}.`
+      );
+    }
+
+    try {
+      return buildPayoffStatement(
+        { loan, draws, payments, charges, readiness, audience },
+        args.goodThroughDate
+      );
+    } catch {
+      throw publicError(
+        "PAYOFF_CALCULATION_FAILED",
+        "Unable to calculate this payoff. Review the loan financial history and try again."
+      );
+    }
   },
 });
