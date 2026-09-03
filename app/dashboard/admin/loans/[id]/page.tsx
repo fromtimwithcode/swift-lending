@@ -23,6 +23,7 @@ import {
   Plus,
   RotateCcw,
   Mail,
+  AlertTriangle,
 } from "lucide-react";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
@@ -62,6 +63,7 @@ import {
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
 import { usePayoffStatement } from "@/hooks/use-payoff-statement";
+import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 const STATUSES = [
   "submitted",
@@ -226,6 +228,13 @@ export default function LoanDetailPage() {
   }
 
   const selectedBorrower = borrowers?.find((b) => b._id === loan.borrowerId);
+  const fundingLedgerStatus = drawRequests === undefined
+    ? undefined
+    : getFundingLedgerStatus({
+        savedDrawFundsUsed: loan.drawFundsUsed,
+        draws: drawRequests,
+      });
+  const fundingNeedsReconciliation = fundingLedgerStatus?.isReconciled === false;
   const loanPointsPercentage =
     loan.pointsPercentage ?? getEffectivePointsPercentage(loan);
   const loanTermMonths = loan.loanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
@@ -248,13 +257,15 @@ export default function LoanDetailPage() {
     returnData.returnedDate && Number.isFinite(returnedAmountValue) && returnedAmountValue > 0
   );
   const canRecordReturned = !loan.returnedDate && ["funded", "sent_to_title", "closed"].includes(loan.status);
-  const canAddDrawRequest = isDrawEligibleLoan(loan);
+  const canAddDrawRequest =
+    isDrawEligibleLoan(loan) && fundingLedgerStatus?.isReconciled === true;
   const drawAvailabilityLoading = loan.drawFundsTotal !== undefined && drawRequests === undefined;
   const pendingDrawTotal = loanDraws
     .filter((draw) => draw.status === "pending" || draw.status === "under_review")
     .reduce((sum, draw) => sum + draw.amountRequested, 0);
   const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
-    ? loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingDrawTotal
+    && fundingLedgerStatus?.isReconciled
+    ? loan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingDrawTotal
     : undefined;
   const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
   const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);
@@ -532,11 +543,9 @@ export default function LoanDetailPage() {
         rehabBudgetTotal: editData.rehabBudgetTotal ? Number(editData.rehabBudgetTotal) : undefined,
         terms: editData.terms,
         interestRate: Number(editData.interestRate),
-        monthlyPayment: Number(editData.monthlyPayment),
         monthlyInterestEarned: editData.monthlyInterestEarned ? Number(editData.monthlyInterestEarned) : undefined,
         paymentType: editData.paymentType as "balloon" | "monthly",
         drawFundsTotal: editData.drawFundsTotal ? Number(editData.drawFundsTotal) : undefined,
-        drawFundsUsed: editData.drawFundsUsed ? Number(editData.drawFundsUsed) : undefined,
         closeDate: editData.closeDate,
         maturityDate: editData.maturityDate || undefined,
         titleCompany: editData.titleCompany,
@@ -959,6 +968,35 @@ export default function LoanDetailPage() {
         />
       </div>
 
+      {fundingNeedsReconciliation && fundingLedgerStatus && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-amber-950 dark:text-amber-100"
+        >
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-balance">Funding history needs reconciliation</p>
+            <p className="mt-1 text-sm text-pretty tabular-nums">
+              The saved funded total is {formatCurrency(fundingLedgerStatus.savedTotal)},
+              while approved draw records total {formatCurrency(fundingLedgerStatus.recordedTotal)}.
+              {Math.abs(fundingLedgerStatus.difference) > 0.01 && (
+                <> The difference is {formatCurrency(Math.abs(fundingLedgerStatus.difference))}.</>
+              )}
+              {fundingLedgerStatus.undatedApprovedCount > 0 && (
+                <>
+                  {" "}{fundingLedgerStatus.undatedApprovedCount} approved funding
+                  {fundingLedgerStatus.undatedApprovedCount === 1
+                    ? " record lacks"
+                    : " records lack"} a valid wire date.
+                </>
+              )}
+              {" "}Payoff, scheduled-charge updates, and draw approvals are paused until
+              the funding history is complete and dated.
+            </p>
+          </div>
+        </div>
+      )}
+
       {loan.returnedDate && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1363,19 +1401,23 @@ export default function LoanDetailPage() {
                     onChange={(e) => updateLoanTermFields({ drawFundsTotal: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="text-sm text-muted-foreground">Approved Draws Used</label>
-                  <input
-                    {...field("drawFundsUsed")}
-                    type="number"
-                    onChange={(e) => updateLoanTermFields({ drawFundsUsed: e.target.value })}
-                  />
-                </div>
+                <DetailRow
+                  label="Funded Draws"
+                  value={fundingLedgerStatus === undefined
+                    ? "Loading..."
+                    : fundingLedgerStatus.isReconciled
+                      ? formatCurrency(fundingLedgerStatus.recordedTotal)
+                      : "Unavailable"}
+                />
                 <DetailRow
                   label="Draw Amount Remaining"
-                  value={editData.drawFundsTotal
-                    ? formatCurrency(Math.max(0, Number(editData.drawFundsTotal) - (Number(editData.drawFundsUsed) || 0)))
-                    : undefined}
+                  value={!editData.drawFundsTotal
+                    ? undefined
+                    : fundingLedgerStatus === undefined
+                      ? "Loading..."
+                      : fundingLedgerStatus.isReconciled
+                        ? formatCurrency(Math.max(0, Number(editData.drawFundsTotal) - fundingLedgerStatus.recordedTotal))
+                        : "Unavailable"}
                 />
               </>
             ) : (
@@ -1385,14 +1427,22 @@ export default function LoanDetailPage() {
                   value={loan.drawFundsTotal !== undefined ? formatCurrency(loan.drawFundsTotal) : undefined}
                 />
                 <DetailRow
-                  label="Approved Draws Used"
-                  value={loan.drawFundsUsed ? formatCurrency(loan.drawFundsUsed) : formatCurrency(0)}
+                  label="Funded Draws"
+                  value={fundingLedgerStatus === undefined
+                    ? "Loading..."
+                    : fundingLedgerStatus.isReconciled
+                      ? formatCurrency(fundingLedgerStatus.recordedTotal)
+                      : "Unavailable"}
                 />
                 <DetailRow
                   label="Draw Amount Remaining"
-                  value={loan.drawFundsTotal !== undefined
-                    ? formatCurrency(Math.max(0, loan.drawFundsTotal - (loan.drawFundsUsed ?? 0)))
-                    : undefined}
+                  value={loan.drawFundsTotal === undefined
+                    ? undefined
+                    : fundingLedgerStatus === undefined
+                      ? "Loading..."
+                      : fundingLedgerStatus.isReconciled
+                        ? formatCurrency(Math.max(0, loan.drawFundsTotal - fundingLedgerStatus.recordedTotal))
+                        : "Unavailable"}
                 />
                 {pendingDrawTotal > 0 && (
                   <DetailRow

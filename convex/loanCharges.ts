@@ -15,10 +15,15 @@ import {
   calculateMonthlyInterest,
   calculateMonthlyPaymentDue,
   calculatePrepaidInterest,
-  getCurrentPrincipalOut,
   getMonthlyInterestPeriodForDate,
   getMonthlyInterestPeriods,
 } from "./lib/loanCalculations";
+import {
+  FUNDING_LEDGER_ERROR,
+  getFundingLedgerStatus,
+  getPrincipalOutForPeriodStart,
+  getPrincipalOutFromFundingLedger,
+} from "./lib/fundingLedger";
 import {
   isCombinedInterestChargeType,
   MAX_MONTHLY_INTEREST_PERIODS,
@@ -40,25 +45,14 @@ function getChargeWindowEnd(windowDays: number) {
   return windowEnd;
 }
 
-function getPrincipalOutForPeriodStart(
-  loan: Doc<"loans">,
-  drawRequests: Doc<"drawRequests">[],
-  periodStart: Date
-) {
-  const datedApprovedDraws = drawRequests.filter((draw) => draw.status === "approved" && draw.wireDate);
-  if (datedApprovedDraws.length === 0) return getCurrentPrincipalOut(loan);
-
-  const drawFundsUsed = datedApprovedDraws.reduce((sum, draw) => {
-    const wireDate = parseUsDate(draw.wireDate ?? "");
-    if (!wireDate || wireDate >= periodStart) return sum;
-    return sum + draw.amountRequested;
-  }, 0);
-
-  return getCurrentPrincipalOut({
-    loanAmount: loan.loanAmount,
-    drawFundsTotal: loan.drawFundsTotal,
-    drawFundsUsed,
-  });
+async function getLoanDrawRequests(ctx: MutationCtx, loanId: Id<"loans">) {
+  const draws: Doc<"drawRequests">[] = [];
+  for await (const draw of ctx.db
+    .query("drawRequests")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))) {
+    draws.push(draw);
+  }
+  return draws;
 }
 
 async function upsertSingleLoanCharge(
@@ -184,6 +178,11 @@ async function upsertDrawProrationCharge(
   }
 ) {
   if ((args.loan.paymentType ?? "monthly") === "balloon") return null;
+  const closeDate = args.loan.closeDate ? parseUsDate(args.loan.closeDate) : null;
+  const wireDate = parseUsDate(args.wireDate);
+  if (closeDate && wireDate && closeDate.getTime() === wireDate.getTime()) {
+    return null;
+  }
 
   const proration = calculateDrawProration({
     drawAmount: args.draw.amountRequested,
@@ -238,21 +237,28 @@ export const syncInitialInterestCharges = internalMutation({
     const loan = await ctx.db.get(args.loanId);
     if (!loan || !loan.closeDate) return null;
     const configuration = await getAppConfiguration(ctx);
+    const drawRequests = await getLoanDrawRequests(ctx, loan._id);
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws: drawRequests,
+    });
+    if (!ledgerStatus.isReconciled) {
+      throw new ConvexError(FUNDING_LEDGER_ERROR);
+    }
 
-    const currentPrincipalOut = getCurrentPrincipalOut(loan);
+    const currentPrincipalOut = getPrincipalOutFromFundingLedger(
+      loan,
+      drawRequests
+    );
     const monthlyInterest = calculateMonthlyInterest(currentPrincipalOut, loan.interestRate);
     const monthlyPayment = calculateMonthlyPaymentDue({
       principalOut: currentPrincipalOut,
       annualRate: loan.interestRate,
       paymentType: loan.paymentType,
     });
-    const drawRequests = await ctx.db
-      .query("drawRequests")
-      .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
-      .collect();
     const closeDate = parseUsDate(loan.closeDate);
     const prepaidPrincipalOut = closeDate
-      ? getPrincipalOutForPeriodStart(loan, drawRequests, closeDate)
+      ? getPrincipalOutForPeriodStart(loan, drawRequests, closeDate, true)
       : currentPrincipalOut;
     const prepaid = calculatePrepaidInterest({
       principalOut: prepaidPrincipalOut,
@@ -316,6 +322,7 @@ export const syncInitialInterestCharges = internalMutation({
 
       for (const draw of drawRequests) {
         if (draw.status !== "approved" || !draw.wireDate) continue;
+        if (draw.source === "opening_balance") continue;
         if (getDrawWireDateError(loan, draw.wireDate)) continue;
 
         const wireDate = parseUsDate(draw.wireDate);
@@ -382,18 +389,22 @@ export const recordDrawProration = internalMutation({
     if (!draw) throw new ConvexError("Draw request not found");
     if (draw.loanId !== loan._id) throw new ConvexError("Draw does not belong to loan");
 
-    const principalOut = getCurrentPrincipalOut(loan);
+    const drawRequests = await getLoanDrawRequests(ctx, loan._id);
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws: drawRequests,
+    });
+    if (!ledgerStatus.isReconciled) {
+      throw new ConvexError(FUNDING_LEDGER_ERROR);
+    }
+
+    const principalOut = getPrincipalOutFromFundingLedger(loan, drawRequests);
     const monthlyPayment = calculateMonthlyPaymentDue({
       principalOut,
       annualRate: loan.interestRate,
       paymentType: loan.paymentType,
     });
     await ctx.db.patch(loan._id, { monthlyPayment });
-
-    const drawRequests = await ctx.db
-      .query("drawRequests")
-      .withIndex("by_loanId", (q) => q.eq("loanId", loan._id))
-      .collect();
 
     const wireDate = parseUsDate(args.wireDate);
     if (wireDate) {

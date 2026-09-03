@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { Loader2, ArrowLeft, Mail, Pencil, Save, Upload, X } from "lucide-react";
+import { AlertTriangle, Loader2, ArrowLeft, Mail, Pencil, Save, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -30,7 +30,7 @@ function DetailRow({
       <span className="text-sm font-medium text-muted-foreground sm:w-48 sm:shrink-0">
         {label}
       </span>
-      <span className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">{value ?? "—"}</span>
+      <span className="min-w-0 break-words text-sm tabular-nums [overflow-wrap:anywhere]">{value ?? "—"}</span>
     </div>
   );
 }
@@ -57,6 +57,7 @@ export default function AdminDrawDetailPage() {
   if (draw === undefined) {
     return <DetailPageSkeleton />;
   }
+  const fundingNeedsReconciliation = draw.fundingLedgerStatus?.isReconciled === false;
 
   const handleReview = async (status: (typeof REVIEW_STATUSES)[number]) => {
     if (status === "approved" && !wireDate.trim()) {
@@ -139,6 +140,21 @@ export default function AdminDrawDetailPage() {
         />
       </div>
 
+      {fundingNeedsReconciliation && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-amber-950 dark:text-amber-100"
+        >
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-balance">Funding history needs reconciliation</p>
+            <p className="mt-1 text-sm text-pretty">
+              Reconcile the loan&apos;s approved funding records before editing or approving this draw.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Status */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -190,7 +206,7 @@ export default function AdminDrawDetailPage() {
                 key={status}
                 type="button"
                 onClick={() => handleReview(status)}
-                disabled={saving || isTerminal}
+                disabled={saving || isTerminal || (status === "approved" && fundingNeedsReconciliation)}
                 className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1 ${
                   status === "approved"
                     ? "bg-green-600 text-white hover:bg-green-700"
@@ -218,7 +234,7 @@ export default function AdminDrawDetailPage() {
             <h3 className="text-sm font-medium text-muted-foreground">
               Request Details
             </h3>
-            {!isTerminal && !editingDetails && (
+            {!isTerminal && !editingDetails && !fundingNeedsReconciliation && (
               <button
                 type="button"
                 onClick={startEditingDetails}
@@ -325,14 +341,18 @@ export default function AdminDrawDetailPage() {
             />
             <DetailRow
               label="Used"
-              value={formatCurrency(draw.drawFundsUsed ?? 0)}
+              value={draw.fundingLedgerStatus?.isReconciled
+                ? formatCurrency(draw.fundingLedgerStatus.recordedTotal)
+                : "Unavailable"}
             />
             {draw.drawFundsTotal && (
               <DetailRow
                 label="Remaining"
-                value={formatCurrency(
-                  draw.drawFundsTotal - (draw.drawFundsUsed ?? 0)
-                )}
+                value={draw.fundingLedgerStatus?.isReconciled
+                  ? formatCurrency(
+                      draw.drawFundsTotal - draw.fundingLedgerStatus.recordedTotal
+                    )
+                  : "Unavailable"}
               />
             )}
           </div>

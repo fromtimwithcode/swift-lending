@@ -74,6 +74,9 @@ function mapKnownMessage(message: string) {
   if (lower.includes("unsupported") && lower.includes("file type")) return "That file type is not supported.";
   if (lower.includes("maximum") && lower.includes("bulk operation")) return "Select fewer items and try again.";
   if (lower.includes("upload up to") && lower.includes("documents")) return "Select fewer files and try again.";
+  if (lower.includes("funding history needs reconciliation")) {
+    return "Funding history needs reconciliation before this payoff can be calculated.";
+  }
 
   return null;
 }

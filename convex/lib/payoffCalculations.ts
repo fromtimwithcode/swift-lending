@@ -2,6 +2,10 @@ import type { Doc } from "../_generated/dataModel";
 import { parseUsDate } from "./dates";
 import { getCurrentPrincipalOut } from "./loanCalculations";
 import { roundCents } from "./financialRules";
+import {
+  FUNDING_LEDGER_ERROR,
+  getFundingLedgerStatus,
+} from "./fundingLedger";
 
 type PayoffLoan = Pick<
   Doc<"loans">,
@@ -74,12 +78,12 @@ export function calculateDatedPayoff(args: {
     }))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const recordedDrawTotal = roundCents(
-    fundedDraws.reduce((sum, draw) => sum + draw.amount, 0)
-  );
-  const savedDrawTotal = roundCents(args.loan.drawFundsUsed ?? 0);
-  if (Math.abs(recordedDrawTotal - savedDrawTotal) > 0.01) {
-    throw new Error("Funded draw records do not match the loan balance");
+  const ledgerStatus = getFundingLedgerStatus({
+    savedDrawFundsUsed: args.loan.drawFundsUsed,
+    draws: args.draws,
+  });
+  if (!ledgerStatus.isReconciled) {
+    throw new Error(FUNDING_LEDGER_ERROR);
   }
 
   const dailyRate = args.loan.interestRate / 100 / 360;

@@ -259,6 +259,18 @@ export default function NewLoanPage() {
       toast.error("Construction holdback cannot exceed total loan amount");
       return;
     }
+    if (Number(form.drawFundsUsed) < 0) {
+      toast.error("Funds advanced at closing cannot be negative");
+      return;
+    }
+    if (Number(form.drawFundsUsed) > 0 && !form.drawFundsTotal) {
+      toast.error("Enter the construction holdback before funds advanced at closing");
+      return;
+    }
+    if (Number(form.drawFundsUsed) > Number(form.drawFundsTotal)) {
+      toast.error("Funds advanced at closing cannot exceed the construction holdback");
+      return;
+    }
     if (Number(form.interestRate) < 0) {
       toast.error("Interest rate cannot be negative");
       return;
@@ -333,7 +345,6 @@ export default function NewLoanPage() {
         useDefaultMaturityDate: !maturityDateEdited,
         terms: form.terms || "N/A",
         interestRate: Number(form.interestRate) || 0,
-        monthlyPayment: Number(form.monthlyPayment) || 0,
         paymentDueDay: form.paymentDueDay
           ? Number(form.paymentDueDay)
           : undefined,
@@ -887,14 +898,19 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Approved Draws Used</label>
+              <label className={labelClass}>Funds Advanced at Closing</label>
               <input
                 className={inputClass}
                 type="number"
+                min="0"
+                step="0.01"
                 value={form.drawFundsUsed}
                 onChange={(e) => update("drawFundsUsed", e.target.value)}
                 placeholder="Optional"
               />
+              <p className="mt-1.5 text-xs text-muted-foreground text-pretty">
+                Creates an approved funding record dated on the loan closing date.
+              </p>
             </div>
           </div>
         </div>

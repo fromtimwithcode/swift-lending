@@ -12,6 +12,7 @@ import { isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 export default function NewAdminDrawRequestPage() {
   const router = useRouter();
@@ -39,14 +40,24 @@ export default function NewAdminDrawRequestPage() {
   const pendingTotal = (draws ?? [])
     .filter((draw) => draw.status === "pending" || draw.status === "under_review")
     .reduce((sum, draw) => sum + draw.amountRequested, 0);
-  const available = selectedLoan?.drawFundsTotal !== undefined
-    ? selectedLoan.drawFundsTotal - (selectedLoan.drawFundsUsed ?? 0) - pendingTotal
+  const fundingLedgerStatus = selectedLoan && draws
+    ? getFundingLedgerStatus({
+        savedDrawFundsUsed: selectedLoan.drawFundsUsed,
+        draws,
+      })
+    : undefined;
+  const available = selectedLoan?.drawFundsTotal !== undefined && fundingLedgerStatus?.isReconciled
+    ? selectedLoan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingTotal
     : undefined;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedLoan || !amount || !description.trim()) {
       toast.error("Please fill in all fields");
+      return;
+    }
+    if (fundingLedgerStatus?.isReconciled === false) {
+      toast.error("Reconcile this loan's funding history before creating a draw request");
       return;
     }
 
@@ -136,7 +147,11 @@ export default function NewAdminDrawRequestPage() {
                       <div className="mt-1 flex justify-between gap-4">
                         <span className="text-muted-foreground">Used</span>
                         <span className="font-medium tabular-nums">
-                          {formatCurrency(selectedLoan.drawFundsUsed ?? 0)}
+                          {fundingLedgerStatus === undefined
+                            ? "Loading..."
+                            : fundingLedgerStatus.isReconciled
+                              ? formatCurrency(fundingLedgerStatus.recordedTotal)
+                              : "Unavailable"}
                         </span>
                       </div>
                       {pendingTotal > 0 && (
@@ -150,9 +165,18 @@ export default function NewAdminDrawRequestPage() {
                       <div className="mt-1 flex justify-between gap-4 border-t border-border pt-1">
                         <span className="font-medium text-muted-foreground">Available</span>
                         <span className="font-semibold text-primary tabular-nums">
-                          {formatCurrency(Math.max(0, available ?? 0))}
+                          {fundingLedgerStatus === undefined
+                            ? "Loading..."
+                            : fundingLedgerStatus.isReconciled
+                              ? formatCurrency(Math.max(0, available ?? 0))
+                              : "Unavailable"}
                         </span>
                       </div>
+                      {fundingLedgerStatus?.isReconciled === false && (
+                        <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 text-pretty dark:text-amber-200">
+                          Reconcile this loan&apos;s funding history before creating a draw request.
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -202,7 +226,7 @@ export default function NewAdminDrawRequestPage() {
             </Link>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !fundingLedgerStatus?.isReconciled}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}

@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin } from "./lib/auth";
 import { internal } from "./_generated/api";
@@ -29,6 +29,10 @@ import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
 } from "./lib/propertyValidators";
+import {
+  FUNDING_LEDGER_ERROR,
+  getFundingLedgerStatus,
+} from "./lib/fundingLedger";
 
 const strategyValidator = v.union(v.literal("flip_and_resell"), v.literal("brrrr"));
 
@@ -453,7 +457,7 @@ export const createLoan = mutation({
     useDefaultMaturityDate: v.optional(v.boolean()),
     terms: v.string(),
     interestRate: v.number(),
-    monthlyPayment: v.number(),
+    monthlyPayment: v.optional(v.number()),
     paymentDueDay: v.optional(v.number()),
     pointsEarned: v.number(),
     monthlyInterestEarned: v.optional(v.number()),
@@ -527,7 +531,8 @@ export const createLoan = mutation({
     if (loanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
     if (args.purchasePrice < 0) throw new ConvexError("Purchase price cannot be negative");
     if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
-    if (args.monthlyPayment < 0) throw new ConvexError("Monthly payment cannot be negative");
+    if (args.monthlyPayment !== undefined && args.monthlyPayment < 0)
+      throw new ConvexError("Monthly payment cannot be negative");
     if (args.pointsEarned < 0) throw new ConvexError("Points earned cannot be negative");
     if (args.paymentDueDay !== undefined && (args.paymentDueDay < 1 || args.paymentDueDay > 31)) {
       throw new ConvexError("Payment due day must be between 1 and 31");
@@ -539,13 +544,18 @@ export const createLoan = mutation({
     if (args.drawFundsTotal !== undefined && args.drawFundsTotal < 0)
       throw new ConvexError("Draw funds total cannot be negative");
     if (args.drawFundsUsed !== undefined && args.drawFundsUsed < 0)
-      throw new ConvexError("Draw funds used cannot be negative");
+      throw new ConvexError("Funds advanced at closing cannot be negative");
     if (args.monthlyInterestEarned !== undefined && args.monthlyInterestEarned < 0)
       throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation
+    if (args.drawFundsUsed && args.drawFundsTotal === undefined) {
+      throw new ConvexError(
+        "Construction holdback is required when funds are advanced at closing"
+      );
+    }
     if (args.drawFundsUsed !== undefined && args.drawFundsTotal !== undefined && args.drawFundsUsed > args.drawFundsTotal) {
-      throw new ConvexError("Draw funds used cannot exceed draw funds total");
+      throw new ConvexError("Funds advanced at closing cannot exceed the construction holdback");
     }
     if (args.drawFundsTotal !== undefined && args.drawFundsTotal > loanAmount) {
       throw new ConvexError("Draw funds total cannot exceed total loan amount");
@@ -554,15 +564,18 @@ export const createLoan = mutation({
       throw new ConvexError("After repair value should not be less than purchase price");
     }
 
+    const openingDrawTotal = roundCents(args.drawFundsUsed ?? 0);
     const rehabBudgetItems = args.rehabBudgetItems;
     const loanFields = { ...args };
     delete loanFields.rehabBudgetItems;
     delete loanFields.useDefaultMaturityDate;
+    delete loanFields.monthlyPayment;
+    delete loanFields.drawFundsUsed;
     const paymentType = args.paymentType ?? "monthly";
     const principalOut = getCurrentPrincipalOut({
       loanAmount,
       drawFundsTotal: args.drawFundsTotal,
-      drawFundsUsed: args.drawFundsUsed,
+      drawFundsUsed: openingDrawTotal,
     });
     const monthlyPayment = calculateMonthlyPaymentDue({
       principalOut,
@@ -591,8 +604,23 @@ export const createLoan = mutation({
       maturityDate,
       paymentDueDay: args.paymentDueDay ?? loanDefaults.paymentDueDay,
       paymentType,
+      drawFundsUsed: openingDrawTotal,
       createdBy: admin._id,
     });
+
+    if (openingDrawTotal > 0) {
+      await ctx.db.insert("drawRequests", {
+        loanId: id,
+        borrowerId: args.borrowerId,
+        amountRequested: openingDrawTotal,
+        workDescription: "Funds advanced at closing.",
+        status: "approved",
+        reviewedBy: admin._id,
+        reviewedAt: Date.now(),
+        wireDate: closeDate,
+        source: "opening_balance",
+      });
+    }
 
     // Create rehab budget items if provided
     if (rehabBudgetItems && rehabBudgetItems.length > 0) {
@@ -709,6 +737,26 @@ export const updateLoan = mutation({
     const { id, ...fields } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new ConvexError("Loan not found");
+    const drawRequests: Doc<"drawRequests">[] = [];
+    for await (const draw of ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", id))) {
+      drawRequests.push(draw);
+    }
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: existing.drawFundsUsed,
+      draws: drawRequests,
+    });
+    if (
+      fields.drawFundsUsed !== undefined &&
+      Math.abs(roundCents(fields.drawFundsUsed) - ledgerStatus.recordedTotal) > 0.01
+    ) {
+      throw new ConvexError(
+        "Funded draws are maintained from approved draw records and cannot be edited directly."
+      );
+    }
+    delete fields.drawFundsUsed;
+    delete fields.monthlyPayment;
 
     const propertyFieldsChanged = [
       fields.propertyType,
@@ -737,8 +785,6 @@ export const updateLoan = mutation({
       throw new ConvexError("Total loan amount must be greater than 0");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
       throw new ConvexError("Interest rate cannot be negative");
-    if (fields.monthlyPayment !== undefined && fields.monthlyPayment < 0)
-      throw new ConvexError("Monthly payment cannot be negative");
     if (fields.pointsEarned !== undefined && fields.pointsEarned < 0)
       throw new ConvexError("Points earned cannot be negative");
     if (fields.paymentDueDay !== undefined && (fields.paymentDueDay < 1 || fields.paymentDueDay > 31))
@@ -749,15 +795,13 @@ export const updateLoan = mutation({
       throw new ConvexError("Rehab budget total cannot be negative");
     if (fields.drawFundsTotal !== undefined && fields.drawFundsTotal < 0)
       throw new ConvexError("Draw funds total cannot be negative");
-    if (fields.drawFundsUsed !== undefined && fields.drawFundsUsed < 0)
-      throw new ConvexError("Draw funds used cannot be negative");
     if (fields.monthlyInterestEarned !== undefined && fields.monthlyInterestEarned < 0)
       throw new ConvexError("Monthly interest earned cannot be negative");
 
     // Cross-field validation (use provided values or fall back to existing)
     const effectivePurchasePrice = fields.purchasePrice ?? existing.purchasePrice;
     const effectiveLoanAmount = fields.loanAmount ?? existing.loanAmount;
-    const effectiveDrawFundsUsed = fields.drawFundsUsed ?? existing.drawFundsUsed;
+    const effectiveDrawFundsUsed = ledgerStatus.recordedTotal;
     const effectiveDrawFundsTotal = fields.drawFundsTotal ?? existing.drawFundsTotal;
     const effectiveARV = fields.afterRepairValue ?? existing.afterRepairValue;
     const effectiveInterestRate = fields.interestRate ?? existing.interestRate;
@@ -835,11 +879,12 @@ export const updateLoan = mutation({
       fields.rehabBudgetTotal !== undefined ||
       fields.loanAmount !== undefined ||
       fields.drawFundsTotal !== undefined ||
-      fields.drawFundsUsed !== undefined ||
       fields.interestRate !== undefined ||
-      fields.paymentType !== undefined ||
-      fields.monthlyPayment !== undefined
+      fields.paymentType !== undefined
     ) {
+      if (!ledgerStatus.isReconciled) {
+        throw new ConvexError(FUNDING_LEDGER_ERROR);
+      }
       updates.monthlyPayment = calculateMonthlyPaymentDue({
         principalOut: getCurrentPrincipalOut({
           loanAmount: effectiveLoanAmount,
@@ -900,7 +945,6 @@ export const updateLoan = mutation({
       changedKeys.has("loanAmount") ||
       changedKeys.has("rehabBudgetTotal") ||
       changedKeys.has("drawFundsTotal") ||
-      changedKeys.has("drawFundsUsed") ||
       changedKeys.has("interestRate") ||
       changedKeys.has("paymentType")
     ) {

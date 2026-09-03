@@ -31,6 +31,7 @@ import type * as lib_constants from "../lib/constants.js";
 import type * as lib_dates from "../lib/dates.js";
 import type * as lib_drawDates from "../lib/drawDates.js";
 import type * as lib_financialRules from "../lib/financialRules.js";
+import type * as lib_fundingLedger from "../lib/fundingLedger.js";
 import type * as lib_loanCalculations from "../lib/loanCalculations.js";
 import type * as lib_notifications from "../lib/notifications.js";
 import type * as lib_payoffCalculations from "../lib/payoffCalculations.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "lib/dates": typeof lib_dates;
   "lib/drawDates": typeof lib_drawDates;
   "lib/financialRules": typeof lib_financialRules;
+  "lib/fundingLedger": typeof lib_fundingLedger;
   "lib/loanCalculations": typeof lib_loanCalculations;
   "lib/notifications": typeof lib_notifications;
   "lib/payoffCalculations": typeof lib_payoffCalculations;

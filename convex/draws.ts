@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
@@ -11,6 +12,31 @@ import {
 } from "./lib/drawDates";
 import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
+import {
+  FUNDING_LEDGER_ERROR,
+  getFundingLedgerStatus,
+} from "./lib/fundingLedger";
+
+async function getLoanDrawState(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+  excludePendingId?: Id<"drawRequests">
+) {
+  const draws: Doc<"drawRequests">[] = [];
+  let pendingTotal = 0;
+  for await (const draw of ctx.db
+    .query("drawRequests")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))) {
+    draws.push(draw);
+    if (
+      draw._id !== excludePendingId &&
+      (draw.status === "pending" || draw.status === "under_review")
+    ) {
+      pendingTotal += draw.amountRequested;
+    }
+  }
+  return { draws, pendingTotal };
+}
 
 function getDrawDecisionBody(args: {
   amount: number;
@@ -116,6 +142,18 @@ export const getDrawRequest = query({
 
     const borrower = await ctx.db.get(draw.borrowerId);
     const loan = await ctx.db.get(draw.loanId);
+    const loanDraws: Doc<"drawRequests">[] = [];
+    for await (const loanDraw of ctx.db
+      .query("drawRequests")
+      .withIndex("by_loanId", (q) => q.eq("loanId", draw.loanId))) {
+      loanDraws.push(loanDraw);
+    }
+    const fundingLedgerStatus = loan
+      ? getFundingLedgerStatus({
+          savedDrawFundsUsed: loan.drawFundsUsed,
+          draws: loanDraws,
+        })
+      : undefined;
 
     // Get documents attached to this draw using dedicated index
     const drawDocs = await ctx.db
@@ -137,6 +175,7 @@ export const getDrawRequest = query({
       loanAmount: loan?.loanAmount ?? 0,
       drawFundsTotal: loan?.drawFundsTotal,
       drawFundsUsed: loan?.drawFundsUsed,
+      fundingLedgerStatus,
       documents: docsWithUrls,
     };
   },
@@ -165,17 +204,16 @@ export const createManualDrawRequest = mutation({
     const trimmedDescription = args.workDescription.trim();
     if (!trimmedDescription) throw new ConvexError("Work description cannot be empty");
 
+    const drawState = await getLoanDrawState(ctx, args.loanId);
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws: drawState.draws,
+    });
+    if (!ledgerStatus.isReconciled) {
+      throw new ConvexError(FUNDING_LEDGER_ERROR);
+    }
     if (loan.drawFundsTotal !== undefined) {
-      let pendingTotal = 0;
-      for await (const existingDraw of ctx.db
-        .query("drawRequests")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))) {
-        if (existingDraw.status === "pending" || existingDraw.status === "under_review") {
-          pendingTotal += existingDraw.amountRequested;
-        }
-      }
-
-      const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - pendingTotal;
+      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - drawState.pendingTotal;
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`
@@ -189,6 +227,7 @@ export const createManualDrawRequest = mutation({
       amountRequested: args.amountRequested,
       workDescription: trimmedDescription,
       status: "pending",
+      source: "request",
     });
 
     await ctx.runMutation(internal.notifications.createNotification, {
@@ -256,18 +295,16 @@ export const updateDrawRequest = mutation({
     const loan = await ctx.db.get(draw.loanId);
     if (!loan) throw new ConvexError("Loan not found");
 
+    const drawState = await getLoanDrawState(ctx, draw.loanId, draw._id);
+    const ledgerStatus = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws: drawState.draws,
+    });
+    if (!ledgerStatus.isReconciled) {
+      throw new ConvexError(FUNDING_LEDGER_ERROR);
+    }
     if (loan.drawFundsTotal !== undefined) {
-      let otherPendingTotal = 0;
-      for await (const existingDraw of ctx.db
-        .query("drawRequests")
-        .withIndex("by_loanId", (q) => q.eq("loanId", draw.loanId))) {
-        if (existingDraw._id === draw._id) continue;
-        if (existingDraw.status === "pending" || existingDraw.status === "under_review") {
-          otherPendingTotal += existingDraw.amountRequested;
-        }
-      }
-
-      const available = loan.drawFundsTotal - (loan.drawFundsUsed ?? 0) - otherPendingTotal;
+      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - drawState.pendingTotal;
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`
@@ -347,7 +384,16 @@ export const bulkReviewDrawRequests = mutation({
           results.push({ drawId, success: false, error: wireDateError });
           continue;
         }
-        const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+        const drawState = await getLoanDrawState(ctx, loan._id);
+        const ledgerStatus = getFundingLedgerStatus({
+          savedDrawFundsUsed: loan.drawFundsUsed,
+          draws: drawState.draws,
+        });
+        if (!ledgerStatus.isReconciled) {
+          results.push({ drawId, success: false, error: FUNDING_LEDGER_ERROR });
+          continue;
+        }
+        const newUsed = ledgerStatus.recordedTotal + draw.amountRequested;
         if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
           results.push({ drawId, success: false, error: "Would exceed fund limit" });
           continue;
@@ -368,6 +414,7 @@ export const bulkReviewDrawRequests = mutation({
         wireDate: args.status === "approved" ? wireDate : undefined,
         reviewedBy: admin._id,
         reviewedAt: Date.now(),
+        source: draw.source ?? "request",
       });
 
       if (args.status === "approved" && wireDate) {
@@ -467,7 +514,15 @@ export const reviewDrawRequest = mutation({
         throw new ConvexError("Loan is not eligible for draw requests");
       }
       validateDrawWireDateForLoan(loan, wireDate!);
-      const newUsed = (loan.drawFundsUsed ?? 0) + draw.amountRequested;
+      const drawState = await getLoanDrawState(ctx, loan._id);
+      const ledgerStatus = getFundingLedgerStatus({
+        savedDrawFundsUsed: loan.drawFundsUsed,
+        draws: drawState.draws,
+      });
+      if (!ledgerStatus.isReconciled) {
+        throw new ConvexError(FUNDING_LEDGER_ERROR);
+      }
+      const newUsed = ledgerStatus.recordedTotal + draw.amountRequested;
       if (loan.drawFundsTotal !== undefined && newUsed > loan.drawFundsTotal) {
         throw new ConvexError("Draw would exceed fund limit");
       }
@@ -487,6 +542,7 @@ export const reviewDrawRequest = mutation({
       wireDate: args.status === "approved" ? wireDate : undefined,
       reviewedBy: admin._id,
       reviewedAt: Date.now(),
+      source: draw.source ?? "request",
     });
 
     if (args.status === "approved" && wireDate) {
