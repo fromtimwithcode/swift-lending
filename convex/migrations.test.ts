@@ -197,6 +197,187 @@ describe("funding ledger reconciliation", () => {
       });
     expect(statement.principal).toBe(170_000);
   });
+
+  test("migrates a legacy UI balance as opening funding effective at closing", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "legacy-ledger-admin@example.com",
+      });
+      const adminId = await ctx.db.insert("userProfiles", {
+        authUserId: userId,
+        role: "admin",
+        displayName: "Legacy Ledger Admin",
+        email: "legacy-ledger-admin@example.com",
+        isActive: true,
+      });
+      const borrowerId = await ctx.db.insert("userProfiles", {
+        role: "borrower",
+        displayName: "Legacy Ledger Borrower",
+        email: "legacy-ledger-borrower@example.com",
+        isActive: true,
+      });
+      const loanId = await ctx.db.insert("loans", {
+        borrowerId,
+        borrowerName: "Legacy Ledger Borrower",
+        entityName: "Legacy Ledger LLC",
+        propertyAddress: "31 Ledger Ave, Dallas, TX",
+        purchasePrice: 150_000,
+        loanAmount: 200_000,
+        closeDate: "01/15/2026",
+        maturityDate: "12/31/2026",
+        terms: "Legacy ledger terms",
+        interestRate: 12,
+        monthlyPayment: 1_700,
+        pointsEarned: 6_000,
+        drawFundsTotal: 50_000,
+        drawFundsUsed: 20_000,
+        status: "funded",
+        createdBy: adminId,
+      });
+      await ctx.db.insert("drawRequests", {
+        loanId,
+        borrowerId,
+        amountRequested: 5_000,
+        workDescription: "Later recorded funding",
+        status: "approved",
+        wireDate: "02/01/2026",
+        source: "request",
+      });
+      return { userId, adminId, loanId };
+    });
+
+    const args = {
+      loanId: fixture.loanId,
+      verifiedBy: fixture.adminId,
+      reason: "Legacy amount was entered through the original loan form",
+    };
+    await expect(
+      t.mutation(internal.migrations.reconcileLegacyOpeningBalance, {
+        ...args,
+        dryRun: true,
+      })
+    ).resolves.toMatchObject({
+      dryRun: true,
+      entryTotal: 15_000,
+      effectiveDate: "01/15/2026",
+      recordedTotalAfter: 20_000,
+      chargesWillSync: true,
+    });
+
+    expect(
+      await t.run(async (ctx) =>
+        ctx.db
+          .query("drawRequests")
+          .withIndex("by_loanId", (q) => q.eq("loanId", fixture.loanId))
+          .take(10)
+      )
+    ).toHaveLength(1);
+
+    await t.mutation(internal.migrations.reconcileLegacyOpeningBalance, args);
+    await expect(
+      t.mutation(internal.migrations.reconcileLegacyOpeningBalance, args)
+    ).resolves.toMatchObject({ alreadyReconciled: true });
+
+    const draws = await t.run(async (ctx) =>
+      ctx.db
+        .query("drawRequests")
+        .withIndex("by_loanId", (q) => q.eq("loanId", fixture.loanId))
+        .take(10)
+    );
+    expect(draws).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          amountRequested: 15_000,
+          wireDate: "01/15/2026",
+          source: "opening_balance",
+          status: "approved",
+        }),
+      ])
+    );
+    await expect(
+      t.query(internal.migrations.auditFundingLedgers, {})
+    ).resolves.toMatchObject({ discrepancies: [] });
+
+    const statement = await t
+      .withIdentity({ subject: fixture.userId })
+      .query(api.payoffs.getPayoffStatement, {
+        loanId: fixture.loanId,
+        goodThroughDate: "10/01/2026",
+      });
+    expect(statement.principal).toBe(170_000);
+  });
+
+  test("does not regenerate charges while reconciling a returned legacy loan", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await t.run(async (ctx) => {
+      const adminId = await ctx.db.insert("userProfiles", {
+        role: "admin",
+        displayName: "Returned Loan Admin",
+        email: "returned-loan-admin@example.com",
+        isActive: true,
+      });
+      const borrowerId = await ctx.db.insert("userProfiles", {
+        role: "borrower",
+        displayName: "Returned Loan Borrower",
+        email: "returned-loan-borrower@example.com",
+        isActive: true,
+      });
+      const loanId = await ctx.db.insert("loans", {
+        borrowerId,
+        borrowerName: "Returned Loan Borrower",
+        entityName: "Returned Loan LLC",
+        propertyAddress: "32 Ledger Ave, Dallas, TX",
+        purchasePrice: 170_000,
+        loanAmount: 230_000,
+        closeDate: "03/21/2026",
+        maturityDate: "09/21/2026",
+        terms: "Returned loan terms",
+        interestRate: 13,
+        monthlyPayment: 2_491.67,
+        pointsEarned: 6_900,
+        drawFundsTotal: 60_000,
+        drawFundsUsed: 60_000,
+        returnedAmount: 233_156.24,
+        returnedDate: "06/05/2026",
+        status: "closed",
+        createdBy: adminId,
+      });
+      return { adminId, loanId };
+    });
+
+    await expect(
+      t.mutation(internal.migrations.reconcileLegacyOpeningBalance, {
+        loanId: fixture.loanId,
+        verifiedBy: fixture.adminId,
+        reason: "Legacy amount was entered through the original loan form",
+      })
+    ).resolves.toMatchObject({
+      entryTotal: 60_000,
+      effectiveDate: "03/21/2026",
+      recordedTotalAfter: 60_000,
+      chargesWillSync: false,
+    });
+
+    const state = await t.run(async (ctx) => ({
+      draws: await ctx.db
+        .query("drawRequests")
+        .withIndex("by_loanId", (q) => q.eq("loanId", fixture.loanId))
+        .take(10),
+      charges: await ctx.db
+        .query("loanCharges")
+        .withIndex("by_loanId", (q) => q.eq("loanId", fixture.loanId))
+        .take(10),
+    }));
+    expect(state.draws).toEqual([
+      expect.objectContaining({
+        amountRequested: 60_000,
+        wireDate: "03/21/2026",
+        source: "opening_balance",
+      }),
+    ]);
+    expect(state.charges).toHaveLength(0);
+  });
 });
 
 describe("combined interest charge reconciliation", () => {

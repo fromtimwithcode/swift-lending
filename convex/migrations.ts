@@ -388,10 +388,12 @@ export const reconcileFundingLedger = internalMutation({
           paymentType: loan.paymentType,
         }),
       });
-      await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
-        loanId: loan._id,
-        createdBy: verifier._id,
-      });
+      if (!loan.returnedDate) {
+        await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+          loanId: loan._id,
+          createdBy: verifier._id,
+        });
+      }
       await ctx.runMutation(internal.activityLog.log, {
         userId: verifier._id,
         userName: verifier.displayName,
@@ -411,6 +413,124 @@ export const reconcileFundingLedger = internalMutation({
       savedTotal: before.savedTotal,
       recordedTotalBefore: before.recordedTotal,
       recordedTotalAfter: reconciledTotal,
+    };
+  },
+});
+
+/**
+ * Convert the unmatched portion of a legacy UI-entered funded total into the
+ * opening-balance ledger entry that the old loan form did not create. The
+ * closing date is an effective accounting date: it preserves the historical
+ * calculation behavior without claiming that a newly discovered wire exists.
+ */
+export const reconcileLegacyOpeningBalance = internalMutation({
+  args: {
+    loanId: v.id("loans"),
+    verifiedBy: v.id("userProfiles"),
+    reason: v.string(),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const loan = await ctx.db.get(args.loanId);
+    if (!loan) throw new ConvexError("Loan not found");
+    const verifier = await ctx.db.get(args.verifiedBy);
+    if (!verifier || !verifier.isActive || !isAdminLike(verifier.role)) {
+      throw new ConvexError("An active administrator must verify the reconciliation");
+    }
+    const reason = args.reason.trim();
+    if (!reason) throw new ConvexError("Reconciliation reason is required");
+
+    const draws = await getLoanDraws(ctx, loan._id);
+    const before = getFundingLedgerStatus({
+      savedDrawFundsUsed: loan.drawFundsUsed,
+      draws,
+    });
+    if (before.isReconciled) {
+      return { dryRun: args.dryRun ?? false, alreadyReconciled: true, ...before };
+    }
+    if (before.undatedApprovedCount > 0) {
+      throw new ConvexError(
+        "Set valid wire dates on existing approved draws before migrating the legacy opening balance"
+      );
+    }
+    if (before.difference <= 0.01) {
+      throw new ConvexError(
+        "Approved draw records are not below the saved funded total; review the audit before changing data"
+      );
+    }
+    if (!loan.closeDate) {
+      throw new ConvexError(
+        "A closing date is required to migrate the legacy opening balance"
+      );
+    }
+    validateDrawWireDateForLoan(loan, loan.closeDate);
+
+    const entryTotal = roundCents(before.difference);
+    const reconciledTotal = roundCents(before.recordedTotal + entryTotal);
+    if (
+      loan.drawFundsTotal !== undefined &&
+      reconciledTotal > loan.drawFundsTotal + 0.01
+    ) {
+      throw new ConvexError("Reconciled funding would exceed the construction holdback");
+    }
+
+    const chargesWillSync = !loan.returnedDate;
+    if (!args.dryRun) {
+      const now = Date.now();
+      await ctx.db.insert("drawRequests", {
+        loanId: loan._id,
+        borrowerId: loan.borrowerId,
+        amountRequested: entryTotal,
+        workDescription: "Legacy opening balance entered through loan setup.",
+        status: "approved",
+        reviewedBy: verifier._id,
+        reviewedAt: now,
+        wireDate: loan.closeDate,
+        source: "opening_balance",
+      });
+      await ctx.db.patch(loan._id, {
+        drawFundsUsed: reconciledTotal,
+        monthlyPayment: calculateMonthlyPaymentDue({
+          principalOut: getCurrentPrincipalOut({
+            ...loan,
+            drawFundsUsed: reconciledTotal,
+          }),
+          annualRate: loan.interestRate,
+          paymentType: loan.paymentType,
+        }),
+      });
+      if (chargesWillSync) {
+        await ctx.runMutation(internal.loanCharges.syncInitialInterestCharges, {
+          loanId: loan._id,
+          createdBy: verifier._id,
+        });
+      }
+      await ctx.runMutation(internal.activityLog.log, {
+        userId: verifier._id,
+        userName: verifier.displayName,
+        action: "loan.reconcileLegacyOpeningBalance",
+        entityType: "loan",
+        entityId: loan._id,
+        details: `Migrated legacy opening balance of ${entryTotal.toFixed(2)} effective ${loan.closeDate}`,
+        metadata: JSON.stringify({
+          reason,
+          basis: "legacy_ui_funded_total",
+          effectiveDate: loan.closeDate,
+          amount: entryTotal,
+          chargesSynced: chargesWillSync,
+        }),
+      });
+    }
+
+    return {
+      dryRun: args.dryRun ?? false,
+      alreadyReconciled: false,
+      entryTotal,
+      effectiveDate: loan.closeDate,
+      savedTotal: before.savedTotal,
+      recordedTotalBefore: before.recordedTotal,
+      recordedTotalAfter: reconciledTotal,
+      chargesWillSync,
     };
   },
 });
