@@ -4,6 +4,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { LoanStatusDialog } from "@/components/dashboard/loan-status-dialog";
+import { type LoanStatus } from "@/convex/lib/loanStatus";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -13,7 +15,7 @@ import { ExportButton } from "@/components/dashboard/export-button";
 import { BulkActionBar } from "@/components/dashboard/bulk-action-bar";
 import { Landmark, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { exportToCsv } from "@/lib/export";
 import { formatCurrency } from "@/lib/format";
@@ -32,17 +34,6 @@ import {
 
 type TabFilter = "all" | "active" | "closed" | "funds_returned";
 
-const LOAN_STATUSES = [
-  "submitted",
-  "under_review",
-  "additional_info_needed",
-  "approved",
-  "denied",
-  "funded",
-  "sent_to_title",
-  "closed",
-] as const;
-
 export default function AdminLoansPage() {
   const loans = useQuery(api.admin.getLoans, {});
   const bulkUpdateStatus = useMutation(api.admin.bulkUpdateLoanStatus);
@@ -51,7 +42,12 @@ export default function AdminLoansPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [statusChange, setStatusChange] = useState<{
+    trigger: HTMLElement | null;
+    loans: { loanId: Id<"loans">; status: LoanStatus; propertyAddress: string }[];
+  } | null>(null);
+  const [bulkFailures, setBulkFailures] = useState<{ loanId: string; propertyAddress: string; error: string }[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
@@ -92,7 +88,6 @@ export default function AdminLoansPage() {
   // Clear selections when filters change so bulk ops don't act on hidden rows
   useEffect(() => {
     setSelectedIds(new Set());
-    setBulkStatusOpen(false);
   }, [search, activeTab]);
 
   if (loans === undefined) {
@@ -211,34 +206,37 @@ export default function AdminLoansPage() {
       ? filteredLoans.filter((l) => selectedIds.has(l._id)).map(addLoanExportFields)
       : filteredLoans.map(addLoanExportFields);
 
-  const handleBulkStatusChange = (status: string) => {
-    setConfirmAction({
-      title: `Change status of ${selectedIds.size} loan(s) to "${status}"?`,
-      confirmLabel: "Confirm",
-      action: async () => {
-        const loanIds = [...selectedIds] as Id<"loans">[];
-        setBulkLoading(true);
-        try {
-          const results = await bulkUpdateStatus({
-            loanIds,
-            status: status as (typeof LOAN_STATUSES)[number],
-          });
-          const failures = results.filter((r: { success: boolean; error?: string }) => !r.success);
-          if (failures.length > 0) {
-            toast.warning(`${results.length - failures.length} succeeded, ${failures.length} failed`);
-          } else {
-            toast.success(`${results.length} loan(s) updated`);
-          }
-          setSelectedIds(new Set());
-          setBulkStatusOpen(false);
-        } catch {
-          toast.error("Bulk status update failed. Please try again.");
-        } finally {
-          setBulkLoading(false);
-          setConfirmAction(null);
-        }
-      },
-    });
+  const handleBulkStatusChange = () => {
+    setStatusChange({ trigger: document.activeElement instanceof HTMLElement ? document.activeElement : null, loans: loans.filter((loan) => selectedIds.has(loan._id)).map((loan) => ({
+      loanId: loan._id, status: loan.status, propertyAddress: loan.propertyAddress,
+    })) });
+  };
+
+  const handleBulkStatusSave = async (note: string, status: LoanStatus) => {
+    if (!statusChange) return;
+    setBulkLoading(true);
+    try {
+      const results = await bulkUpdateStatus({
+        loanIds: statusChange.loans.map((loan) => loan.loanId),
+        expectedStatuses: statusChange.loans.map(({ loanId, status }) => ({ loanId, status })),
+        status,
+        note,
+      });
+      const failures = results.filter((result) => !result.success).map((result) => ({
+        loanId: result.loanId,
+        propertyAddress: statusChange.loans.find((loan) => loan.loanId === result.loanId)?.propertyAddress ?? "Loan unavailable",
+        error: result.error ?? "Could not update this loan.",
+      }));
+      setBulkFailures(failures);
+      setSelectedIds(new Set(failures.map((result) => result.loanId)));
+      const updated = results.filter((result) => result.changed).length;
+      const unchanged = results.filter((result) => result.success && !result.changed).length;
+      const summary = `${updated} updated${unchanged ? `, ${unchanged} already in this status` : ""}`;
+      if (failures.length) toast.warning(`${summary}, ${failures.length} need attention`);
+      else toast.success(summary);
+    } finally {
+      setBulkLoading(false);
+    }
   };
 
   const handleBulkDelete = () => {
@@ -256,7 +254,6 @@ export default function AdminLoansPage() {
           const result = await bulkDeleteLoans({ loanIds });
           toast.success(`${result.deleted} loan(s) deleted`);
           setSelectedIds(new Set());
-          setBulkStatusOpen(false);
         } catch (err) {
           toast.error(getErrorMessage(err, "Failed to delete loans"));
         } finally {
@@ -268,7 +265,7 @@ export default function AdminLoansPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div ref={pageRef} tabIndex={-1} className="space-y-6 outline-none">
       <PageHeader
         title="Loans"
         description={`${loans.length} total loans`}
@@ -339,14 +336,35 @@ export default function AdminLoansPage() {
         />
       )}
 
+      {bulkFailures.length > 0 && (
+        <div role="alert" className="space-y-3 rounded-2xl border border-amber-500/25 bg-amber-50/50 p-5 dark:bg-amber-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">{bulkFailures.length} {bulkFailures.length === 1 ? "loan" : "loans"} could not be updated</h2>
+            <button type="button" onClick={() => setBulkFailures([])} className="min-h-11 rounded-lg px-3 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Dismiss</button>
+          </div>
+          <ul className="space-y-3 text-sm">
+            {bulkFailures.map((failure) => <li key={failure.loanId} className="break-words [overflow-wrap:anywhere]">
+              <Link className="font-medium underline underline-offset-4" href={`/dashboard/admin/loans/${failure.loanId}`}>{failure.propertyAddress}</Link>
+              <p className="mt-1 leading-6 text-muted-foreground">{failure.error}</p>
+            </li>)}
+          </ul>
+        </div>
+      )}
+      {statusChange && <LoanStatusDialog
+        change={{ count: statusChange.loans.length }}
+        finalFocus={() => statusChange.trigger?.isConnected ? statusChange.trigger : pageRef.current}
+        onSave={handleBulkStatusSave}
+        onClose={() => setStatusChange(null)}
+      />}
+
       <BulkActionBar
         selectedCount={selectedIds.size}
-        onClear={() => { setSelectedIds(new Set()); setBulkStatusOpen(false); }}
+        onClear={() => setSelectedIds(new Set())}
         disabled={bulkLoading}
         actions={[
           {
-            label: bulkStatusOpen ? "Cancel" : "Change Status",
-            onClick: () => setBulkStatusOpen(!bulkStatusOpen),
+            label: "Change Status",
+            onClick: handleBulkStatusChange,
           },
           {
             label: "Export Selected",
@@ -374,22 +392,6 @@ export default function AdminLoansPage() {
         ]}
       />
 
-      {bulkStatusOpen && selectedIds.size > 0 && (
-        <div className="fixed inset-x-4 bottom-24 z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
-          <div className="mx-auto flex max-h-[calc(100dvh_-_8rem)] max-w-lg flex-wrap items-center justify-center gap-1.5 overflow-y-auto rounded-xl border border-border bg-card p-3 shadow-lg sm:max-w-none">
-            {LOAN_STATUSES.map((status) => (
-              <button
-                key={status}
-                onClick={() => handleBulkStatusChange(status)}
-                disabled={bulkLoading}
-                className="min-h-10 transition-[opacity,scale] duration-150 hover:opacity-80 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
-              >
-                <StatusBadge status={status} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       <ConfirmDialog
         open={confirmAction !== null}
         title={confirmAction?.title ?? ""}

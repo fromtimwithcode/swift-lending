@@ -45,6 +45,7 @@ export default function RootLayout({
             <ThemeProvider>
               {children}
               <Toaster
+                style={{ zIndex: 55 }}
                 position="bottom-right"
                 closeButton
                 toastOptions={{

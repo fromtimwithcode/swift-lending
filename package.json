@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
@@ -39,7 +40,9 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@edge-runtime/vm": "^5.0.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20",
     "@types/react": "^19",

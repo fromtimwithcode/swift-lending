@@ -86,6 +86,9 @@ const schema = defineSchema({
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
+    statusNote: v.optional(v.string()),
+    statusUpdatedAt: v.optional(v.number()),
+    statusUpdatedBy: v.optional(v.id("userProfiles")),
     createdBy: v.id("userProfiles"),
   })
     .index("by_borrowerId", ["borrowerId"])
