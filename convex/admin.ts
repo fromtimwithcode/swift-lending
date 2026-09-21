@@ -23,6 +23,7 @@ import {
   roundCents,
 } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
+import { getLoanStatusChangeError, getStatusNoteError, type LoanStatus } from "./lib/loanStatus";
 import { getAppConfigurationState } from "./lib/settings";
 import { getPropertyDetailsError } from "./lib/propertyDetails";
 import {
@@ -1195,80 +1196,73 @@ export const getBorrowerDetail = query({
   },
 });
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  submitted: ["under_review", "additional_info_needed", "denied", "closed"],
-  under_review: ["approved", "additional_info_needed", "denied", "closed"],
-  additional_info_needed: ["under_review", "denied", "closed"],
-  approved: ["funded", "denied", "closed"],
-  funded: ["sent_to_title", "closed"],
-  sent_to_title: ["closed"],
-  denied: ["under_review", "approved", "closed"],
-  closed: [],
-};
+// Validation runs before writes; callers share the same atomic status/note/audit path.
+async function saveLoanStatusChange(
+  ctx: MutationCtx,
+  loan: Doc<"loans">,
+  admin: Doc<"userProfiles">,
+  status: LoanStatus,
+  note: string | undefined,
+) {
+  const statusNote = note?.trim() || undefined;
+  await ctx.db.patch(loan._id, {
+    status, statusNote, statusUpdatedAt: Date.now(), statusUpdatedBy: admin._id,
+  });
+  await ctx.runMutation(internal.notifications.createNotification, {
+    recipientId: loan.borrowerId,
+    type: "loan_status_changed",
+    title: "Loan Status Updated",
+    body: `Your loan for ${loan.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[status]}".${statusNote ? `\n\n${statusNote}` : ""}`,
+    loanId: loan._id,
+    sendSms: true,
+  });
+  await ctx.runMutation(internal.activityLog.log, {
+    userId: admin._id,
+    userName: admin.displayName,
+    action: "loan.status",
+    entityType: "loan",
+    entityId: loan._id,
+    details: `Changed status from "${LOAN_STATUS_LABELS[loan.status]}" to "${LOAN_STATUS_LABELS[status]}" for ${loan.propertyAddress}${statusNote ? `\nExplanation: ${statusNote}` : ""}`,
+    metadata: JSON.stringify({ previousStatus: loan.status, status, ...(statusNote ? { statusNote } : {}) }),
+  });
+}
 
 export const updateLoanStatus = mutation({
   args: {
     id: v.id("loans"),
     status: loanStatusValidator,
+    note: v.optional(v.string()),
+    expectedStatus: v.optional(loanStatusValidator),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
-
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new ConvexError("Loan not found");
-    if (existing.returnedDate && args.status !== "closed") {
-      throw new ConvexError("Cannot change status after funds have been marked returned");
-    }
+    const transitionError = getLoanStatusChangeError(existing, args.status, args.expectedStatus);
+    if (transitionError) throw new ConvexError({ publicMessage: transitionError });
+    if (existing.status === args.status) return args.id;
+    const noteError = getStatusNoteError(args.status, args.note);
+    if (noteError) throw new ConvexError({ publicMessage: noteError });
 
-    if (existing.status === args.status) {
-      return args.id;
-    }
-
-    const validNext = VALID_TRANSITIONS[existing.status];
-    if (!validNext || !validNext.includes(args.status)) {
-      throw new ConvexError(
-        `Invalid status transition: cannot move from "${existing.status}" to "${args.status}"`
-      );
-    }
-
-    await ctx.db.patch(args.id, { status: args.status });
-
-    // Notify borrower of status change
-    await ctx.runMutation(internal.notifications.createNotification, {
-      recipientId: existing.borrowerId,
-      type: "loan_status_changed",
-      title: "Loan Status Updated",
-      body: `Your loan for ${existing.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
-      loanId: args.id,
-      sendSms: true,
-    });
-
+    await saveLoanStatusChange(ctx, existing, admin, args.status, args.note);
+    const note = args.note?.trim();
     await notifyTeam(ctx, {
       type: "loan_status_changed",
       title: "Loan Status Updated",
-      body: `${admin.displayName} changed ${existing.borrowerName}'s loan for ${existing.propertyAddress} from "${LOAN_STATUS_LABELS[existing.status] ?? existing.status}" to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
+      body: `${admin.displayName} changed ${existing.borrowerName}'s loan for ${existing.propertyAddress} from "${LOAN_STATUS_LABELS[existing.status]}" to "${LOAN_STATUS_LABELS[args.status]}".${note ? `\n\n${note}` : ""}`,
       loanId: args.id,
       details: [
         { label: "Borrower", value: existing.borrowerName },
         { label: "Property address", value: existing.propertyAddress },
-        { label: "Previous status", value: LOAN_STATUS_LABELS[existing.status] ?? existing.status },
-        { label: "New status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
+        { label: "Previous status", value: LOAN_STATUS_LABELS[existing.status] },
+        { label: "New status", value: LOAN_STATUS_LABELS[args.status] },
         { label: "Updated by", value: admin.displayName },
+        ...(note ? [{ label: "Explanation", value: note }] : []),
       ],
       actionPath: `/dashboard/admin/loans/${args.id}`,
       actionLabel: "View Loan",
       sendSms: true,
     });
-
-    await ctx.runMutation(internal.activityLog.log, {
-      userId: admin._id,
-      userName: admin.displayName,
-      action: "loan.status",
-      entityType: "loan",
-      entityId: args.id,
-      details: `Changed status from "${existing.status}" to "${args.status}" for ${existing.propertyAddress}`,
-    });
-
     return args.id;
   },
 });
@@ -1298,6 +1292,9 @@ export const recordLoanReturned = mutation({
 
     await ctx.db.patch(args.id, {
       status: "closed",
+      statusNote: undefined,
+      statusUpdatedAt: Date.now(),
+      statusUpdatedBy: admin._id,
       returnedDate,
       returnedAmount: Math.round(args.returnedAmount * 100) / 100,
       returnedAt: Date.now(),
@@ -1736,78 +1733,56 @@ export const bulkUpdateLoanStatus = mutation({
   args: {
     loanIds: v.array(v.id("loans")),
     status: loanStatusValidator,
+    note: v.optional(v.string()),
+    expectedStatuses: v.optional(v.array(v.object({
+      loanId: v.id("loans"), status: loanStatusValidator,
+    }))),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
-
-    if (args.loanIds.length > MAX_BULK_OPERATION_SIZE) {
+    if (args.loanIds.length > MAX_BULK_OPERATION_SIZE ||
+        (args.expectedStatuses?.length ?? 0) > MAX_BULK_OPERATION_SIZE) {
       throw new ConvexError(`Maximum ${MAX_BULK_OPERATION_SIZE} items per bulk operation`);
     }
-
-    const results: { loanId: string; success: boolean; error?: string }[] = [];
-
-    for (const loanId of args.loanIds) {
+    const expected = new Map(args.expectedStatuses?.map((item) => [item.loanId, item.status]));
+    const results: { loanId: Id<"loans">; success: boolean; changed?: boolean; error?: string }[] = [];
+    for (const loanId of new Set(args.loanIds)) {
       const loan = await ctx.db.get(loanId);
       if (!loan) {
         results.push({ loanId, success: false, error: "Loan not found" });
         continue;
       }
-
-      if (loan.returnedDate && args.status !== "closed") {
-        results.push({ loanId, success: false, error: "Cannot change status after funds have been marked returned" });
+      const error = getLoanStatusChangeError(loan, args.status, expected.get(loanId))
+        ?? (loan.status !== args.status ? getStatusNoteError(args.status, args.note) : null);
+      if (error) {
+        results.push({ loanId, success: false, error });
         continue;
       }
-
       if (loan.status === args.status) {
-        results.push({ loanId, success: true });
+        results.push({ loanId, success: true, changed: false });
         continue;
       }
-
-      const validNext = VALID_TRANSITIONS[loan.status];
-      if (!validNext || !validNext.includes(args.status)) {
-        results.push({ loanId, success: false, error: `Cannot transition from "${loan.status}" to "${args.status}"` });
-        continue;
-      }
-
-      await ctx.db.patch(loanId, { status: args.status });
-
-      await ctx.runMutation(internal.notifications.createNotification, {
-        recipientId: loan.borrowerId,
-        type: "loan_status_changed",
-        title: "Loan Status Updated",
-        body: `Your loan for ${loan.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
-        loanId,
-        sendSms: true,
-      });
-
-      results.push({ loanId, success: true });
+      await saveLoanStatusChange(ctx, loan, admin, args.status, args.note);
+      results.push({ loanId, success: true, changed: true });
     }
-
-    const successCount = results.filter((r) => r.success).length;
-    if (successCount > 0) {
+    const changedCount = results.filter((r) => r.changed).length;
+    if (changedCount > 0) {
+      const note = args.note?.trim();
       await notifyTeam(ctx, {
         type: "loan_status_changed",
         title: "Loan Status Bulk Updated",
-        body: `${admin.displayName} bulk updated ${successCount}/${args.loanIds.length} loans to "${LOAN_STATUS_LABELS[args.status] ?? args.status}".`,
+        body: `${admin.displayName} updated ${changedCount} ${changedCount === 1 ? "loan" : "loans"} to "${LOAN_STATUS_LABELS[args.status]}".${note ? `\n\n${note}` : ""}`,
         details: [
           { label: "Updated by", value: admin.displayName },
-          { label: "New status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
-          { label: "Successful updates", value: `${successCount}/${args.loanIds.length}` },
+          { label: "New status", value: LOAN_STATUS_LABELS[args.status] },
+          { label: "Loans updated", value: String(changedCount) },
+          ...(note ? [{ label: "Explanation", value: note }] : []),
         ],
         actionPath: "/dashboard/admin/loans",
         actionLabel: "View Loans",
         sendSms: true,
       });
     }
-
-    await ctx.runMutation(internal.activityLog.log, {
-      userId: admin._id,
-      userName: admin.displayName,
-      action: "loan.bulkStatus",
-      entityType: "loan",
-      details: `Bulk updated ${successCount}/${args.loanIds.length} loans to "${args.status}"`,
-    });
-
     return results;
   },
 });

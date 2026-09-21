@@ -138,8 +138,17 @@ export default function ActivityLogPage() {
                         {ENTITY_TYPE_LABELS[entry.entityType] ?? entry.entityType}
                       </span>
                     </td>
-                    <td className="max-w-md truncate px-4 py-3 text-muted-foreground">
-                      {entry.details ?? "—"}
+                    <td className="max-w-md px-4 py-3 text-muted-foreground">
+                      {entry.action === "loan.status" && entry.details?.includes("\n") ? (
+                        <details className="min-w-60 max-w-md">
+                          <summary className="min-h-11 cursor-pointer rounded-lg py-2.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
+                            {entry.details.split("\n")[0]}
+                          </summary>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+                            {entry.details.split("\n").slice(1).join("\n")}
+                          </p>
+                        </details>
+                      ) : <span className="block truncate">{entry.details ?? "—"}</span>}
                     </td>
                   </tr>
                 ))}

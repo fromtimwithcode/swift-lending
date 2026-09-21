@@ -28,7 +28,10 @@ import {
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { LoanStatusDialog } from "@/components/dashboard/loan-status-dialog";
+import { LoanStatusControls } from "@/components/dashboard/loan-status-controls";
+import type { LoanStatus } from "@/convex/lib/loanStatus";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { formatUsDate, getMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePoints } from "@/lib/loan-calc";
@@ -64,35 +67,6 @@ import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
 import { usePayoffStatement } from "@/hooks/use-payoff-statement";
 import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
-
-const STATUSES = [
-  "submitted",
-  "under_review",
-  "additional_info_needed",
-  "approved",
-  "denied",
-  "funded",
-  "sent_to_title",
-  "closed",
-] as const;
-
-const VALID_STATUS_TRANSITIONS: Record<(typeof STATUSES)[number], (typeof STATUSES)[number][]> = {
-  submitted: ["under_review", "additional_info_needed", "denied", "closed"],
-  under_review: ["approved", "additional_info_needed", "denied", "closed"],
-  additional_info_needed: ["under_review", "denied", "closed"],
-  approved: ["funded", "denied", "closed"],
-  funded: ["sent_to_title", "closed"],
-  sent_to_title: ["closed"],
-  denied: ["under_review", "approved", "closed"],
-  closed: [],
-};
-
-function canChangeLoanStatus(
-  currentStatus: (typeof STATUSES)[number],
-  nextStatus: (typeof STATUSES)[number]
-) {
-  return currentStatus === nextStatus || VALID_STATUS_TRANSITIONS[currentStatus].includes(nextStatus);
-}
 
 type TitleContactOption = {
   titleCompany: string;
@@ -163,6 +137,8 @@ export default function LoanDetailPage() {
   const recordPayment = useMutation(api.loanPayments.recordPayment);
   const deletePayment = useMutation(api.loanPayments.deletePayment);
   const removeCharge = useMutation(api.loanCharges.removeCharge);
+  const statusPanelRef = useRef<HTMLElement>(null);
+  const [statusChange, setStatusChange] = useState<{ status: LoanStatus; currentStatus: LoanStatus; trigger: HTMLButtonElement } | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
@@ -399,16 +375,10 @@ export default function LoanDetailPage() {
     }));
   };
 
-  const handleStatusChange = async (newStatus: string) => {
-    try {
-      await updateStatus({
-        id,
-        status: newStatus as (typeof STATUSES)[number],
-      });
-      toast.success("Status updated");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to update status"));
-    }
+  const handleStatusSave = async (note: string) => {
+    if (!statusChange) return;
+    await updateStatus({ id, status: statusChange.status, expectedStatus: statusChange.currentStatus, note });
+    toast.success("Status updated");
   };
 
   const openReturnForm = () => {
@@ -1019,39 +989,19 @@ export default function LoanDetailPage() {
         </div>
       )}
 
-      {/* Status */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Loan Status
-        </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {STATUSES.map((status) => {
-            const isCurrent = loan.status === status;
-            const canChange = canChangeLoanStatus(loan.status, status);
-
-            return (
-              <button
-                key={status}
-                type="button"
-                onClick={() => {
-                  if (canChange) handleStatusChange(status);
-                }}
-                disabled={!canChange}
-                title={canChange ? undefined : `Cannot move from ${loan.status} to ${status}`}
-                className={`min-h-10 transition-[opacity,scale] duration-150 ${
-                  isCurrent
-                    ? "opacity-100"
-                    : canChange
-                      ? "opacity-40 hover:opacity-70 active:scale-[0.96]"
-                      : "cursor-not-allowed opacity-25"
-                }`}
-              >
-                <StatusBadge status={status} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <LoanStatusControls
+        ref={statusPanelRef}
+        status={loan.status}
+        note={loan.statusNote}
+        returnedDate={loan.returnedDate}
+        onSelect={(status, trigger) => setStatusChange({ status, currentStatus: loan.status, trigger })}
+      />
+      {statusChange && <LoanStatusDialog
+        change={{ ...statusChange, propertyAddress: loan.propertyAddress }}
+        finalFocus={() => statusChange.trigger.isConnected ? statusChange.trigger : statusPanelRef.current}
+        onSave={handleStatusSave}
+        onClose={() => setStatusChange(null)}
+      />}
 
       {/* Loan Details */}
       <div className="grid gap-6 lg:grid-cols-2">

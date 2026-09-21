@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { LoanStatusNote } from "@/components/dashboard/loan-status-note";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
 import { DocumentChecklist } from "@/components/dashboard/document-checklist";
 import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
@@ -207,6 +208,8 @@ export default function BorrowerLoanDetailPage() {
       <div className="rounded-xl border border-border bg-card p-6">
         <LoanStatusTimeline status={loan.status} />
       </div>
+
+      <LoanStatusNote status={loan.status} note={loan.statusNote} />
 
       {/* Loan Details */}
       <div className="grid gap-6 lg:grid-cols-2">

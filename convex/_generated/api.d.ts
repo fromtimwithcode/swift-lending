@@ -33,6 +33,7 @@ import type * as lib_drawDates from "../lib/drawDates.js";
 import type * as lib_financialRules from "../lib/financialRules.js";
 import type * as lib_fundingLedger from "../lib/fundingLedger.js";
 import type * as lib_loanCalculations from "../lib/loanCalculations.js";
+import type * as lib_loanStatus from "../lib/loanStatus.js";
 import type * as lib_notifications from "../lib/notifications.js";
 import type * as lib_payoffCalculations from "../lib/payoffCalculations.js";
 import type * as lib_payoffReadiness from "../lib/payoffReadiness.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "lib/financialRules": typeof lib_financialRules;
   "lib/fundingLedger": typeof lib_fundingLedger;
   "lib/loanCalculations": typeof lib_loanCalculations;
+  "lib/loanStatus": typeof lib_loanStatus;
   "lib/notifications": typeof lib_notifications;
   "lib/payoffCalculations": typeof lib_payoffCalculations;
   "lib/payoffReadiness": typeof lib_payoffReadiness;

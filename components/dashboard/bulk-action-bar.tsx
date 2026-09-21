@@ -46,7 +46,7 @@ export function BulkActionBar({
                 <button
                   key={action.label}
                   type="button"
-                  onClick={action.onClick}
+                  onClick={(event) => { event.currentTarget.focus(); action.onClick(); }}
                   disabled={disabled}
                   className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1 ${
                     action.variant === "destructive"
