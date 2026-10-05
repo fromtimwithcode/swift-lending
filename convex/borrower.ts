@@ -16,7 +16,7 @@ import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
 } from "./lib/propertyValidators";
-import { getFundingLedgerStatus } from "./lib/fundingLedger";
+import { getAvailableDrawFunds, getFundingLedgerStatus } from "./lib/fundingLedger";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -368,7 +368,11 @@ export const submitDrawRequest = mutation({
       const pendingTotal = existingDraws
         .filter((d) => d.status === "pending" || d.status === "under_review")
         .reduce((sum, d) => sum + d.amountRequested, 0);
-      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - pendingTotal;
+      const available = getAvailableDrawFunds({
+        drawFundsTotal: loan.drawFundsTotal,
+        recordedTotal: ledgerStatus.recordedTotal,
+        pendingTotal,
+      });
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(available)}`

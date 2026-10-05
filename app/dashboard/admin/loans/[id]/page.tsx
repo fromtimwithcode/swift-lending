@@ -66,7 +66,7 @@ import {
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
 import { usePayoffStatement } from "@/hooks/use-payoff-statement";
-import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
+import { getAvailableDrawFunds, getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 type TitleContactOption = {
   titleCompany: string;
@@ -241,7 +241,11 @@ export default function LoanDetailPage() {
     .reduce((sum, draw) => sum + draw.amountRequested, 0);
   const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
     && fundingLedgerStatus?.isReconciled
-    ? loan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingDrawTotal
+    ? getAvailableDrawFunds({
+        drawFundsTotal: loan.drawFundsTotal,
+        recordedTotal: fundingLedgerStatus.recordedTotal,
+        pendingTotal: pendingDrawTotal,
+      })
     : undefined;
   const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
   const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);

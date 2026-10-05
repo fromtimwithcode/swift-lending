@@ -29,7 +29,7 @@ import { ContextTooltip } from "@/components/dashboard/context-tooltip";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
-import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
+import { getAvailableDrawFunds, getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 function DetailRow({
   label,
@@ -116,7 +116,11 @@ export default function BorrowerLoanDetailPage() {
     .reduce((sum, draw) => sum + draw.amountRequested, 0);
   const drawRequestAvailable = loan.drawFundsTotal !== undefined && !drawAvailabilityLoading
     && fundingLedgerStatus?.isReconciled
-    ? loan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingDrawTotal
+    ? getAvailableDrawFunds({
+        drawFundsTotal: loan.drawFundsTotal,
+        recordedTotal: fundingLedgerStatus.recordedTotal,
+        pendingTotal: pendingDrawTotal,
+      })
     : undefined;
   const openDrawUpload = (draw: DrawFolderDraw) => setUploadDrawId(draw._id);
 

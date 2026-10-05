@@ -50,6 +50,14 @@ export function getFundingLedgerStatus(args: {
   };
 }
 
+export function getAvailableDrawFunds(args: {
+  drawFundsTotal: number;
+  recordedTotal: number;
+  pendingTotal: number;
+}) {
+  return roundCents(args.drawFundsTotal - args.recordedTotal - args.pendingTotal);
+}
+
 export function getPrincipalOutFromFundingLedger(
   loan: FundingLoan,
   draws: FundingDraw[]

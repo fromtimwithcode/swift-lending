@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   getApprovedDrawTotal,
+  getAvailableDrawFunds,
   getFundingLedgerStatus,
   getPrincipalOutForPeriodStart,
 } from "./fundingLedger";
@@ -23,6 +24,16 @@ describe("funding ledger", () => {
       difference: 33_138.35,
       isReconciled: false,
     });
+  });
+
+  test("reports available draw funds in whole cents", () => {
+    expect(62_400 - 58_077.79).not.toBe(4_322.21);
+    expect(
+      getAvailableDrawFunds({ drawFundsTotal: 62_400, recordedTotal: 58_077.79, pendingTotal: 0 })
+    ).toBe(4_322.21);
+    expect(
+      getAvailableDrawFunds({ drawFundsTotal: 62_400, recordedTotal: 58_077.79, pendingTotal: 4_322.2 })
+    ).toBe(0.01);
   });
 
   test("calculates period principal only from draws funded before the period", () => {
