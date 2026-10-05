@@ -14,6 +14,7 @@ import { calculateMonthlyPaymentDue, getCurrentPrincipalOut } from "./lib/loanCa
 import { notifyTeam } from "./lib/notifications";
 import {
   FUNDING_LEDGER_ERROR,
+  getAvailableDrawFunds,
   getFundingLedgerStatus,
 } from "./lib/fundingLedger";
 
@@ -213,7 +214,11 @@ export const createManualDrawRequest = mutation({
       throw new ConvexError(FUNDING_LEDGER_ERROR);
     }
     if (loan.drawFundsTotal !== undefined) {
-      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - drawState.pendingTotal;
+      const available = getAvailableDrawFunds({
+        drawFundsTotal: loan.drawFundsTotal,
+        recordedTotal: ledgerStatus.recordedTotal,
+        pendingTotal: drawState.pendingTotal,
+      });
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`
@@ -304,7 +309,11 @@ export const updateDrawRequest = mutation({
       throw new ConvexError(FUNDING_LEDGER_ERROR);
     }
     if (loan.drawFundsTotal !== undefined) {
-      const available = loan.drawFundsTotal - ledgerStatus.recordedTotal - drawState.pendingTotal;
+      const available = getAvailableDrawFunds({
+        drawFundsTotal: loan.drawFundsTotal,
+        recordedTotal: ledgerStatus.recordedTotal,
+        pendingTotal: drawState.pendingTotal,
+      });
       if (args.amountRequested > available) {
         throw new ConvexError(
           `Draw amount exceeds available funds. Available: ${formatCurrencyPlain(Math.max(0, available))}`

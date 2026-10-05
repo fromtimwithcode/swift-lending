@@ -12,7 +12,7 @@ import { isDrawEligibleLoan } from "@/convex/lib/constants";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
+import { getAvailableDrawFunds, getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
 
 export default function NewAdminDrawRequestPage() {
   const router = useRouter();
@@ -47,7 +47,11 @@ export default function NewAdminDrawRequestPage() {
       })
     : undefined;
   const available = selectedLoan?.drawFundsTotal !== undefined && fundingLedgerStatus?.isReconciled
-    ? selectedLoan.drawFundsTotal - fundingLedgerStatus.recordedTotal - pendingTotal
+    ? getAvailableDrawFunds({
+        drawFundsTotal: selectedLoan.drawFundsTotal,
+        recordedTotal: fundingLedgerStatus.recordedTotal,
+        pendingTotal,
+      })
     : undefined;
 
   const handleSubmit = async (event: React.FormEvent) => {
