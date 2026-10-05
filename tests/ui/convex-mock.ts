@@ -24,6 +24,8 @@ const firstLoan = {
   status: "under_review" as LoanStatus,
   statusNote: undefined as string | undefined,
   returnedDate: undefined as string | undefined,
+  drawFundsTotal: undefined as number | undefined,
+  drawFundsUsed: undefined as number | undefined,
 };
 let loans = [
   firstLoan,
@@ -34,6 +36,7 @@ let loans = [
     status: "closed" as LoanStatus,
   },
 ];
+let draws: Record<string, unknown>[] = [];
 let version = 0;
 const subscribers = new Set<() => void>();
 function notify() {
@@ -52,6 +55,10 @@ const controls = {
   calls: [] as { name: string; args: Record<string, unknown> }[],
   setLoan: (patch: Partial<typeof firstLoan>) => {
     loans = [{ ...loans[0], ...patch }, loans[1]];
+    notify();
+  },
+  setDraws: (next: Record<string, unknown>[]) => {
+    draws = next;
     notify();
   },
 };
@@ -78,6 +85,9 @@ export function useQuery(
     }];
     case "admin:getLoans":
       return loans;
+    case "draws:getDrawRequestsForLoan":
+    case "borrower:getDrawRequestsForLoan":
+      return draws;
     case "admin:getClosingStatementUrl":
       return null;
     case "borrower:isRepeatEntity":
@@ -95,6 +105,8 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     if (controls.delay)
       await new Promise((resolve) => setTimeout(resolve, controls.delay));
     if (controls.error) throw new Error(controls.error);
+    if (name === "draws:createManualDrawRequest" || name === "borrower:submitDrawRequest")
+      return "draw-new";
     const status = args.status as LoanStatus;
     const update = (id: string, expectedStatus?: LoanStatus) => {
       const loan = loans.find((item) => item._id === id)!;
