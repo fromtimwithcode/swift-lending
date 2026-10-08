@@ -292,10 +292,28 @@ const schema = defineSchema({
     investmentAmount: v.number(),
     inceptionDate: v.number(),
     interestRate: v.number(),
-    totalPaymentsReceived: v.number(),
-    nextPaymentDate: v.number(),
+    // Optional until migrations:backfillInvestmentPaymentSchedules has run.
+    firstPaymentDate: v.optional(v.number()),
+    priorPaymentsReceived: v.optional(v.number()),
     notes: v.optional(v.string()),
+    // Replaced by firstPaymentDate, priorPaymentsReceived, and investorPayouts.
+    totalPaymentsReceived: v.optional(v.number()),
+    nextPaymentDate: v.optional(v.number()),
   }).index("by_investorId", ["investorId"]),
+
+  investorPayouts: defineTable({
+    investmentId: v.id("investments"),
+    amount: v.number(),
+    paidDate: v.number(),
+    method: v.union(
+      v.literal("ach"),
+      v.literal("wire"),
+      v.literal("check"),
+      v.literal("other")
+    ),
+    notes: v.optional(v.string()),
+    recordedBy: v.id("userProfiles"),
+  }).index("by_investmentId_and_paidDate", ["investmentId", "paidDate"]),
 
   notifications: defineTable({
     recipientId: v.id("userProfiles"),

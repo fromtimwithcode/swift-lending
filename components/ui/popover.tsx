@@ -23,7 +23,7 @@ function PopoverContent({
       <PopoverPrimitive.Positioner
         sideOffset={sideOffset}
         align={align}
-        className="z-50 outline-none"
+        className="z-[70] outline-none"
       >
         <PopoverPrimitive.Popup
           className={cn(

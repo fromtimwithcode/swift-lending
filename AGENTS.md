@@ -45,3 +45,9 @@
 - Deleting requires a trimmed reason (`getDeleteReasonError` in `convex/lib/paymentReminders.ts`). Charge-backed deletes waive the open charges and store `loanCharges.waiver`; estimated reminders get a `paymentReminderDismissals` row. Both are restorable from the loan page and logged to the Activity Log.
 - A waived charge forgives only its unpaid balance. Payoff (`convex/lib/payoffCalculations.ts`) pools same-day interest payments the same way reminders do; keep the two consistent.
 - Combined interest charge statuses are reconciled by `syncInterestChargeStatusesForDueDate` in `convex/lib/interestChargeStatus.ts`; call it after changing which charges in a due-date group are open.
+
+## Investor Payments
+- Investor payment schedules are calculated on read by `summarizeInvestment` in `convex/lib/investmentSchedule.ts`; nothing stores a next payment date. Interest is paid monthly (amount × rate ÷ 12) on the first payment date's day of the month, and the first payment is prorated when it is not one month after inception.
+- `investorPayouts` is the payment ledger. Payouts plus `investments.priorPaymentsReceived` cover the oldest scheduled payment first, the same pooling idea as loan reminders.
+- Investment dates are calendar days stored as UTC-midnight timestamps. Format and parse them only with the `investmentSchedule` helpers (`formatCalendarDay`, `parseIsoCalendarDay`, `toIsoCalendarDay`); `toLocaleDateString()` shows the previous day in US timezones.
+- `getInvestmentTerms` in `convex/lib/investorPortfolio.ts` also reads documents written before `migrations:backfillInvestmentPaymentSchedules`. Remove that fallback and the optional legacy fields once the migration has run in production.

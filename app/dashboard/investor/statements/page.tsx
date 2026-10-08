@@ -10,19 +10,25 @@ import { formatCurrency } from "@/lib/format";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { motion } from "framer-motion";
 import { staggerContainer } from "@/lib/animations";
+import { formatCalendarDay } from "@/convex/lib/investmentSchedule";
+import { getPortfolioRows, type PortfolioRow } from "@/lib/investor-portfolio";
+import { useBusinessToday } from "@/hooks/use-business-today";
 
 export default function InvestorStatementsPage() {
-  const statement = useQuery(api.investor.getInvestmentStatement);
+  const today = useBusinessToday();
+  const portfolio = useQuery(api.investments.getMyPortfolio, { today });
 
-  if (statement === undefined) {
+  if (portfolio === undefined) {
     return <PageSkeleton />;
   }
 
-  const columns: Column<Record<string, unknown>>[] = [
+  const { totals } = portfolio;
+  const rows = getPortfolioRows(portfolio);
+  const columns: Column<PortfolioRow>[] = [
     {
       key: "investmentAmount",
       header: "Amount",
-      render: (row) => formatCurrency(row.investmentAmount as number),
+      render: (row) => formatCurrency(row.investmentAmount),
     },
     {
       key: "interestRate",
@@ -30,24 +36,29 @@ export default function InvestorStatementsPage() {
       render: (row) => `${row.interestRate}%`,
     },
     {
-      key: "monthlyReturn",
+      key: "monthlyPayment",
       header: "Monthly Return",
-      render: (row) => formatCurrency(row.monthlyReturn as number),
+      render: (row) => formatCurrency(row.monthlyPayment),
     },
     {
-      key: "annualReturn",
+      key: "annualInterest",
       header: "Annual Return",
-      render: (row) => formatCurrency(row.annualReturn as number),
+      render: (row) => formatCurrency(row.annualInterest),
     },
     {
-      key: "totalPaymentsReceived",
+      key: "interestEarned",
+      header: "Interest Earned",
+      render: (row) => formatCurrency(row.interestEarned),
+    },
+    {
+      key: "paidToDate",
       header: "Total Received",
-      render: (row) => formatCurrency(row.totalPaymentsReceived as number),
+      render: (row) => formatCurrency(row.paidToDate),
     },
     {
       key: "inceptionDate",
       header: "Inception",
-      render: (row) => new Date(row.inceptionDate as number).toLocaleDateString(),
+      render: (row) => formatCalendarDay(row.inceptionDate),
     },
   ];
 
@@ -67,25 +78,25 @@ export default function InvestorStatementsPage() {
       >
         <KpiCard
           label="Total Invested"
-          value={formatCurrency(statement.totalInvested)}
+          value={formatCurrency(totals.totalInvested)}
           subtitle="Principal amount"
           icon={DollarSign}
         />
         <KpiCard
           label="Total Returns"
-          value={formatCurrency(statement.totalReturns)}
+          value={formatCurrency(totals.paidToDate)}
           subtitle="Payments received"
           icon={TrendingUp}
         />
         <KpiCard
           label="Weighted Avg Rate"
-          value={`${statement.weightedAvgRate}%`}
+          value={`${totals.avgInterestRate}%`}
           subtitle="Across all investments"
           icon={Percent}
         />
         <KpiCard
           label="Est. Annual Income"
-          value={formatCurrency(statement.estAnnualIncome)}
+          value={formatCurrency(totals.annualInterest)}
           subtitle="Projected yearly returns"
           icon={Wallet}
         />
@@ -94,11 +105,8 @@ export default function InvestorStatementsPage() {
       {/* Investments Breakdown */}
       <div>
         <h3 className="mb-4 text-lg font-semibold">Investment Breakdown</h3>
-        {statement.breakdown.length > 0 ? (
-          <DataTable
-            data={statement.breakdown as unknown as Record<string, unknown>[]}
-            columns={columns}
-          />
+        {rows.length > 0 ? (
+          <DataTable data={rows} columns={columns} />
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card py-16">
             <DollarSign className="size-10 text-muted-foreground" />

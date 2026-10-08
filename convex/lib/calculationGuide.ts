@@ -261,9 +261,19 @@ export function getCalculationGuide(configuration: AppConfiguration) {
           detail: "Larger investments have a proportionally larger effect on the portfolio rate.",
         },
         {
-          name: "Estimated investor returns",
-          formula: `Annual = investment amount × rate ÷ 100; monthly = annual ÷ ${MONTHS_PER_YEAR}`,
-          detail: "Payments already received are tracked separately from these estimated returns.",
+          name: "Investor monthly payment",
+          formula: `Investment amount × annual rate ÷ 100 ÷ ${MONTHS_PER_YEAR}, paid on the first payment date’s day of each month`,
+          detail: "In shorter months, a payment day of 29–31 moves to the month’s last day.",
+        },
+        {
+          name: "Investor first payment",
+          formula: "Monthly payment × (whole months + leftover days ÷ 30) from inception to the first payment date",
+          detail: "A first payment exactly one month after inception is one monthly payment.",
+        },
+        {
+          name: "Investor interest earned",
+          formula: "Scheduled payments due through today + the current period’s interest × days elapsed ÷ days in the period",
+          detail: "Recorded payments and payments received before tracking cover the oldest scheduled payment first. Anything still owed after its due date is past due.",
         },
       ],
     },

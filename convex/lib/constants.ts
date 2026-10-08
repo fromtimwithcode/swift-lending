@@ -147,6 +147,8 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "investment.create": "Created Investment",
   "investment.update": "Updated Investment",
   "investment.delete": "Deleted Investment",
+  "investment.payout": "Recorded Investor Payment",
+  "investment.payoutDelete": "Deleted Investor Payment",
   "rehab.addItem": "Added Rehab Budget Item",
   "rehab.updateItem": "Updated Rehab Budget Item",
   "rehab.deleteItem": "Deleted Rehab Budget Item",
