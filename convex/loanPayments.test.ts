@@ -93,7 +93,7 @@ describe("combined interest payments", () => {
       });
     });
     await expect(
-      admin.mutation(api.loanCharges.removeCharge, { id: drawChargeId })
-    ).rejects.toThrow("Remove related payment records");
+      admin.mutation(api.loanCharges.removeCharge, { id: drawChargeId, reason: "Duplicate draw" })
+    ).rejects.toThrow("Delete its payments");
   });
 });

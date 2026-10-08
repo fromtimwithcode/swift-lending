@@ -64,9 +64,9 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pipeline / Closed), search, sort
+- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied), search, sort
 - [x] Loan detail page with inline editing
-- [x] Status changer (clickable status badges)
+- [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
 
 ### Admin Borrower Management
@@ -336,6 +336,20 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ---
 
+## Payment Reminder Deletion & Status Updates (Completed)
+
+- [x] Admin Overview Payment Reminders: trash button on every row opens a dialog that requires a reason (max 2,000 characters)
+- [x] Deleting a charge-backed reminder waives its open charges (`loanCharges.waiver` stores reason, author, time, and prior status); short-paid charges can be waived, and their recorded payments stay in Payment History
+- [x] Deleting an estimated monthly-payment reminder (no charge exists) records a `paymentReminderDismissals` row that hides only that reminder
+- [x] Loan page charge delete uses the same reason dialog; paid charges with recorded payments still cannot be deleted
+- [x] Loan page "Deleted charges" disclosure lists waived charges and dismissed reminders with reason, author, and date, and restores them (`restoreCharge`, `restorePaymentReminder`)
+- [x] Activity Log entries: `charge.remove`, `charge.restore`, `payment_reminder.delete`, `payment_reminder.restore`; the reason is in the expandable details
+- [x] Payoff credits for a waived charge cover only the balance its payments did not, so short-paid waivers are not credited twice
+- [x] Loans list tabs renamed Active → Pending and a Denied tab added
+- [x] Borrower timeline keeps the step a loan had reached (`loans.progressStatus`) while it is in Info Needed or Denied
+
+---
+
 ## File Structure
 
 ```
@@ -426,6 +440,9 @@ components/
     property-comps.tsx    Property comps table with mock fetch
     empty-state.tsx       Empty state CTA
     loan-status-timeline.tsx  Horizontal stepper for loan progression
+    payment-reminders-card.tsx  Past-due/due-soon reminders with filters and reason-required delete
+    delete-charge-dialog.tsx  Reason-required delete dialog for reminders and charges
+    deleted-charges.tsx       Loan page list of deleted charges/reminders with restore
     file-upload-dialog.tsx    Modal for Convex file upload
     message-thread.tsx        Chat bubbles with auto-scroll + mark-read
     conversation-list.tsx     Conversation list with unread badges
@@ -461,6 +478,7 @@ components/
 - All mutation errors use `ConvexError` (from `convex/values`) to ensure human-readable messages reach the client in production; frontend displays them via `toast.error()` (sonner)
 - Activity log `getRecentActivity` returns latest 100 entries (limit capped at 500); `getActivityForEntity` scans 500 — may need pagination at scale
 - Developer role has identical permissions to admin; differentiation is organizational only
+- Deploy Convex schema/functions with or before the frontend: the reminder delete dialog calls `loanCharges.deletePaymentReminder` with `source`, and loan-page charge deletes require `reason`
 
 ## Convex File Upload Pattern
 

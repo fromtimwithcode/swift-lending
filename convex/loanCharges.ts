@@ -17,6 +17,7 @@ import {
   calculatePrepaidInterest,
   getMonthlyInterestPeriodForDate,
   getMonthlyInterestPeriods,
+  roundCents,
 } from "./lib/loanCalculations";
 import {
   FUNDING_LEDGER_ERROR,
@@ -28,6 +29,15 @@ import {
   isCombinedInterestChargeType,
   MAX_MONTHLY_INTEREST_PERIODS,
 } from "./lib/financialRules";
+import {
+  getEligiblePaymentAmount,
+  getPaidAmountForInterestGroup,
+  syncInterestChargeStatusesForDueDate,
+} from "./lib/interestChargeStatus";
+import {
+  getDeleteReasonError,
+  getPaymentReminderTypeLabel,
+} from "./lib/paymentReminders";
 import { getAppConfiguration } from "./lib/settings";
 
 const SYNC_BATCH_SIZE = 25;
@@ -470,55 +480,324 @@ export const updateChargeStatus = mutation({
   },
 });
 
+async function getOpenChargeGroup(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+  dueDate: string,
+  charge?: Doc<"loanCharges">
+) {
+  if (charge && !isCombinedInterestChargeType(charge.type)) {
+    return charge.status === "waived" ? [] : [charge];
+  }
+  const charges = await ctx.db
+    .query("loanCharges")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+    .collect();
+  return charges.filter(
+    (candidate) =>
+      candidate.dueDate === dueDate &&
+      candidate.status !== "waived" &&
+      isCombinedInterestChargeType(candidate.type)
+  );
+}
+
+async function getLoanPayments(ctx: MutationCtx, loanId: Id<"loans">) {
+  return await ctx.db
+    .query("loanPayments")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+    .collect();
+}
+
+async function hasRelatedPayment(ctx: MutationCtx, loanId: Id<"loans">, charges: Doc<"loanCharges">[]) {
+  const chargeIds = new Set(charges.map((charge) => charge._id));
+  const dueDates = new Set(charges.map((charge) => charge.dueDate));
+  return (await getLoanPayments(ctx, loanId)).some((payment) =>
+    payment.chargeId ? chargeIds.has(payment.chargeId) : dueDates.has(payment.dueDate)
+  );
+}
+
+function requireDeleteReason(reason: string) {
+  const error = getDeleteReasonError(reason);
+  if (error) throw new ConvexError({ publicMessage: error });
+  return reason.trim();
+}
+
+async function requireLoan(ctx: MutationCtx, loanId: Id<"loans">) {
+  const loan = await ctx.db.get(loanId);
+  if (!loan) throw new ConvexError("Loan not found");
+  return loan;
+}
+
+async function syncCombinedInterestStatuses(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+  charges: Doc<"loanCharges">[]
+) {
+  const dueDates = new Set(
+    charges
+      .filter((charge) => isCombinedInterestChargeType(charge.type))
+      .map((charge) => charge.dueDate)
+  );
+  for (const dueDate of dueDates) {
+    await syncInterestChargeStatusesForDueDate(ctx, { loanId, dueDate });
+  }
+}
+
+async function waiveCharges(
+  ctx: MutationCtx,
+  admin: Doc<"userProfiles">,
+  loanId: Id<"loans">,
+  charges: Doc<"loanCharges">[],
+  reason: string
+) {
+  const waivedAt = Date.now();
+  for (const charge of charges) {
+    await ctx.db.patch(charge._id, {
+      status: "waived",
+      waiver: {
+        reason,
+        waivedBy: admin._id,
+        waivedAt,
+        previousStatus: charge.status === "paid" ? "paid" : "scheduled",
+      },
+    });
+  }
+  await syncCombinedInterestStatuses(ctx, loanId, charges);
+}
+
 export const removeCharge = mutation({
-  args: { id: v.id("loanCharges") },
+  args: { id: v.id("loanCharges"), reason: v.string() },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
+    const reason = requireDeleteReason(args.reason);
     const charge = await ctx.db.get(args.id);
     if (!charge) throw new ConvexError("Charge not found");
     if (charge.status === "waived") return args.id;
+    const loan = await requireLoan(ctx, charge.loanId);
 
-    const relatedPayments = await ctx.db
-      .query("loanPayments")
-      .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
-      .collect();
-    const relatedChargeIds = new Set([charge._id]);
-    if (isCombinedInterestChargeType(charge.type)) {
-      const charges = await ctx.db
-        .query("loanCharges")
-        .withIndex("by_loanId", (q) => q.eq("loanId", charge.loanId))
-        .collect();
-      for (const candidate of charges) {
-        if (
-          candidate.dueDate === charge.dueDate &&
-          candidate.status !== "waived" &&
-          isCombinedInterestChargeType(candidate.type)
-        ) {
-          relatedChargeIds.add(candidate._id);
-        }
-      }
-    }
-    const hasRelatedPayment = relatedPayments.some(
-      (payment) =>
-        payment.chargeId
-          ? relatedChargeIds.has(payment.chargeId)
-          : payment.dueDate === charge.dueDate
-    );
-    if (hasRelatedPayment) {
-      throw new ConvexError("Remove related payment records before deleting this charge");
+    if (
+      charge.status === "paid" &&
+      (await hasRelatedPayment(
+        ctx,
+        loan._id,
+        await getOpenChargeGroup(ctx, loan._id, charge.dueDate, charge)
+      ))
+    ) {
+      throw new ConvexError({
+        publicMessage: "This charge is paid. Delete its payments before deleting the charge.",
+      });
     }
 
-    await ctx.db.patch(args.id, { status: "waived" });
-
+    await waiveCharges(ctx, admin, loan._id, [charge], reason);
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
       action: "charge.remove",
       entityType: "loan",
-      entityId: charge.loanId,
-      details: `Removed ${charge.type} charge for ${formatCurrencyPlain(charge.amount)} due ${charge.dueDate}`,
+      entityId: loan._id,
+      details: `Removed ${getPaymentReminderTypeLabel(charge.type).toLowerCase()} charge of ${formatCurrencyPlain(charge.amount)} due ${charge.dueDate} · ${loan.propertyAddress}\nReason: ${reason}`,
+      metadata: JSON.stringify({ chargeIds: [charge._id] }),
     });
 
     return args.id;
+  },
+});
+
+async function waiveReminderCharges(
+  ctx: MutationCtx,
+  admin: Doc<"userProfiles">,
+  loan: Doc<"loans">,
+  dueDate: string,
+  chargeId: Id<"loanCharges"> | undefined,
+  reason: string
+) {
+  const charge = chargeId ? await ctx.db.get(chargeId) : undefined;
+  if (charge === null || (charge && (charge.loanId !== loan._id || charge.dueDate !== dueDate))) {
+    throw new ConvexError("Charge not found");
+  }
+
+  const reminderCharges = await getOpenChargeGroup(ctx, loan._id, dueDate, charge);
+  const scheduledCharges = reminderCharges.filter((item) => item.status === "scheduled");
+  if (scheduledCharges.length === 0) return null;
+
+  const payments = await getLoanPayments(ctx, loan._id);
+  const unpaidAmount = Math.max(
+    0,
+    roundCents(
+      reminderCharges.reduce((sum, item) => sum + item.amount, 0) -
+        getPaidAmountForInterestGroup(payments, reminderCharges, dueDate)
+    )
+  );
+  await waiveCharges(ctx, admin, loan._id, scheduledCharges, reason);
+  return {
+    type: [...new Set(scheduledCharges.map((item) => item.type))].join("+"),
+    amount: unpaidAmount,
+    metadata: { chargeIds: scheduledCharges.map((item) => item._id) },
+  };
+}
+
+async function dismissMonthlyPaymentReminder(
+  ctx: MutationCtx,
+  admin: Doc<"userProfiles">,
+  loan: Doc<"loans">,
+  dueDate: string,
+  reason: string
+) {
+  if (!parseUsDate(dueDate)) throw new ConvexError("Due date is invalid");
+  const existing = await ctx.db
+    .query("paymentReminderDismissals")
+    .withIndex("by_loanId_and_dueDate", (q) => q.eq("loanId", loan._id).eq("dueDate", dueDate))
+    .unique();
+  if (existing) return null;
+
+  const paidAmount = (await getLoanPayments(ctx, loan._id))
+    .filter((payment) => payment.dueDate === dueDate)
+    .reduce((sum, payment) => sum + getEligiblePaymentAmount(payment), 0);
+  const amount = Math.max(0, roundCents(loan.monthlyPayment - paidAmount));
+  const dismissalId = await ctx.db.insert("paymentReminderDismissals", {
+    loanId: loan._id,
+    dueDate,
+    amount,
+    reason,
+    dismissedBy: admin._id,
+  });
+  return { type: "monthly_payment", amount, metadata: { dismissalId } };
+}
+
+export const deletePaymentReminder = mutation({
+  args: {
+    loanId: v.id("loans"),
+    dueDate: v.string(),
+    source: v.union(v.literal("scheduled_charge"), v.literal("monthly_payment")),
+    chargeId: v.optional(v.id("loanCharges")),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const reason = requireDeleteReason(args.reason);
+    const loan = await requireLoan(ctx, args.loanId);
+
+    const deleted =
+      args.source === "monthly_payment"
+        ? await dismissMonthlyPaymentReminder(ctx, admin, loan, args.dueDate, reason)
+        : await waiveReminderCharges(ctx, admin, loan, args.dueDate, args.chargeId, reason);
+    if (!deleted) return { deleted: false };
+
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "payment_reminder.delete",
+      entityType: "loan",
+      entityId: loan._id,
+      details: `${getPaymentReminderTypeLabel(deleted.type)} of ${formatCurrencyPlain(deleted.amount)} due ${args.dueDate} · ${loan.propertyAddress}\nReason: ${reason}`,
+      metadata: JSON.stringify(deleted.metadata),
+    });
+
+    return { deleted: true };
+  },
+});
+
+export const restoreCharge = mutation({
+  args: { id: v.id("loanCharges") },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const charge = await ctx.db.get(args.id);
+    if (!charge) throw new ConvexError("Charge not found");
+    if (charge.status !== "waived") return { restored: false };
+    const loan = await requireLoan(ctx, charge.loanId);
+
+    await ctx.db.patch(charge._id, {
+      status:
+        charge.waiver?.previousStatus ??
+        (charge.type === "prepaid_interest" ? "paid" : "scheduled"),
+      waiver: undefined,
+    });
+    await syncCombinedInterestStatuses(ctx, loan._id, [charge]);
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "charge.restore",
+      entityType: "loan",
+      entityId: loan._id,
+      details: `Restored ${getPaymentReminderTypeLabel(charge.type).toLowerCase()} charge of ${formatCurrencyPlain(charge.amount)} due ${charge.dueDate} · ${loan.propertyAddress}`,
+      metadata: JSON.stringify({ chargeIds: [charge._id] }),
+    });
+
+    return { restored: true };
+  },
+});
+
+export const restorePaymentReminder = mutation({
+  args: { id: v.id("paymentReminderDismissals") },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const dismissal = await ctx.db.get(args.id);
+    if (!dismissal) return { restored: false };
+    const loan = await requireLoan(ctx, dismissal.loanId);
+
+    await ctx.db.delete(dismissal._id);
+    await ctx.runMutation(internal.activityLog.log, {
+      userId: admin._id,
+      userName: admin.displayName,
+      action: "payment_reminder.restore",
+      entityType: "loan",
+      entityId: loan._id,
+      details: `Restored monthly payment reminder due ${dismissal.dueDate} · ${loan.propertyAddress}`,
+    });
+
+    return { restored: true };
+  },
+});
+
+export const getDeletedPaymentItemsForLoan = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const charges = await ctx.db
+      .query("loanCharges")
+      .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
+      .collect();
+    const dismissals = await ctx.db
+      .query("paymentReminderDismissals")
+      .withIndex("by_loanId_and_dueDate", (q) => q.eq("loanId", args.loanId))
+      .collect();
+
+    const items = [
+      ...charges
+        .filter((charge) => charge.status === "waived")
+        .map((charge) => ({
+          kind: "charge" as const,
+          id: charge._id,
+          type: charge.type as string,
+          amount: charge.amount,
+          dueDate: charge.dueDate,
+          reason: charge.waiver?.reason,
+          deletedBy: charge.waiver?.waivedBy,
+          deletedAt: charge.waiver?.waivedAt,
+        })),
+      ...dismissals.map((dismissal) => ({
+        kind: "reminder" as const,
+        id: dismissal._id,
+        type: "monthly_payment",
+        amount: dismissal.amount,
+        dueDate: dismissal.dueDate,
+        reason: dismissal.reason,
+        deletedBy: dismissal.dismissedBy,
+        deletedAt: dismissal._creationTime,
+      })),
+    ];
+
+    const names = new Map<Id<"userProfiles">, string>();
+    for (const profileId of new Set(items.flatMap((item) => (item.deletedBy ? [item.deletedBy] : [])))) {
+      const profile = await ctx.db.get(profileId);
+      if (profile) names.set(profileId, profile.displayName);
+    }
+
+    return items
+      .map(({ deletedBy, ...item }) => ({
+        ...item,
+        deletedByName: deletedBy ? names.get(deletedBy) : undefined,
+      }))
+      .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
   },
 });

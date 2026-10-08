@@ -4,7 +4,11 @@ import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
 import { getErrorMessage } from "../lib/errors";
-import type { LoanStatus } from "./lib/loanStatus";
+import {
+  getNextLoanStatuses,
+  LOAN_STATUSES,
+  type LoanStatus,
+} from "./lib/loanStatus";
 
 const modules = import.meta.glob("./**/*.ts");
 async function fixture(
@@ -202,14 +206,59 @@ describe("loan status feedback", () => {
     }
   });
 
-  test("still rejects invalid transitions and returned loans", async () => {
-    const { t, admin, loanId } = await fixture("submitted");
+  test("lets any open status move to any other status", () => {
+    for (const status of LOAN_STATUSES.filter((item) => item !== "closed")) {
+      expect(getNextLoanStatuses(status)).toEqual(
+        LOAN_STATUSES.filter((item) => item !== status),
+      );
+    }
+  });
+
+  test.each([
+    ["sent_to_title", undefined],
+    ["additional_info_needed", "Updated title commitment"],
+    ["submitted", undefined],
+  ] as const)(
+    "moves an approved loan to %s",
+    async (status, note) => {
+      const { admin, borrower, loanId } = await fixture("approved");
+      await admin.mutation(api.admin.updateLoanStatus, {
+        id: loanId,
+        status,
+        note,
+        expectedStatus: "approved",
+      });
+      expect(
+        (await borrower.query(api.borrower.getMyLoan, { id: loanId })).status,
+      ).toBe(status);
+    },
+  );
+
+  test("remembers the timeline step a loan was on while it is held", async () => {
+    const { admin, borrower, loanId } = await fixture("funded");
+    const moveTo = async (status: LoanStatus) => {
+      await admin.mutation(api.admin.updateLoanStatus, {
+        id: loanId,
+        status,
+        note: "Upload the renewed insurance policy.",
+      });
+      return (await borrower.query(api.borrower.getMyLoan, { id: loanId })).progressStatus;
+    };
+
+    expect(await moveTo("additional_info_needed")).toBe("funded");
+    expect(await moveTo("denied")).toBe("funded");
+    expect(await moveTo("sent_to_title")).toBeUndefined();
+  });
+
+  test("rejects leaving closed and returned loans", async () => {
+    const { t, admin, loanId } = await fixture("closed");
+    expect(getNextLoanStatuses("closed")).toEqual([]);
     await expect(
       admin.mutation(api.admin.updateLoanStatus, {
         id: loanId,
-        status: "approved",
+        status: "under_review",
       }),
-    ).rejects.toThrow("Cannot move");
+    ).rejects.toThrow("Cannot move from Closed to Under Review.");
     await t.run(
       async (ctx) =>
         await ctx.db.patch(loanId, {

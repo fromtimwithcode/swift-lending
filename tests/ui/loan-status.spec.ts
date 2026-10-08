@@ -258,6 +258,22 @@ test("borrower sees long explanations across viewports and dark mode", async ({
   await page.screenshot({ path: testInfo.outputPath("borrower-dark.png") });
 });
 
+test("borrower timeline stays on the step a held loan reached", async ({ page }) => {
+  await openPage(page, "/?page=borrower");
+  const current = page.locator('[aria-current="step"]');
+  await page.evaluate(() =>
+    window.statusTest.setLoan({
+      status: "additional_info_needed",
+      statusNote: "Upload the renewed insurance policy.",
+      progressStatus: "funded",
+    }),
+  );
+  await expect(current).toContainText("Funded");
+  await expect(page.getByText("Additional information has been requested")).toBeVisible();
+  await page.evaluate(() => window.statusTest.setLoan({ progressStatus: undefined }));
+  await expect(current).toContainText("Under Review");
+});
+
 test("dark mode, reduced motion, and maximum-length explanations", async ({
   page,
 }, testInfo) => {
@@ -292,6 +308,14 @@ for (const theme of ["light", "dark"]) {
         status: "additional_info_needed",
         statusNote: "Please upload your current insurance policy.",
       }),
+    );
+    await page.evaluate(() =>
+      Promise.allSettled(
+        document
+          .getAnimations()
+          .filter((animation) => animation instanceof CSSTransition)
+          .map((animation) => animation.finished),
+      ),
     );
     const controls = await new AxeBuilder({ page })
       .include('[aria-label="Loan status"]')

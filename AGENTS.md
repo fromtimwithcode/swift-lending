@@ -32,10 +32,16 @@
 - `.env.local` exists; do not print or commit secrets from it.
 
 ## Loan Status Workflow
-- Shared transition and explanation rules live in `convex/lib/loanStatus.ts`; use them in both UI and backend. `under_review` and `additional_info_needed` can move directly to `approved`.
+- Shared transition and explanation rules live in `convex/lib/loanStatus.ts`; use them in both UI and backend. Any status except `closed` can move to any other status; `closed` and returned loans are final.
 - Status changes to `additional_info_needed` or `denied` require a trimmed, nonblank borrower-visible explanation (maximum 2,000 characters). Other transitions accept optional notes.
 - `loans.statusNote` belongs only to the current status. `saveLoanStatusChange` in `convex/admin.ts` updates it atomically with status, author/time, borrower notifications, and a per-loan `loan.status` activity entry. Clear it on later changes without a note, including `recordLoanReturned`; never overwrite general `loans.notes`.
 - Single and bulk callers send the status seen when opening the dialog. Reject stale changes; same-status retries do not overwrite notes or send duplicate alerts. Bulk results distinguish `changed: false` from actual changes, retain failed selections, and provide per-loan reasons.
 - Expected status errors use `new ConvexError({ publicMessage })` so `lib/errors.ts` can safely show the explanation. Unrecognized string errors are intentionally hidden by that formatter.
 - `LoanStatusDialog` uses Base UI for focus trapping, Escape, and scroll locking. Preserve explicit focus on initiating buttons for Safari; return focus to the status section if saving removes the trigger. Keep the dialog footer visible at short viewport heights. The root Toaster uses z-index 55, below status dialogs at 60; preserve that ordering to avoid toast interception in landscape Firefox.
 - Existing loans and initial admin-created statuses may have no status explanation; the new fields are optional and need no backfill. See `docs/loan-status-workflow.md` and `docs/loan-status-review.md`.
+
+## Payment Reminders and Charges
+- Reminders come from `getReminderData` in `convex/loanPayments.ts`: open charge groups (same-day `monthly_interest` + `draw_proration` combine) and, for due dates with no monthly-interest charge, an estimated `monthly_payment` reminder.
+- Deleting requires a trimmed reason (`getDeleteReasonError` in `convex/lib/paymentReminders.ts`). Charge-backed deletes waive the open charges and store `loanCharges.waiver`; estimated reminders get a `paymentReminderDismissals` row. Both are restorable from the loan page and logged to the Activity Log.
+- A waived charge forgives only its unpaid balance. Payoff (`convex/lib/payoffCalculations.ts`) pools same-day interest payments the same way reminders do; keep the two consistent.
+- Combined interest charge statuses are reconciled by `syncInterestChargeStatusesForDueDate` in `convex/lib/interestChargeStatus.ts`; call it after changing which charges in a due-date group are open.

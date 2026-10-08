@@ -1,7 +1,7 @@
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { parseUsDate } from "./dates";
 import { getCurrentPrincipalOut } from "./loanCalculations";
-import { roundCents } from "./financialRules";
+import { isCombinedInterestChargeType, roundCents } from "./financialRules";
 import {
   FUNDING_LEDGER_ERROR,
   getFundingLedgerStatus,
@@ -17,12 +17,12 @@ type PayoffDraw = Pick<
 >;
 type PayoffPayment = Pick<
   Doc<"loanPayments">,
-  "amount" | "paymentDate" | "dueDate" | "status"
+  "amount" | "paymentDate" | "dueDate" | "status" | "chargeId"
 >;
 type PayoffCharge = Pick<
   Doc<"loanCharges">,
   "amount" | "dueDate" | "periodEnd" | "status" | "type"
->;
+> & { _id?: Id<"loanCharges"> };
 
 export type DatedPayoff = {
   principal: number;
@@ -39,6 +39,52 @@ function payoffDayNumber(date: Date) {
 
 function getPayoffDays(start: Date, end: Date) {
   return Math.max(0, payoffDayNumber(end) - payoffDayNumber(start));
+}
+
+function sumAmounts(items: { amount: number }[]) {
+  return items.reduce((sum, item) => sum + item.amount, 0);
+}
+
+/**
+ * A waived charge forgives only its unpaid balance. Payments are grouped the
+ * same way as payment reminders: same-day interest charges share payments, and
+ * those payments cover the charges still owed before reducing a waiver.
+ */
+function getWaivedCredits(
+  charges: PayoffCharge[],
+  payments: PayoffPayment[],
+  goodThroughDate: Date
+) {
+  const groups = new Map<string, PayoffCharge[]>();
+  charges.forEach((charge, index) => {
+    const key = isCombinedInterestChargeType(charge.type)
+      ? `interest:${charge.dueDate}`
+      : `charge:${charge._id ?? index}`;
+    groups.set(key, [...(groups.get(key) ?? []), charge]);
+  });
+
+  let credits = 0;
+  for (const group of groups.values()) {
+    const waived = group.filter((charge) => charge.status === "waived");
+    if (waived.length === 0) continue;
+    const chargeIds = new Set(group.map((charge) => charge._id));
+    const paid = sumAmounts(
+      payments.filter(
+        (payment) =>
+          payment.dueDate === group[0].dueDate &&
+          (!payment.chargeId || chargeIds.has(payment.chargeId))
+      )
+    );
+    const owed = sumAmounts(group.filter((charge) => charge.status !== "waived"));
+    const waivedThroughPayoff = sumAmounts(
+      waived.filter(
+        (charge) =>
+          requireDate(charge.periodEnd, "Charge period end") <= goodThroughDate
+      )
+    );
+    credits += Math.max(0, waivedThroughPayoff - Math.max(0, paid - owed));
+  }
+  return credits;
 }
 
 function requireDate(value: string | undefined, label: string) {
@@ -122,13 +168,10 @@ export function calculateDatedPayoff(args: {
   }
 
   const paidChargesByDueDate = new Map<string, number>();
-  let waivedCredits = 0;
   for (const charge of args.charges) {
     const isThroughPayoffDate =
       requireDate(charge.periodEnd, "Charge period end") <= goodThroughDate;
-    if (charge.status === "waived") {
-      if (isThroughPayoffDate) waivedCredits += charge.amount;
-    } else if (
+    if (
       charge.status === "paid" &&
       (charge.type === "prepaid_interest" || isThroughPayoffDate)
     ) {
@@ -146,6 +189,12 @@ export function calculateDatedPayoff(args: {
       paidChargeAmount - (paymentsByDueDate.get(dueDate) ?? 0)
     );
   }
+
+  const waivedCredits = getWaivedCredits(
+    args.charges,
+    eligiblePayments,
+    goodThroughDate
+  );
 
   const roundedGrossInterest = roundCents(grossAccruedInterest);
   const interestCredits = roundCents(

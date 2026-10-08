@@ -210,7 +210,7 @@ export default function BorrowerLoanDetailPage() {
 
       {/* Timeline */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <LoanStatusTimeline status={loan.status} />
+        <LoanStatusTimeline status={loan.status} progressStatus={loan.progressStatus} />
       </div>
 
       <LoanStatusNote status={loan.status} note={loan.statusNote} />

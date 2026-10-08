@@ -4,7 +4,7 @@ import type { Ref } from "react";
 import { StatusBadge } from "./status-badge";
 import { LoanStatusNote } from "./loan-status-note";
 import {
-  LOAN_STATUS_TRANSITIONS,
+  getNextLoanStatuses,
   type LoanStatus,
 } from "@/convex/lib/loanStatus";
 import { getLoanStatusLabel } from "@/lib/loan-display";
@@ -22,7 +22,7 @@ export function LoanStatusControls({
   onSelect: (status: LoanStatus, trigger: HTMLButtonElement) => void;
   ref?: Ref<HTMLElement>;
 }) {
-  const nextStatuses = returnedDate ? [] : LOAN_STATUS_TRANSITIONS[status];
+  const nextStatuses = returnedDate ? [] : getNextLoanStatuses(status);
   return (
     <section
       ref={ref}

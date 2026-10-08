@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
 import { Check, X, AlertTriangle } from "lucide-react";
+import {
+  isLoanProgressStatus,
+  type LoanProgressStatus,
+  type LoanStatus,
+} from "@/convex/lib/loanStatus";
 
 const STEPS = [
   { key: "submitted", label: "Submitted" },
@@ -8,26 +13,21 @@ const STEPS = [
   { key: "funded", label: "Funded" },
   { key: "sent_to_title", label: "Sent to Title" },
   { key: "closed", label: "Closed" },
-] as const;
-
-const STEP_ORDER: Record<string, number> = {
-  submitted: 0,
-  under_review: 1,
-  approved: 2,
-  funded: 3,
-  sent_to_title: 4,
-  closed: 5,
-};
+] as const satisfies readonly { key: LoanProgressStatus; label: string }[];
 
 interface LoanStatusTimelineProps {
-  status: string;
+  status: LoanStatus;
+  progressStatus?: LoanProgressStatus;
   className?: string;
 }
 
-export function LoanStatusTimeline({ status, className }: LoanStatusTimelineProps) {
+export function LoanStatusTimeline({ status, progressStatus, className }: LoanStatusTimelineProps) {
   const isDenied = status === "denied";
   const isInfoNeeded = status === "additional_info_needed";
-  const currentIndex = STEP_ORDER[status] ?? (isInfoNeeded ? 1 : -1);
+  const progress = isLoanProgressStatus(status)
+    ? status
+    : progressStatus ?? (isInfoNeeded ? "under_review" : undefined);
+  const currentIndex = STEPS.findIndex((step) => step.key === progress);
 
   return (
     <div className={cn("w-full", className)}>
@@ -52,7 +52,7 @@ export function LoanStatusTimeline({ status, className }: LoanStatusTimelineProp
           const isCurrent = !isDenied && currentIndex === i;
 
           return (
-            <div key={step.key} className="flex flex-1 items-center">
+            <div key={step.key} aria-current={isCurrent ? "step" : undefined} className="flex flex-1 items-center">
               <div className="flex flex-col items-center">
                 <div
                   className={cn(

@@ -23,7 +23,12 @@ import {
   roundCents,
 } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
-import { getLoanStatusChangeError, getStatusNoteError, type LoanStatus } from "./lib/loanStatus";
+import {
+  getLoanStatusChangeError,
+  getProgressStatusAfterChange,
+  getStatusNoteError,
+  type LoanStatus,
+} from "./lib/loanStatus";
 import { getAppConfigurationState } from "./lib/settings";
 import { getPropertyDetailsError } from "./lib/propertyDetails";
 import {
@@ -1207,6 +1212,7 @@ async function saveLoanStatusChange(
   const statusNote = note?.trim() || undefined;
   await ctx.db.patch(loan._id, {
     status, statusNote, statusUpdatedAt: Date.now(), statusUpdatedBy: admin._id,
+    progressStatus: getProgressStatusAfterChange(loan, status),
   });
   await ctx.runMutation(internal.notifications.createNotification, {
     recipientId: loan.borrowerId,

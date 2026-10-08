@@ -187,6 +187,11 @@ export function getCalculationGuide(configuration: AppConfiguration) {
           detail: "Admin and borrower reminders show the same combined amount still due, including past-due balances.",
         },
         {
+          name: "Deleted charges and reminders",
+          formula: "Deleting a charge waives its unpaid balance; a reason is required",
+          detail: "Recorded payments stay in history. Estimated monthly-payment reminders have no charge, so deleting one only hides the reminder. Both can be restored from the loan page.",
+        },
+        {
           name: "Suggested payment status",
           formula: "Late after the due date; on time on or before the due date",
           detail: "Admins can still record a payment as on time, late, partial, or missed.",
@@ -210,8 +215,8 @@ export function getCalculationGuide(configuration: AppConfiguration) {
         },
         {
           name: "Interest credits",
-          formula: "Recorded payments + paid closing interest + waived interest through the good-through date",
-          detail: "Missed and future-dated payments are excluded. Paid charge status is reconciled with logged payments so the same interest is not credited twice.",
+          formula: "Recorded payments + paid closing interest + unpaid waived interest through the good-through date",
+          detail: "Missed and future-dated payments are excluded. Paid and waived charges are reconciled with logged payments so the same interest is not credited twice.",
         },
         {
           name: "Payoff amount",

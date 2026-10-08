@@ -1,4 +1,4 @@
-const ACTIVE_LOAN_STATUSES = [
+const PENDING_LOAN_STATUSES = [
   "submitted",
   "under_review",
   "additional_info_needed",
@@ -8,7 +8,7 @@ const ACTIVE_LOAN_STATUSES = [
 ] as const;
 
 const LOAN_STATUS_LABELS: Record<string, string> = {
-  active: "Active",
+  pending: "Pending",
   funds_returned: "Funds Returned",
   submitted: "Submitted",
   under_review: "Under Review",
@@ -29,18 +29,22 @@ export function isFundsReturnedLoan(loan: LoanDisplayInput) {
   return Boolean(loan.returnedDate);
 }
 
-export function isActiveLoanDisplay(loan: LoanDisplayInput) {
-  return !loan.returnedDate && ACTIVE_LOAN_STATUSES.includes(loan.status as (typeof ACTIVE_LOAN_STATUSES)[number]);
+export function isPendingLoanDisplay(loan: LoanDisplayInput) {
+  return !loan.returnedDate && PENDING_LOAN_STATUSES.includes(loan.status as (typeof PENDING_LOAN_STATUSES)[number]);
 }
 
 export function isClosedLoanDisplay(loan: LoanDisplayInput) {
   return loan.status === "closed" && !loan.returnedDate;
 }
 
+export function isDeniedLoanDisplay(loan: LoanDisplayInput) {
+  return loan.status === "denied" && !loan.returnedDate;
+}
+
 export function getLoanDisplayStatus(loan: LoanDisplayInput) {
   if (isFundsReturnedLoan(loan)) return "funds_returned";
   if (isClosedLoanDisplay(loan)) return "closed";
-  if (isActiveLoanDisplay(loan)) return "active";
+  if (isPendingLoanDisplay(loan)) return "pending";
   return loan.status;
 }
 
