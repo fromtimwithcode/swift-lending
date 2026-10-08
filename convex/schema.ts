@@ -89,6 +89,16 @@ const schema = defineSchema({
     statusNote: v.optional(v.string()),
     statusUpdatedAt: v.optional(v.number()),
     statusUpdatedBy: v.optional(v.id("userProfiles")),
+    progressStatus: v.optional(
+      v.union(
+        v.literal("submitted"),
+        v.literal("under_review"),
+        v.literal("approved"),
+        v.literal("funded"),
+        v.literal("sent_to_title"),
+        v.literal("closed")
+      )
+    ),
     createdBy: v.id("userProfiles"),
   })
     .index("by_borrowerId", ["borrowerId"])
@@ -282,10 +292,28 @@ const schema = defineSchema({
     investmentAmount: v.number(),
     inceptionDate: v.number(),
     interestRate: v.number(),
-    totalPaymentsReceived: v.number(),
-    nextPaymentDate: v.number(),
+    // Optional until migrations:backfillInvestmentPaymentSchedules has run.
+    firstPaymentDate: v.optional(v.number()),
+    priorPaymentsReceived: v.optional(v.number()),
     notes: v.optional(v.string()),
+    // Replaced by firstPaymentDate, priorPaymentsReceived, and investorPayouts.
+    totalPaymentsReceived: v.optional(v.number()),
+    nextPaymentDate: v.optional(v.number()),
   }).index("by_investorId", ["investorId"]),
+
+  investorPayouts: defineTable({
+    investmentId: v.id("investments"),
+    amount: v.number(),
+    paidDate: v.number(),
+    method: v.union(
+      v.literal("ach"),
+      v.literal("wire"),
+      v.literal("check"),
+      v.literal("other")
+    ),
+    notes: v.optional(v.string()),
+    recordedBy: v.id("userProfiles"),
+  }).index("by_investmentId_and_paidDate", ["investmentId", "paidDate"]),
 
   notifications: defineTable({
     recipientId: v.id("userProfiles"),
@@ -362,6 +390,14 @@ const schema = defineSchema({
     perDiem: v.optional(v.number()),
     daysCharged: v.optional(v.number()),
     notes: v.optional(v.string()),
+    waiver: v.optional(
+      v.object({
+        reason: v.string(),
+        waivedBy: v.id("userProfiles"),
+        waivedAt: v.number(),
+        previousStatus: v.union(v.literal("scheduled"), v.literal("paid")),
+      })
+    ),
     createdBy: v.id("userProfiles"),
   })
     .index("by_loanId", ["loanId"])
@@ -370,6 +406,14 @@ const schema = defineSchema({
     .index("by_loanId_and_type_and_dueDate", ["loanId", "type", "dueDate"])
     .index("by_drawRequestId", ["drawRequestId"])
     .index("by_status", ["status"]),
+
+  paymentReminderDismissals: defineTable({
+    loanId: v.id("loans"),
+    dueDate: v.string(),
+    amount: v.number(),
+    reason: v.string(),
+    dismissedBy: v.id("userProfiles"),
+  }).index("by_loanId_and_dueDate", ["loanId", "dueDate"]),
 
   propertyComps: defineTable({
     loanId: v.id("loans"),

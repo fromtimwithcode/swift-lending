@@ -21,6 +21,7 @@ import { getFundingLedgerStatus } from "./lib/fundingLedger";
 import { validateDrawWireDateForLoan } from "./lib/drawDates";
 import { parseUsDate } from "./lib/dates";
 import { isAdminLike } from "./lib/auth";
+import { getInvestmentTerms } from "./lib/investorPortfolio";
 
 const BATCH_SIZE = 100;
 const MAX_RECONCILIATION_ENTRIES = 50;
@@ -781,5 +782,55 @@ export const backfillMonthlyInterestChargesAndPaymentLinks = internalMutation({
     }
 
     return { loansSynced, paymentsLinked, chargesMarkedPaid, isDone: results.isDone };
+  },
+});
+
+/**
+ * Moves investments to the calculated payment schedule. The legacy next payment
+ * date becomes the first payment date, and the legacy received total becomes
+ * payments received before tracking. Payments made later go to investorPayouts.
+ * Run via: pnpm exec convex run migrations:backfillInvestmentPaymentSchedules
+ */
+export const backfillInvestmentPaymentSchedules = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("investments")
+      .paginate({ numItems: BATCH_SIZE, cursor: args.cursor ?? null });
+
+    let updated = 0;
+    for (const investment of results.page) {
+      const { inceptionDate, firstPaymentDate, priorPaymentsReceived } =
+        getInvestmentTerms(investment);
+      if (
+        investment.inceptionDate === inceptionDate &&
+        investment.firstPaymentDate === firstPaymentDate &&
+        investment.priorPaymentsReceived === priorPaymentsReceived &&
+        investment.nextPaymentDate === undefined &&
+        investment.totalPaymentsReceived === undefined
+      ) {
+        continue;
+      }
+      await ctx.db.patch(investment._id, {
+        inceptionDate,
+        firstPaymentDate,
+        priorPaymentsReceived,
+        nextPaymentDate: undefined,
+        totalPaymentsReceived: undefined,
+      });
+      updated++;
+    }
+
+    if (!results.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.migrations.backfillInvestmentPaymentSchedules,
+        { cursor: results.continueCursor }
+      );
+    }
+
+    return { updated, isDone: results.isDone };
   },
 });

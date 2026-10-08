@@ -13,19 +13,34 @@ export const LOAN_STATUSES = [
 export type LoanStatus = (typeof LOAN_STATUSES)[number];
 export const STATUS_NOTE_MAX_LENGTH = 2000;
 
-export const LOAN_STATUS_TRANSITIONS: Record<
-  LoanStatus,
-  readonly LoanStatus[]
-> = {
-  submitted: ["under_review", "additional_info_needed", "denied", "closed"],
-  under_review: ["approved", "additional_info_needed", "denied", "closed"],
-  additional_info_needed: ["under_review", "approved", "denied", "closed"],
-  approved: ["funded", "denied", "closed"],
-  funded: ["sent_to_title", "closed"],
-  sent_to_title: ["closed"],
-  denied: ["under_review", "approved", "closed"],
-  closed: [],
-};
+export const LOAN_PROGRESS_STATUSES = [
+  "submitted",
+  "under_review",
+  "approved",
+  "funded",
+  "sent_to_title",
+  "closed",
+] as const;
+export type LoanProgressStatus = (typeof LOAN_PROGRESS_STATUSES)[number];
+
+export function isLoanProgressStatus(status: LoanStatus): status is LoanProgressStatus {
+  return (LOAN_PROGRESS_STATUSES as readonly LoanStatus[]).includes(status);
+}
+
+/** The timeline step a loan was on when it moved to Info Needed or Denied. */
+export function getProgressStatusAfterChange(
+  loan: { status: LoanStatus; progressStatus?: LoanProgressStatus },
+  next: LoanStatus,
+): LoanProgressStatus | undefined {
+  if (isLoanProgressStatus(next)) return undefined;
+  return isLoanProgressStatus(loan.status) ? loan.status : loan.progressStatus;
+}
+
+export function getNextLoanStatuses(status: LoanStatus): readonly LoanStatus[] {
+  return status === "closed"
+    ? []
+    : LOAN_STATUSES.filter((next) => next !== status);
+}
 
 export function requiresStatusNote(status: LoanStatus) {
   return status === "additional_info_needed" || status === "denied";
@@ -59,7 +74,7 @@ export function getLoanStatusChangeError(
   if (expectedStatus !== undefined && loan.status !== expectedStatus) {
     return `The status changed to ${LOAN_STATUS_LABELS[loan.status]} while you were reviewing. Close this dialog and review the latest status.`;
   }
-  if (!LOAN_STATUS_TRANSITIONS[loan.status].includes(next)) {
+  if (!getNextLoanStatuses(loan.status).includes(next)) {
     return `Cannot move from ${LOAN_STATUS_LABELS[loan.status]} to ${LOAN_STATUS_LABELS[next]}.`;
   }
   return null;

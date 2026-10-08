@@ -5,8 +5,16 @@ import { ConvexError } from "convex/values";
 import {
   getLoanStatusChangeError,
   getStatusNoteError,
+  type LoanProgressStatus,
   type LoanStatus,
 } from "../../convex/lib/loanStatus";
+import { getDeleteReasonError } from "../../convex/lib/paymentReminders";
+import {
+  getInvestmentTermsError,
+  getPayoutError,
+  type InvestmentTerms,
+} from "../../convex/lib/investmentSchedule";
+import { buildInvestorPortfolio } from "../../convex/lib/investorPortfolio";
 
 const firstLoan = {
   _id: "loan-1",
@@ -23,6 +31,7 @@ const firstLoan = {
   terms: "12 months",
   status: "under_review" as LoanStatus,
   statusNote: undefined as string | undefined,
+  progressStatus: undefined as LoanProgressStatus | undefined,
   returnedDate: undefined as string | undefined,
   drawFundsTotal: undefined as number | undefined,
   drawFundsUsed: undefined as number | undefined,
@@ -37,6 +46,59 @@ let loans = [
   },
 ];
 let draws: Record<string, unknown>[] = [];
+type MockCharge = {
+  _id: string;
+  type: string;
+  amount: number;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  status: "scheduled" | "paid" | "waived";
+  reason?: string;
+};
+let charges: MockCharge[] = [];
+let payments: Record<string, unknown>[] = [];
+const reminderBase = {
+  loanId: "loan-1",
+  borrowerName: "Matt Rekowski",
+  propertyAddress: "1412 N 3rd Street, Wausau, WI, USA",
+  amount: 42.83,
+  status: "past_due" as const,
+};
+let reminders = [
+  { ...reminderBase, dueDate: "04/01/2026", daysUntilDue: -187, source: "scheduled_charge", type: "monthly_interest", chargeId: "charge-april" },
+  { ...reminderBase, dueDate: "05/01/2026", daysUntilDue: -157, source: "scheduled_charge", type: "monthly_interest+draw_proration" },
+  { ...reminderBase, dueDate: "06/01/2026", daysUntilDue: -126, source: "monthly_payment", type: "monthly_payment" },
+];
+type MockPayout = {
+  _id: string;
+  amount: number;
+  paidDate: number;
+  method: "ach" | "wire" | "check" | "other";
+  notes?: string;
+};
+type MockInvestment = InvestmentTerms & { _id: string; notes?: string; payouts: MockPayout[] };
+const investmentToday = Date.UTC(2027, 0, 5);
+let investments: MockInvestment[] = [
+  {
+    _id: "investment-1",
+    investmentAmount: 100_000,
+    interestRate: 10,
+    inceptionDate: Date.UTC(2026, 9, 12),
+    firstPaymentDate: Date.UTC(2026, 10, 12),
+    priorPaymentsReceived: 0,
+    notes: "Wire from First Bank",
+    payouts: [{ _id: "payout-1", amount: 833.33, paidDate: Date.UTC(2026, 10, 12), method: "ach", notes: "Confirmation 88214" }],
+  },
+];
+const investorProfile = {
+  _id: "investor-1",
+  _creationTime: 1789603200000,
+  displayName: "Michael Scaffidi",
+  email: "investor@example.com",
+  role: "investor",
+  isActive: true,
+};
 let version = 0;
 const subscribers = new Set<() => void>();
 function notify() {
@@ -59,6 +121,15 @@ const controls = {
   },
   setDraws: (next: Record<string, unknown>[]) => {
     draws = next;
+    notify();
+  },
+  setInvestments: (next: MockInvestment[]) => {
+    investments = next;
+    notify();
+  },
+  setCharges: (next: MockCharge[], nextPayments: Record<string, unknown>[] = []) => {
+    charges = next;
+    payments = nextPayments;
     notify();
   },
 };
@@ -85,11 +156,49 @@ export function useQuery(
     }];
     case "admin:getLoans":
       return loans;
+    case "admin:getOverviewStats":
+      return {
+        totalLoans: 0, activePipeline: 1, closedLoans: 1, returnedLoans: 0, capitalCurrentlyOut: 0,
+        totalDrawRemaining: 0, closedLoanRevenue: 0, monthlyCashFlow: 0, cashFlowInterestRate: 0,
+        totalPrincipalOut: 0, pipelineValue: 0, statusCounts: {}, monthlyVolume: {}, recentLoans: loans,
+      };
+    case "loanPayments:getAdminPaymentReminders":
+      return {
+        reminders,
+        pastDueCount: reminders.length,
+        dueSoonCount: 0,
+        totalAmountDue: reminders.reduce((sum, reminder) => sum + reminder.amount, 0),
+        windowDays: 14,
+      };
+    case "loanPayments:getAllPaymentsSummary":
+    case "admin:getLoanPeriodKpis":
+      return undefined;
     case "draws:getDrawRequestsForLoan":
     case "borrower:getDrawRequestsForLoan":
       return draws;
     case "admin:getClosingStatementUrl":
       return null;
+    case "loanCharges:getChargesForLoan":
+      return charges.filter((charge) => charge.status !== "waived");
+    case "loanPayments:getPaymentsForLoan":
+      return payments;
+    case "loanCharges:getDeletedPaymentItemsForLoan":
+      return charges
+        .filter((charge) => charge.status === "waived")
+        .map((charge) => ({
+          kind: "charge",
+          id: charge._id,
+          type: charge.type,
+          amount: charge.amount,
+          dueDate: charge.dueDate,
+          reason: charge.reason,
+          deletedByName: "Reviewer",
+          deletedAt: 1789603200000,
+        }));
+    case "investments:getInvestorDetail":
+      return { profile: investorProfile, ...buildInvestorPortfolio(investments, investmentToday) };
+    case "investments:getMyPortfolio":
+      return buildInvestorPortfolio(investments, investmentToday);
     case "borrower:isRepeatEntity":
       return false;
     case "payoffs:getPayoffReadiness":
@@ -107,6 +216,26 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     if (controls.error) throw new Error(controls.error);
     if (name === "draws:createManualDrawRequest" || name === "borrower:submitDrawRequest")
       return "draw-new";
+    if (name.startsWith("investments:")) return mutateInvestments(name, args);
+    if (name === "loanCharges:deletePaymentReminder" || name === "loanCharges:removeCharge") {
+      const error = getDeleteReasonError(args.reason as string);
+      if (error) throw new ConvexError({ publicMessage: error });
+    }
+    if (name === "loanCharges:deletePaymentReminder") {
+      reminders = reminders.filter((reminder) => reminder.dueDate !== args.dueDate);
+      notify();
+      return { deleted: true };
+    }
+    if (name === "loanCharges:removeCharge" || name === "loanCharges:restoreCharge") {
+      const waive = name === "loanCharges:removeCharge";
+      charges = charges.map((charge) =>
+        charge._id === args.id
+          ? { ...charge, status: waive ? "waived" : "scheduled", reason: waive ? (args.reason as string) : undefined }
+          : charge,
+      );
+      notify();
+      return waive ? args.id : { restored: true };
+    }
     const status = args.status as LoanStatus;
     const update = (id: string, expectedStatus?: LoanStatus) => {
       const loan = loans.find((item) => item._id === id)!;
@@ -152,6 +281,43 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     }
     throw new Error(`Unmocked mutation: ${name}`);
   };
+}
+function mutateInvestments(name: string, args: Record<string, unknown>) {
+  const fail = (message: string) => {
+    throw new ConvexError({ publicMessage: message });
+  };
+  const terms = args as unknown as InvestmentTerms & { notes?: string };
+  if (name === "investments:create" || name === "investments:update") {
+    const error = getInvestmentTermsError(terms);
+    if (error) fail(error.message);
+    const fields = {
+      investmentAmount: terms.investmentAmount,
+      interestRate: terms.interestRate,
+      inceptionDate: terms.inceptionDate,
+      firstPaymentDate: terms.firstPaymentDate,
+      priorPaymentsReceived: terms.priorPaymentsReceived,
+      notes: terms.notes,
+    };
+    investments =
+      name === "investments:create"
+        ? [...investments, { ...fields, _id: `investment-${investments.length + 1}`, payouts: [] }]
+        : investments.map((item) => (item._id === args.id ? { ...item, ...fields } : item));
+  } else if (name === "investments:remove") {
+    investments = investments.filter((item) => item._id !== args.id);
+  } else if (name === "investments:recordPayout") {
+    const investment = investments.find((item) => item._id === args.investmentId)!;
+    const payout = args as unknown as Omit<MockPayout, "_id">;
+    const error = getPayoutError(payout, investment, investmentToday);
+    if (error) fail(error.message);
+    investment.payouts = [{ ...payout, _id: `payout-${Date.now()}` }, ...investment.payouts];
+  } else if (name === "investments:removePayout") {
+    investments = investments.map((item) => ({
+      ...item,
+      payouts: item.payouts.filter((payout) => payout._id !== args.id),
+    }));
+  }
+  notify();
+  return null;
 }
 export const useAction = () => async () => {
   throw new Error("Actions are disabled in UI tests");

@@ -187,6 +187,11 @@ export function getCalculationGuide(configuration: AppConfiguration) {
           detail: "Admin and borrower reminders show the same combined amount still due, including past-due balances.",
         },
         {
+          name: "Deleted charges and reminders",
+          formula: "Deleting a charge waives its unpaid balance; a reason is required",
+          detail: "Recorded payments stay in history. Estimated monthly-payment reminders have no charge, so deleting one only hides the reminder. Both can be restored from the loan page.",
+        },
+        {
           name: "Suggested payment status",
           formula: "Late after the due date; on time on or before the due date",
           detail: "Admins can still record a payment as on time, late, partial, or missed.",
@@ -210,8 +215,8 @@ export function getCalculationGuide(configuration: AppConfiguration) {
         },
         {
           name: "Interest credits",
-          formula: "Recorded payments + paid closing interest + waived interest through the good-through date",
-          detail: "Missed and future-dated payments are excluded. Paid charge status is reconciled with logged payments so the same interest is not credited twice.",
+          formula: "Recorded payments + paid closing interest + unpaid waived interest through the good-through date",
+          detail: "Missed and future-dated payments are excluded. Paid and waived charges are reconciled with logged payments so the same interest is not credited twice.",
         },
         {
           name: "Payoff amount",
@@ -256,9 +261,19 @@ export function getCalculationGuide(configuration: AppConfiguration) {
           detail: "Larger investments have a proportionally larger effect on the portfolio rate.",
         },
         {
-          name: "Estimated investor returns",
-          formula: `Annual = investment amount × rate ÷ 100; monthly = annual ÷ ${MONTHS_PER_YEAR}`,
-          detail: "Payments already received are tracked separately from these estimated returns.",
+          name: "Investor monthly payment",
+          formula: `Investment amount × annual rate ÷ 100 ÷ ${MONTHS_PER_YEAR}, paid on the first payment date’s day of each month`,
+          detail: "In shorter months, a payment day of 29–31 moves to the month’s last day.",
+        },
+        {
+          name: "Investor first payment",
+          formula: "Monthly payment × (whole months + leftover days ÷ 30) from inception to the first payment date",
+          detail: "A first payment exactly one month after inception is one monthly payment.",
+        },
+        {
+          name: "Investor interest earned",
+          formula: "Scheduled payments due through today + the current period’s interest × days elapsed ÷ days in the period",
+          detail: "Recorded payments and payments received before tracking cover the oldest scheduled payment first. Anything still owed after its due date is past due.",
         },
       ],
     },

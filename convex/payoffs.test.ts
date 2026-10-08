@@ -4,6 +4,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
+import type { Id } from "./_generated/dataModel";
 import { calculateDatedPayoff } from "./lib/payoffCalculations";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -161,6 +162,109 @@ describe("dated payoff calculation", () => {
 
     expect(payoff.interestCredits).toBe(3_000);
     expect(payoff.unpaidInterest).toBe(0);
+  });
+
+  test("a waived short-paid charge credits only its unpaid balance", () => {
+    const chargeId = "charge-feb" as Id<"loanCharges">;
+    const payoff = calculateDatedPayoff({
+      loan: baseLoan,
+      draws: [],
+      payments: [
+        {
+          amount: 957.17,
+          paymentDate: "02/01/2026",
+          dueDate: "02/01/2026",
+          status: "partial",
+          chargeId,
+        },
+      ],
+      charges: [
+        {
+          _id: chargeId,
+          amount: 1_000,
+          type: "monthly_interest",
+          dueDate: "02/01/2026",
+          periodEnd: "01/31/2026",
+          status: "waived",
+        },
+      ],
+      goodThroughDate: "02/01/2026",
+    });
+
+    expect(payoff.interestCredits).toBe(1_000);
+    expect(payoff.unpaidInterest).toBe(0);
+  });
+
+  test("unlinked payments cover owed charges before reducing a same-day waiver", () => {
+    const payoff = calculateDatedPayoff({
+      loan: baseLoan,
+      draws: [],
+      payments: [
+        {
+          amount: 1_200,
+          paymentDate: "03/01/2026",
+          dueDate: "03/01/2026",
+          status: "partial",
+        },
+      ],
+      charges: [
+        {
+          amount: 1_000,
+          type: "monthly_interest",
+          dueDate: "03/01/2026",
+          periodEnd: "02/28/2026",
+          status: "paid",
+        },
+        {
+          amount: 500,
+          type: "draw_proration",
+          dueDate: "03/01/2026",
+          periodEnd: "02/28/2026",
+          status: "waived",
+        },
+      ],
+      goodThroughDate: "03/01/2026",
+    });
+
+    expect(payoff.interestCredits).toBe(1_500);
+  });
+
+  test("a combined payment linked to the monthly charge also covers its waived proration", () => {
+    const monthlyChargeId = "charge-monthly" as Id<"loanCharges">;
+    const payoff = calculateDatedPayoff({
+      loan: baseLoan,
+      draws: [],
+      payments: [
+        {
+          amount: 1_050,
+          paymentDate: "03/01/2026",
+          dueDate: "03/01/2026",
+          status: "on_time",
+          chargeId: monthlyChargeId,
+        },
+      ],
+      charges: [
+        {
+          _id: monthlyChargeId,
+          amount: 1_000,
+          type: "monthly_interest",
+          dueDate: "03/01/2026",
+          periodEnd: "02/28/2026",
+          status: "paid",
+        },
+        {
+          _id: "charge-draw" as Id<"loanCharges">,
+          amount: 50,
+          type: "draw_proration",
+          dueDate: "03/01/2026",
+          periodEnd: "02/28/2026",
+          status: "waived",
+        },
+      ],
+      goodThroughDate: "03/01/2026",
+    });
+
+    expect(payoff.interestCredits).toBe(1_050);
   });
 
   test("refuses a payoff when funded draw records disagree with the saved balance", () => {

@@ -1,14 +1,17 @@
 "use client";
 
-import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ContextTooltip } from "@/components/dashboard/context-tooltip";
+import { DeleteChargeDialog } from "@/components/dashboard/delete-charge-dialog";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
+import type { Id } from "@/convex/_generated/dataModel";
+import { getPaymentReminderTypeLabel } from "@/convex/lib/paymentReminders";
 
-type PaymentReminder = {
-  loanId: string;
+export type PaymentReminder = {
+  loanId: Id<"loans">;
   borrowerName: string;
   propertyAddress: string;
   amount: number;
@@ -17,7 +20,7 @@ type PaymentReminder = {
   status: "past_due" | "due_soon";
   source: "scheduled_charge" | "monthly_payment";
   type: string;
-  chargeId?: string;
+  chargeId?: Id<"loanCharges">;
 };
 
 type PaymentReminderData = {
@@ -34,24 +37,18 @@ interface PaymentRemindersCardProps {
   description?: string;
   showBorrower?: boolean;
   onLoanClick?: (loanId: string) => void;
+  onDelete?: (reminder: PaymentReminder, reason: string) => Promise<void>;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  monthly_payment: "Monthly payment",
-  monthly_interest: "Monthly interest",
-  prepaid_interest: "Prepaid interest",
-  draw_proration: "Draw proration",
+const DELETE_DESCRIPTIONS: Record<PaymentReminder["source"], string> = {
+  scheduled_charge:
+    "The unpaid balance is waived, so it no longer appears as owed here or in the borrower portal. Your reason is saved to the Activity Log, and you can restore the charge from the loan page.",
+  monthly_payment:
+    "No charge is recorded for this estimated payment, so only the reminder is removed here and in the borrower portal. Your reason is saved to the Activity Log, and you can restore the reminder from the loan page.",
 };
 
 function statusLabel(status: PaymentReminder["status"]) {
   return status === "past_due" ? "Past Due" : "Due Soon";
-}
-
-function typeLabel(type: string) {
-  return type
-    .split("+")
-    .map((part) => TYPE_LABELS[part] ?? part)
-    .join(" + ");
 }
 
 function dueText(daysUntilDue: number) {
@@ -69,8 +66,11 @@ export function PaymentRemindersCard({
   description,
   showBorrower = true,
   onLoanClick,
+  onDelete,
 }: PaymentRemindersCardProps) {
   const [activeFilter, setActiveFilter] = useState<PaymentReminder["status"] | null>(null);
+  const [deleting, setDeleting] = useState<{ reminder: PaymentReminder; trigger: HTMLButtonElement } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const reminders = data?.reminders ?? [];
   const filteredReminders = activeFilter
     ? reminders.filter((reminder) => reminder.status === activeFilter)
@@ -79,7 +79,11 @@ export function PaymentRemindersCard({
   const hasReminders = reminders.length > 0;
 
   return (
-    <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] sm:p-6">
+    <div
+      ref={cardRef}
+      tabIndex={-1}
+      className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] outline-none sm:p-6"
+    >
       <div className="mb-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div
@@ -166,45 +170,63 @@ export function PaymentRemindersCard({
           {visibleReminders.length > 0 ? (
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/60">
               {visibleReminders.map((reminder) => (
-                <button
+                <div
                   key={`${reminder.loanId}-${reminder.dueDate}-${reminder.type}-${reminder.chargeId ?? "monthly"}`}
-                  type="button"
-                  onClick={() => onLoanClick?.(reminder.loanId)}
-                  disabled={!onLoanClick}
-                  className={cn(
-                    "flex min-h-16 w-full flex-col gap-3 p-4 text-left transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:flex-row sm:items-center sm:justify-between",
-                    onLoanClick && "hover:bg-muted/40 active:scale-[0.96]"
-                  )}
+                  className="flex items-stretch"
                 >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
-                          reminder.status === "past_due"
-                            ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
-                        )}
-                      >
-                        {statusLabel(reminder.status)}
-                      </span>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {typeLabel(reminder.type)}
-                      </span>
+                  <button
+                    type="button"
+                    onClick={() => onLoanClick?.(reminder.loanId)}
+                    disabled={!onLoanClick}
+                    className={cn(
+                      "flex min-h-16 min-w-0 flex-1 flex-col gap-3 p-4 text-left transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:flex-row sm:items-center sm:justify-between",
+                      onLoanClick && "hover:bg-muted/40 active:scale-[0.96]"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
+                            reminder.status === "past_due"
+                              ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                          )}
+                        >
+                          {statusLabel(reminder.status)}
+                        </span>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {getPaymentReminderTypeLabel(reminder.type)}
+                        </span>
+                      </div>
+                      <p className="mt-2 break-words text-sm font-semibold [overflow-wrap:anywhere] sm:truncate">
+                        {showBorrower ? `${reminder.borrowerName} - ` : ""}{reminder.propertyAddress}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {dueText(reminder.daysUntilDue)} on <span className="tabular-nums">{reminder.dueDate}</span>
+                      </p>
                     </div>
-                    <p className="mt-2 break-words text-sm font-semibold [overflow-wrap:anywhere] sm:truncate">
-                      {showBorrower ? `${reminder.borrowerName} - ` : ""}{reminder.propertyAddress}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {dueText(reminder.daysUntilDue)} on <span className="tabular-nums">{reminder.dueDate}</span>
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3 sm:shrink-0">
-                    {reminder.status === "past_due" && <AlertTriangle className="size-4 text-red-500" />}
-                    <span className="text-sm font-bold tabular-nums">{formatCurrency(reminder.amount)}</span>
-                  </div>
-                </button>
+                    <div className="flex items-center gap-3 sm:shrink-0">
+                      {reminder.status === "past_due" && <AlertTriangle className="size-4 text-red-500" />}
+                      <span className="text-sm font-bold tabular-nums">{formatCurrency(reminder.amount)}</span>
+                    </div>
+                  </button>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      title="Delete reminder"
+                      aria-label={`Delete ${getPaymentReminderTypeLabel(reminder.type).toLowerCase()} reminder due ${reminder.dueDate} for ${reminder.propertyAddress}`}
+                      onClick={(event) => {
+                        event.currentTarget.focus();
+                        setDeleting({ reminder, trigger: event.currentTarget });
+                      }}
+                      className="flex w-12 shrink-0 items-center justify-center text-muted-foreground transition-[background-color,color] duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:w-14"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           ) : (
@@ -217,6 +239,18 @@ export function PaymentRemindersCard({
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
           No upcoming or past due payments need logging.
         </div>
+      )}
+
+      {deleting && onDelete && (
+        <DeleteChargeDialog
+          title="Delete payment reminder"
+          description={DELETE_DESCRIPTIONS[deleting.reminder.source]}
+          confirmLabel="Delete reminder"
+          charge={deleting.reminder}
+          onDelete={(reason) => onDelete(deleting.reminder, reason)}
+          onClose={() => setDeleting(null)}
+          finalFocus={() => (deleting.trigger.isConnected ? deleting.trigger : cardRef.current)}
+        />
       )}
     </div>
   );

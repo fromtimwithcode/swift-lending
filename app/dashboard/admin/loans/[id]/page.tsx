@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { type Id } from "@/convex/_generated/dataModel";
+import { type Doc, type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
@@ -52,6 +52,9 @@ import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { DeleteChargeDialog } from "@/components/dashboard/delete-charge-dialog";
+import { DeletedCharges } from "@/components/dashboard/deleted-charges";
+import { getPaymentReminderTypeLabel } from "@/convex/lib/paymentReminders";
 import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row";
 import { DatePickerField } from "@/components/dashboard/date-picker-field";
 import { BorrowerEmailDialog } from "@/components/dashboard/borrower-email-dialog";
@@ -151,10 +154,13 @@ export default function LoanDetailPage() {
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
-  const [confirmDeleteCharge, setConfirmDeleteCharge] = useState<string | null>(null);
+  const [chargeToDelete, setChargeToDelete] = useState<{
+    charge: Doc<"loanCharges">;
+    trigger: HTMLButtonElement;
+  } | null>(null);
+  const chargesSectionRef = useRef<HTMLDivElement>(null);
   const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
   const [deletingPayment, setDeletingPayment] = useState(false);
-  const [deletingCharge, setDeletingCharge] = useState(false);
   const [removingClosing, setRemovingClosing] = useState(false);
   const [returnFormOpen, setReturnFormOpen] = useState(false);
   const [returnSaving, setReturnSaving] = useState(false);
@@ -825,12 +831,10 @@ export default function LoanDetailPage() {
         const dueDate = row.dueDate as string;
         const chargeGroup = scheduledChargeGroups.find((group) => group.chargeIds.includes(chargeId));
         const canRecordCharge = chargeGroup?.recordChargeId === chargeId;
-        const hasRelatedPayment = hasRelatedPaymentForCharge({
-          _id: chargeId,
-          dueDate,
-          type: row.type as string,
-        });
-        const deleteDisabled = payments === undefined || hasRelatedPayment;
+        const isPaidWithPayment =
+          row.status === "paid" &&
+          hasRelatedPaymentForCharge({ _id: chargeId, dueDate, type: row.type as string });
+        const deleteDisabled = payments === undefined || isPaidWithPayment;
 
         return (
           <div className="flex flex-wrap justify-end gap-2">
@@ -850,17 +854,22 @@ export default function LoanDetailPage() {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (!deleteDisabled) setConfirmDeleteCharge(chargeId);
+                if (deleteDisabled) return;
+                e.currentTarget.focus();
+                setChargeToDelete({
+                  charge: row as unknown as Doc<"loanCharges">,
+                  trigger: e.currentTarget,
+                });
               }}
               disabled={deleteDisabled}
               title={
                 payments === undefined
                   ? "Payments are still loading"
-                  : hasRelatedPayment
-                    ? "Remove related payments before deleting this charge"
+                  : isPaidWithPayment
+                    ? "Delete this charge's payments before deleting the paid charge"
                     : "Delete charge"
               }
-              aria-label="Delete charge"
+              aria-label={`Delete ${getPaymentReminderTypeLabel(row.type as string).toLowerCase()} charge due ${dueDate}`}
               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground dark:hover:bg-red-900/30"
             >
               <Trash2 className="size-3.5" />
@@ -1571,7 +1580,7 @@ export default function LoanDetailPage() {
       <RehabBudgetEditor loanId={id} />
 
       {/* Charges */}
-      <div className="rounded-xl border border-border bg-card p-6">
+      <div ref={chargesSectionRef} tabIndex={-1} className="rounded-xl border border-border bg-card p-6 outline-none">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="flex items-center text-sm font-medium text-muted-foreground">
@@ -1610,6 +1619,7 @@ export default function LoanDetailPage() {
             No interest charges scheduled yet. Set a close date to create prepaid and first monthly interest charges.
           </p>
         )}
+        <DeletedCharges loanId={id} />
       </div>
 
       {/* Payment History */}
@@ -2025,28 +2035,22 @@ export default function LoanDetailPage() {
         }}
         onCancel={() => setConfirmDeletePayment(null)}
       />
-      <ConfirmDialog
-        open={confirmDeleteCharge !== null}
-        title="Delete this charge?"
-        description="This removes the charge from schedules and payment reminders by marking it waived. Charges with related payment records cannot be deleted."
-        confirmLabel="Delete"
-        variant="destructive"
-        loading={deletingCharge}
-        onConfirm={async () => {
-          if (!confirmDeleteCharge) return;
-          setDeletingCharge(true);
-          try {
-            await removeCharge({ id: confirmDeleteCharge as Id<"loanCharges"> });
+      {chargeToDelete && (
+        <DeleteChargeDialog
+          title="Delete charge"
+          description="The unpaid balance is waived and removed from schedules, payment reminders, and the borrower portal. Recorded payments stay in Payment History. Your reason is saved to the Activity Log, and you can restore the charge from Deleted charges."
+          confirmLabel="Delete charge"
+          charge={{ ...chargeToDelete.charge, borrowerName: loan.borrowerName, propertyAddress: loan.propertyAddress }}
+          onDelete={async (reason) => {
+            await removeCharge({ id: chargeToDelete.charge._id, reason });
             toast.success("Charge deleted");
-            setConfirmDeleteCharge(null);
-          } catch (err) {
-            toast.error(getErrorMessage(err, "Failed to delete charge"));
-          } finally {
-            setDeletingCharge(false);
+          }}
+          onClose={() => setChargeToDelete(null)}
+          finalFocus={() =>
+            chargeToDelete.trigger.isConnected ? chargeToDelete.trigger : chargesSectionRef.current
           }
-        }}
-        onCancel={() => setConfirmDeleteCharge(null)}
-      />
+        />
+      )}
       <ConfirmDialog
         open={confirmRemoveClosing}
         title="Remove closing statement?"

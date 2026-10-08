@@ -139,7 +139,7 @@ export default function ActivityLogPage() {
                       </span>
                     </td>
                     <td className="max-w-md px-4 py-3 text-muted-foreground">
-                      {entry.action === "loan.status" && entry.details?.includes("\n") ? (
+                      {entry.details?.includes("\n") ? (
                         <details className="min-w-60 max-w-md">
                           <summary className="min-h-11 cursor-pointer rounded-lg py-2.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
                             {entry.details.split("\n")[0]}

@@ -4,40 +4,26 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { DataTable, type Column } from "@/components/dashboard/data-table";
-import {
-  Loader2,
-  ArrowLeft,
-  MessageSquare,
-  Pencil,
-  Save,
-  X,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { InvestorInvestments } from "@/components/dashboard/investor-investments";
+import { useBusinessToday } from "@/hooks/use-business-today";
+import { Loader2, ArrowLeft, MessageSquare, Pencil, Save, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { formatCurrency } from "@/lib/format";
 import { DetailPageSkeleton } from "@/components/dashboard/skeleton";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { DatePickerField } from "@/components/dashboard/date-picker-field";
 
 export default function AdminInvestorDetailPage() {
   const params = useParams();
   const id = params.id as Id<"userProfiles">;
-  const data = useQuery(api.admin.getInvestorDetail, { id });
+  const today = useBusinessToday();
+  const data = useQuery(api.investments.getInvestorDetail, { id, today });
   const toggleActive = useMutation(api.users.toggleUserActive);
   const updateProfile = useMutation(api.users.updateUserProfile);
-  const createInvestment = useMutation(api.admin.createInvestment);
-  const updateInvestment = useMutation(api.admin.updateInvestment);
-  const deleteInvestmentMut = useMutation(api.admin.deleteInvestment);
 
-  const [deletingInvestment, setDeletingInvestment] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const [confirmDeleteInvestment, setConfirmDeleteInvestment] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,36 +34,11 @@ export default function AdminInvestorDetailPage() {
     company: "",
   });
 
-  // Add investment form
-  const [showAddInvestment, setShowAddInvestment] = useState(false);
-  const [addingInvestment, setAddingInvestment] = useState(false);
-  const [investForm, setInvestForm] = useState({
-    investmentAmount: "",
-    inceptionDate: "",
-    interestRate: "",
-    totalPaymentsReceived: "0",
-    nextPaymentDate: "",
-    notes: "",
-  });
-
-  // Edit investment
-  const [editingInvestmentId, setEditingInvestmentId] = useState<string | null>(
-    null
-  );
-  const [editInvestForm, setEditInvestForm] = useState({
-    investmentAmount: "",
-    interestRate: "",
-    totalPaymentsReceived: "",
-    nextPaymentDate: "",
-    notes: "",
-  });
-  const [savingInvestment, setSavingInvestment] = useState(false);
-
   if (data === undefined) {
     return <DetailPageSkeleton />;
   }
 
-  const { profile, investments } = data;
+  const { profile } = data;
 
   const handleToggleActive = async () => {
     if (profile.isActive) {
@@ -145,258 +106,18 @@ export default function AdminInvestorDetailPage() {
     }
   };
 
-  const handleAddInvestment = async () => {
-    if (!investForm.investmentAmount.trim() || !investForm.inceptionDate.trim() || !investForm.interestRate.trim() || !investForm.nextPaymentDate.trim()) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-    setAddingInvestment(true);
-    try {
-      await createInvestment({
-        investorId: id,
-        investmentAmount: Number(investForm.investmentAmount),
-        inceptionDate: new Date(investForm.inceptionDate).getTime(),
-        interestRate: Number(investForm.interestRate),
-        totalPaymentsReceived: Number(investForm.totalPaymentsReceived) || 0,
-        nextPaymentDate: new Date(investForm.nextPaymentDate).getTime(),
-        notes: investForm.notes || undefined,
-      });
-      setShowAddInvestment(false);
-      setInvestForm({
-        investmentAmount: "",
-        inceptionDate: "",
-        interestRate: "",
-        totalPaymentsReceived: "0",
-        nextPaymentDate: "",
-        notes: "",
-      });
-      toast.success("Investment created");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to create investment"));
-    } finally {
-      setAddingInvestment(false);
-    }
-  };
-
-  const startEditInvestment = (inv: (typeof investments)[number]) => {
-    setEditingInvestmentId(inv._id);
-    setEditInvestForm({
-      investmentAmount: String(inv.investmentAmount),
-      interestRate: String(inv.interestRate),
-      totalPaymentsReceived: String(inv.totalPaymentsReceived),
-      nextPaymentDate: new Date(inv.nextPaymentDate)
-        .toISOString()
-        .split("T")[0],
-      notes: inv.notes ?? "",
-    });
-  };
-
-  const handleSaveInvestment = async () => {
-    if (!editingInvestmentId) return;
-    if (!editInvestForm.investmentAmount.trim() || !editInvestForm.interestRate.trim() || !editInvestForm.nextPaymentDate.trim()) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-    const parsedDate = new Date(editInvestForm.nextPaymentDate).getTime();
-    if (isNaN(parsedDate)) {
-      toast.error("Invalid next payment date");
-      return;
-    }
-    setSavingInvestment(true);
-    try {
-      await updateInvestment({
-        id: editingInvestmentId as Id<"investments">,
-        investmentAmount: Number(editInvestForm.investmentAmount),
-        interestRate: Number(editInvestForm.interestRate),
-        totalPaymentsReceived: Number(editInvestForm.totalPaymentsReceived) || 0,
-        nextPaymentDate: parsedDate,
-        notes: editInvestForm.notes || undefined,
-      });
-      setEditingInvestmentId(null);
-      toast.success("Investment updated");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to update investment"));
-    } finally {
-      setSavingInvestment(false);
-    }
-  };
-
-  const handleDeleteInvestment = async (investmentId: string) => {
-    setDeletingInvestment(investmentId);
-    try {
-      await deleteInvestmentMut({ id: investmentId as Id<"investments"> });
-      toast.success("Investment deleted");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to delete investment"));
-    } finally {
-      setDeletingInvestment(null);
-      setConfirmDeleteInvestment(null);
-    }
-  };
-
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
-
-  const investmentColumns: Column<(typeof investments)[number]>[] = [
-    {
-      key: "investmentAmount",
-      header: "Amount",
-      sortable: true,
-      render: (row) =>
-        editingInvestmentId === row._id ? (
-          <input
-            className={inputClass}
-            type="number"
-            value={editInvestForm.investmentAmount}
-            onChange={(e) =>
-              setEditInvestForm((p) => ({
-                ...p,
-                investmentAmount: e.target.value,
-              }))
-            }
-          />
-        ) : (
-          formatCurrency(row.investmentAmount)
-        ),
-    },
-    {
-      key: "inceptionDate",
-      header: "Inception",
-      render: (row) => new Date(row.inceptionDate).toLocaleDateString(),
-    },
-    {
-      key: "interestRate",
-      header: "Rate",
-      render: (row) =>
-        editingInvestmentId === row._id ? (
-          <input
-            className={inputClass}
-            type="number"
-            step="0.01"
-            value={editInvestForm.interestRate}
-            onChange={(e) =>
-              setEditInvestForm((p) => ({
-                ...p,
-                interestRate: e.target.value,
-              }))
-            }
-          />
-        ) : (
-          row.interestRate + "%"
-        ),
-    },
-    {
-      key: "totalPaymentsReceived",
-      header: "Payments Received",
-      render: (row) =>
-        editingInvestmentId === row._id ? (
-          <input
-            className={inputClass}
-            type="number"
-            value={editInvestForm.totalPaymentsReceived}
-            onChange={(e) =>
-              setEditInvestForm((p) => ({
-                ...p,
-                totalPaymentsReceived: e.target.value,
-              }))
-            }
-          />
-        ) : (
-          formatCurrency(row.totalPaymentsReceived)
-        ),
-      className: "hidden md:table-cell",
-    },
-    {
-      key: "nextPaymentDate",
-      header: "Next Payment",
-      render: (row) =>
-        editingInvestmentId === row._id ? (
-          <DatePickerField
-            value={editInvestForm.nextPaymentDate}
-            onChange={(value) =>
-              setEditInvestForm((p) => ({
-                ...p,
-                nextPaymentDate: value,
-              }))
-            }
-            valueFormat="iso"
-            placeholder="Select date"
-            required
-            ariaLabel="Next Payment Date"
-          />
-        ) : (
-          new Date(row.nextPaymentDate).toLocaleDateString()
-        ),
-      className: "hidden md:table-cell",
-    },
-    {
-      key: "_id",
-      header: "",
-      render: (row) =>
-        editingInvestmentId === row._id ? (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveInvestment();
-              }}
-              disabled={savingInvestment}
-              className="rounded-lg p-1 text-primary hover:bg-muted"
-            >
-              {savingInvestment ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Save className="size-4" />
-              )}
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingInvestmentId(null);
-              }}
-              className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                startEditInvestment(row);
-              }}
-              className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Pencil className="size-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirmDeleteInvestment(row._id);
-              }}
-              disabled={deletingInvestment === row._id}
-              className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
-            >
-              {deletingInvestment === row._id ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="size-3.5" />
-              )}
-            </button>
-          </div>
-        ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/investors"
+          aria-label="Back to investors"
           className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
-          <ArrowLeft className="size-5" />
+          <ArrowLeft className="size-5" aria-hidden="true" />
         </Link>
         <PageHeader
           title={profile.displayName}
@@ -553,157 +274,7 @@ export default function AdminInvestorDetailPage() {
         </div>
       </div>
 
-      {/* Investments */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Investments ({investments.length})
-          </h3>
-          <button
-            onClick={() => setShowAddInvestment(!showAddInvestment)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-          >
-            <Plus className="size-3" />
-            Add Investment
-          </button>
-        </div>
-
-        {showAddInvestment && (
-          <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Amount *
-                </label>
-                <input
-                  className={inputClass}
-                  type="number"
-                  placeholder="100000"
-                  value={investForm.investmentAmount}
-                  onChange={(e) =>
-                    setInvestForm((p) => ({
-                      ...p,
-                      investmentAmount: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Inception Date *
-                </label>
-                <DatePickerField
-                  value={investForm.inceptionDate}
-                  onChange={(value) =>
-                    setInvestForm((p) => ({
-                      ...p,
-                      inceptionDate: value,
-                    }))
-                  }
-                  valueFormat="iso"
-                  placeholder="Select inception date"
-                  required
-                  ariaLabel="Inception Date"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Interest Rate (%) *
-                </label>
-                <input
-                  className={inputClass}
-                  type="number"
-                  step="0.01"
-                  placeholder="8.5"
-                  value={investForm.interestRate}
-                  onChange={(e) =>
-                    setInvestForm((p) => ({
-                      ...p,
-                      interestRate: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Payments Received
-                </label>
-                <input
-                  className={inputClass}
-                  type="number"
-                  value={investForm.totalPaymentsReceived}
-                  onChange={(e) =>
-                    setInvestForm((p) => ({
-                      ...p,
-                      totalPaymentsReceived: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Next Payment Date *
-                </label>
-                <DatePickerField
-                  value={investForm.nextPaymentDate}
-                  onChange={(value) =>
-                    setInvestForm((p) => ({
-                      ...p,
-                      nextPaymentDate: value,
-                    }))
-                  }
-                  valueFormat="iso"
-                  placeholder="Select payment date"
-                  required
-                  ariaLabel="Next Payment Date"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">
-                  Notes
-                </label>
-                <input
-                  className={inputClass}
-                  placeholder="Optional"
-                  value={investForm.notes}
-                  onChange={(e) =>
-                    setInvestForm((p) => ({ ...p, notes: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => setShowAddInvestment(false)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddInvestment}
-                disabled={addingInvestment}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
-              >
-                {addingInvestment && (
-                  <Loader2 className="size-3 animate-spin" />
-                )}
-                Add
-              </button>
-            </div>
-          </div>
-        )}
-
-        {investments.length > 0 ? (
-          <DataTable
-            data={investments as unknown as Record<string, unknown>[]}
-            columns={
-              investmentColumns as Column<Record<string, unknown>>[]
-            }
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">No investments yet</p>
-        )}
-      </div>
+      <InvestorInvestments investorId={id} portfolio={data} />
       <ConfirmDialog
         open={confirmDeactivate}
         title={`Deactivate ${profile.displayName}?`}
@@ -713,16 +284,6 @@ export default function AdminInvestorDetailPage() {
         loading={toggling}
         onConfirm={executeDeactivate}
         onCancel={() => setConfirmDeactivate(false)}
-      />
-      <ConfirmDialog
-        open={confirmDeleteInvestment !== null}
-        title="Delete this investment?"
-        description="This action cannot be undone."
-        confirmLabel="Delete"
-        variant="destructive"
-        loading={deletingInvestment !== null}
-        onConfirm={async () => { if (confirmDeleteInvestment) await handleDeleteInvestment(confirmDeleteInvestment); }}
-        onCancel={() => setConfirmDeleteInvestment(null)}
       />
     </div>
   );

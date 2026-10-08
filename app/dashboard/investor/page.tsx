@@ -5,49 +5,28 @@ import { api } from "@/convex/_generated/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { TrendingUp, DollarSign, Percent, Calendar } from "lucide-react";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { TrendingUp, DollarSign, Calendar, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/format";
-import { staggerContainer, staggerItem } from "@/lib/animations";
+import { staggerContainer } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
-import { useState } from "react";
+import { formatCalendarDay } from "@/convex/lib/investmentSchedule";
+import { getPortfolioRows, type PortfolioRow } from "@/lib/investor-portfolio";
+import { useBusinessToday } from "@/hooks/use-business-today";
 
 export default function InvestorDashboardPage() {
-  const [nowMinute] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
-  const dashboard = useQuery(api.investor.getPortfolioDashboard, { now: nowMinute });
+  const today = useBusinessToday();
+  const portfolio = useQuery(api.investments.getMyPortfolio, { today });
 
-  if (dashboard === undefined) {
+  if (portfolio === undefined) {
     return <PageSkeleton />;
   }
 
-  const { stats, investments } = dashboard;
+  const { totals } = portfolio;
+  const rows = getPortfolioRows(portfolio);
 
-  const kpis = [
-    {
-      label: "Total Invested",
-      value: formatCurrency(stats.totalInvested),
-      icon: DollarSign,
-    },
-    {
-      label: "Payments Received",
-      value: formatCurrency(stats.totalPaymentsReceived),
-      icon: TrendingUp,
-    },
-    {
-      label: "Avg Interest Rate",
-      value: stats.avgInterestRate.toFixed(2) + "%",
-      icon: Percent,
-    },
-    {
-      label: "Next Payment",
-      value: stats.nextPaymentDate
-        ? new Date(stats.nextPaymentDate).toLocaleDateString()
-        : "None",
-      icon: Calendar,
-    },
-  ];
-
-  const columns: Column<(typeof investments)[number]>[] = [
+  const columns: Column<PortfolioRow>[] = [
     {
       key: "investmentAmount",
       header: "Amount",
@@ -55,37 +34,49 @@ export default function InvestorDashboardPage() {
       render: (row) => formatCurrency(row.investmentAmount),
     },
     {
-      key: "inceptionDate",
-      header: "Inception",
-      sortable: true,
-      render: (row) => new Date(row.inceptionDate).toLocaleDateString(),
-    },
-    {
       key: "interestRate",
       header: "Rate",
       sortable: true,
-      render: (row) => row.interestRate + "%",
+      render: (row) => `${row.interestRate}%`,
     },
     {
-      key: "totalPaymentsReceived",
-      header: "Payments Received",
+      key: "inceptionDate",
+      header: "Inception",
       sortable: true,
-      render: (row) => formatCurrency(row.totalPaymentsReceived),
-      className: "hidden md:table-cell",
+      render: (row) => formatCalendarDay(row.inceptionDate),
+      className: "hidden sm:table-cell",
+    },
+    {
+      key: "monthlyPayment",
+      header: "Monthly Payment",
+      sortable: true,
+      render: (row) => formatCurrency(row.monthlyPayment),
     },
     {
       key: "nextPaymentDate",
       header: "Next Payment",
-      render: (row) => new Date(row.nextPaymentDate).toLocaleDateString(),
-      className: "hidden lg:table-cell",
+      sortable: true,
+      render: (row) => row.nextPaymentLabel,
+    },
+    {
+      key: "interestEarned",
+      header: "Interest Earned",
+      sortable: true,
+      render: (row) => formatCurrency(row.interestEarned),
+      className: "hidden md:table-cell",
+    },
+    {
+      key: "paidToDate",
+      header: "Received",
+      sortable: true,
+      render: (row) => formatCurrency(row.paidToDate),
+      className: "hidden md:table-cell",
     },
     {
       key: "notes",
       header: "Notes",
       render: (row) => (
-        <span className="max-w-[200px] truncate block">
-          {row.notes || "—"}
-        </span>
+        <span className="block max-w-[200px] truncate">{row.notes || "—"}</span>
       ),
       className: "hidden lg:table-cell",
     },
@@ -98,37 +89,52 @@ export default function InvestorDashboardPage() {
         description="Track your investments and returns"
       />
 
-      {/* KPI Cards */}
       <motion.div
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
       >
-        {kpis.map((kpi) => (
-          <motion.div
-            key={kpi.label}
-            variants={staggerItem}
-            className="rounded-xl border border-border bg-card p-6"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <kpi.icon className="size-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{kpi.label}</p>
-                <p className="text-xl font-bold">{kpi.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+        <KpiCard
+          label="Total Invested"
+          value={formatCurrency(totals.totalInvested)}
+          subtitle={`Avg rate ${totals.avgInterestRate.toFixed(2)}%`}
+          icon={DollarSign}
+        />
+        <KpiCard
+          label="Interest Earned"
+          value={formatCurrency(totals.interestEarned)}
+          subtitle="Since inception"
+          icon={TrendingUp}
+        />
+        <KpiCard
+          label="Payments Received"
+          value={formatCurrency(totals.paidToDate)}
+          subtitle={
+            totals.unpaidInterest > 0
+              ? `${formatCurrency(totals.unpaidInterest)} earned, not yet paid`
+              : "All earned interest paid"
+          }
+          icon={Wallet}
+        />
+        <KpiCard
+          label="Next Payment"
+          value={totals.nextPayment ? formatCurrency(totals.nextPayment.amount) : "None"}
+          subtitle={
+            totals.nextPayment
+              ? totals.nextPayment.dueDate === portfolio.today
+                ? "Due today"
+                : `Due ${formatCalendarDay(totals.nextPayment.dueDate)}`
+              : "No payments scheduled"
+          }
+          icon={Calendar}
+        />
       </motion.div>
 
-      {/* Investments Table */}
-      {investments.length > 0 ? (
+      {rows.length > 0 ? (
         <DataTable
-          data={investments as unknown as Record<string, unknown>[]}
-          columns={columns as Column<Record<string, unknown>>[]}
+          data={rows}
+          columns={columns}
         />
       ) : (
         <EmptyState

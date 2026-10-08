@@ -12,7 +12,9 @@ Explanations are trimmed and limited to 2,000 characters. The dialog explicitly 
 
 ## Approval and feedback
 
-Both **Under Review → Approved** and **Info Needed → Approved** are supported. The remaining transition restrictions are unchanged. Closed or returned loans cannot be reopened through these controls. The current status appears separately from the available actions.
+Any status other than Closed can move to any other status. For example, an Approved loan can still move to Sent to Title, Info Needed, or back to Under Review. Closed or returned loans cannot be reopened through these controls. The current status appears separately from the available actions.
+
+The borrower timeline shows Submitted → Under Review → Approved → Funded → Sent to Title → Closed. When a loan moves to Info Needed or Denied, `loans.progressStatus` keeps the step it had reached, so a funded loan that needs information still shows Funded. Loans moved to Info Needed before this field existed show Under Review.
 
 Saving disables further submission and dismissal until the request resolves. Failures retain the draft and show a safe message. When another administrator changes the status while a dialog is open, the request is rejected and the administrator is asked to close the dialog and review the updated loan. Repeating a request for an already-current status makes no changes and produces no additional notifications.
 

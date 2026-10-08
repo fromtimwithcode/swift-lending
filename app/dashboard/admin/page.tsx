@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import {
   Landmark,
   DollarSign,
@@ -26,7 +27,7 @@ import { staggerContainer } from "@/lib/animations";
 import {
   getLoanDisplayStatus,
   getLoanStatusLabel,
-  isActiveLoanDisplay,
+  isPendingLoanDisplay,
   isFundsReturnedLoan,
 } from "@/lib/loan-display";
 import { useEffect, useState } from "react";
@@ -91,6 +92,7 @@ type DrilldownRequest =
 export default function AdminOverviewPage() {
   const stats = useQuery(api.admin.getOverviewStats);
   const paymentReminders = useQuery(api.loanPayments.getAdminPaymentReminders);
+  const deletePaymentReminder = useMutation(api.loanCharges.deletePaymentReminder);
   const [loadSecondaryAnalytics, setLoadSecondaryAnalytics] = useState(false);
   const paymentsSummary = useQuery(
     api.loanPayments.getAllPaymentsSummary,
@@ -246,7 +248,7 @@ export default function AdminOverviewPage() {
       render: (row) => (
         <div className="space-y-1">
           <StatusBadge status={getLoanDisplayStatus(row)} />
-          {isActiveLoanDisplay(row) && (
+          {isPendingLoanDisplay(row) && (
             <p className="text-xs text-muted-foreground">{getLoanStatusLabel(row.status)}</p>
           )}
           {isFundsReturnedLoan(row) && row.returnedDate && (
@@ -292,7 +294,7 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
-          subtitle={`${stats.activePipeline} active / ${stats.closedLoans} closed / ${stats.returnedLoans} returned`}
+          subtitle={`${stats.activePipeline} pending / ${stats.closedLoans} closed / ${stats.returnedLoans} returned`}
           icon={Landmark}
         />
         <KpiCard
@@ -394,6 +396,16 @@ export default function AdminOverviewPage() {
         data={paymentReminders}
         description="All active loans with past due payments or payments coming up soon."
         onLoanClick={(loanId) => router.push(`/dashboard/admin/loans/${loanId}`)}
+        onDelete={async (reminder, reason) => {
+          const { deleted } = await deletePaymentReminder({
+            loanId: reminder.loanId,
+            dueDate: reminder.dueDate,
+            source: reminder.source,
+            chargeId: reminder.chargeId,
+            reason,
+          });
+          toast.success(deleted ? "Payment reminder deleted" : "This reminder was already deleted");
+        }}
       />
 
       {/* Charts */}

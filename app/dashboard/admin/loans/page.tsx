@@ -27,12 +27,21 @@ import {
   getLoanDisplayStatus,
   getLoanDisplayStatusLabel,
   getLoanStatusLabel,
-  isActiveLoanDisplay,
+  isPendingLoanDisplay,
   isClosedLoanDisplay,
+  isDeniedLoanDisplay,
   isFundsReturnedLoan,
 } from "@/lib/loan-display";
 
-type TabFilter = "all" | "active" | "closed" | "funds_returned";
+const LOAN_TABS = [
+  { label: "All", value: "all", matches: () => true },
+  { label: "Pending", value: "pending", matches: isPendingLoanDisplay },
+  { label: "Closed", value: "closed", matches: isClosedLoanDisplay },
+  { label: "Funds Returned", value: "funds_returned", matches: isFundsReturnedLoan },
+  { label: "Denied", value: "denied", matches: isDeniedLoanDisplay },
+] as const;
+
+type TabFilter = (typeof LOAN_TABS)[number]["value"];
 
 export default function AdminLoansPage() {
   const loans = useQuery(api.admin.getLoans, {});
@@ -60,15 +69,8 @@ export default function AdminLoansPage() {
   const filteredLoans = useMemo(() => {
     if (!loans) return [];
 
-    let filtered = [...loans];
-
-    if (activeTab === "active") {
-      filtered = filtered.filter(isActiveLoanDisplay);
-    } else if (activeTab === "closed") {
-      filtered = filtered.filter(isClosedLoanDisplay);
-    } else if (activeTab === "funds_returned") {
-      filtered = filtered.filter(isFundsReturnedLoan);
-    }
+    const tab = LOAN_TABS.find((candidate) => candidate.value === activeTab) ?? LOAN_TABS[0];
+    let filtered = loans.filter(tab.matches);
 
     if (search) {
       const q = search.toLowerCase();
@@ -94,24 +96,11 @@ export default function AdminLoansPage() {
     return <PageSkeleton />;
   }
 
-  const tabs = [
-    { label: "All", value: "all", count: loans.length },
-    {
-      label: "Active",
-      value: "active",
-      count: loans.filter(isActiveLoanDisplay).length,
-    },
-    {
-      label: "Closed",
-      value: "closed",
-      count: loans.filter(isClosedLoanDisplay).length,
-    },
-    {
-      label: "Funds Returned",
-      value: "funds_returned",
-      count: loans.filter(isFundsReturnedLoan).length,
-    },
-  ];
+  const tabs = LOAN_TABS.map((tab) => ({
+    label: tab.label,
+    value: tab.value,
+    count: loans.filter(tab.matches).length,
+  }));
 
   const columns: Column<(typeof filteredLoans)[number]>[] = [
     { key: "borrowerName", header: "Borrower", sortable: true },
@@ -154,7 +143,7 @@ export default function AdminLoansPage() {
       render: (row) => (
         <div className="space-y-1">
           <StatusBadge status={getLoanDisplayStatus(row)} />
-          {isActiveLoanDisplay(row) && (
+          {isPendingLoanDisplay(row) && (
             <p className="text-xs text-muted-foreground">{getLoanStatusLabel(row.status)}</p>
           )}
           {isFundsReturnedLoan(row) && row.returnedDate && (

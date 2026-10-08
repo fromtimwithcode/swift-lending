@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvex } from "convex/react";
+import { getBusinessCalendarDay } from "@/convex/lib/investmentSchedule";
 import { api } from "@/convex/_generated/api";
 import { useRef } from "react";
 import { getNavForRole, isDashboardNavItemActive } from "@/components/dashboard/nav-items";
@@ -125,16 +126,14 @@ export function Sidebar({
         convex.prewarmQuery({ query: api.documents.getMyDocuments, args: {}, extendSubscriptionFor });
         convex.prewarmQuery({ query: api.borrower.getMyDrawRequests, args: {}, extendSubscriptionFor });
         break;
-      case "/dashboard/investor": {
-        const nowMinute = Math.floor(Date.now() / 60_000) * 60_000;
-        convex.prewarmQuery({ query: api.investor.getPortfolioDashboard, args: { now: nowMinute }, extendSubscriptionFor });
-        break;
-      }
+      case "/dashboard/investor":
       case "/dashboard/investor/payments":
-        convex.prewarmQuery({ query: api.investor.getMyInvestments, args: {}, extendSubscriptionFor });
-        break;
       case "/dashboard/investor/statements":
-        convex.prewarmQuery({ query: api.investor.getInvestmentStatement, args: {}, extendSubscriptionFor });
+        convex.prewarmQuery({
+          query: api.investments.getMyPortfolio,
+          args: { today: getBusinessCalendarDay() },
+          extendSubscriptionFor,
+        });
         break;
     }
   };

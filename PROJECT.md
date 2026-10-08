@@ -64,9 +64,9 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pipeline / Closed), search, sort
+- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied), search, sort
 - [x] Loan detail page with inline editing
-- [x] Status changer (clickable status badges)
+- [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
 
 ### Admin Borrower Management
@@ -154,7 +154,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Investors list page with stats (investment count, total invested, active/inactive badge)
 - [x] Add Investor form (email, name, company, phone — same pattern as borrowers)
 - [x] Investor detail page with profile editing, toggle active/inactive, message link
-- [x] Inline investment CRUD (add investment form, edit investment inline in table)
+- [x] Investment cards with add/edit dialogs, recorded payments, and payment history (see Investor Payment Schedule)
 
 ### Admin User Management & Settings
 - [x] Toggle borrower active/inactive from borrower detail page (with confirmation)
@@ -206,7 +206,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ### Investor Statements
 - [x] Investor statements page with KPIs (Total Invested, Total Returns, Weighted Avg Rate, Est. Annual Income)
 - [x] Investment breakdown table (amount, rate, monthly return, annual return, total received, inception)
-- [x] `getInvestmentStatement` query with computed return fields
+- [x] Statement figures come from `investments.getMyPortfolio`
 
 ---
 
@@ -271,7 +271,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Activity Log nav item in admin sidebar (visible to admins and developers)
 
 ### Instrumented Mutations
-- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, createInvestment, updateInvestment, deleteInvestment, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
+- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
 - `convex/draws.ts` — reviewDrawRequest, bulkReviewDrawRequests
 - `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile, createUser, updateUserRole
 - `convex/loanPayments.ts` — recordPayment, deletePayment, bulkDeletePayments
@@ -336,20 +336,46 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ---
 
+## Payment Reminder Deletion & Status Updates (Completed)
+
+- [x] Admin Overview Payment Reminders: trash button on every row opens a dialog that requires a reason (max 2,000 characters)
+- [x] Deleting a charge-backed reminder waives its open charges (`loanCharges.waiver` stores reason, author, time, and prior status); short-paid charges can be waived, and their recorded payments stay in Payment History
+- [x] Deleting an estimated monthly-payment reminder (no charge exists) records a `paymentReminderDismissals` row that hides only that reminder
+- [x] Loan page charge delete uses the same reason dialog; paid charges with recorded payments still cannot be deleted
+- [x] Loan page "Deleted charges" disclosure lists waived charges and dismissed reminders with reason, author, and date, and restores them (`restoreCharge`, `restorePaymentReminder`)
+- [x] Activity Log entries: `charge.remove`, `charge.restore`, `payment_reminder.delete`, `payment_reminder.restore`; the reason is in the expandable details
+- [x] Payoff credits for a waived charge cover only the balance its payments did not, so short-paid waivers are not credited twice
+- [x] Loans list tabs renamed Active → Pending and a Denied tab added
+- [x] Borrower timeline keeps the step a loan had reached (`loans.progressStatus`) while it is in Info Needed or Denied
+
+## Investor Payment Schedule (Completed)
+
+- [x] Payments are calculated, not typed in: interest is paid monthly at amount × annual rate ÷ 12 on the first payment date's day of the month (clamped in short months)
+- [x] The first payment covers inception through the first payment date. It defaults to one month after inception; any other date is prorated (whole months plus leftover days at 1/30 of a month each)
+- [x] `investorPayouts` records each payment (amount, date, ACH/wire/check/other, optional reference visible to the investor). Payments, plus `priorPaymentsReceived`, cover the oldest scheduled payment first
+- [x] Admin investor page: one card per investment with next payment (amount and date), monthly payment, interest earned since inception, paid to date, earned but unpaid, and any past-due balance; Record payment, edit, delete, and payment history with delete
+- [x] Investor portal: Portfolio KPIs (interest earned, payments received, next payment), Payments page with upcoming payments and history, Statements page uses the same figures
+- [x] Investment dates are calendar days stored as UTC-midnight timestamps and formatted in UTC (fixes dates showing one day early in US timezones)
+- [x] Deleting an investment requires deleting its recorded payments first. Activity Log entries: `investment.create`, `investment.update` (lists changed terms), `investment.delete`, `investment.payout`, `investment.payoutDelete`
+- [x] Schedule math: `convex/lib/investmentSchedule.ts`; loading and portfolio totals: `convex/lib/investorPortfolio.ts`; functions: `convex/investments.ts`
+- [ ] After deploying, run `pnpm exec convex run migrations:backfillInvestmentPaymentSchedules` (with `--prod` for production), then make `firstPaymentDate`/`priorPaymentsReceived` required and drop `nextPaymentDate`/`totalPaymentsReceived` and the fallback in `getInvestmentTerms`
+
+---
+
 ## File Structure
 
 ```
 convex/
-  schema.ts               Full schema (11 tables: userProfiles, loans, rehabBudgetItems, drawRequests, documents, messages, investments, notifications, loanPayments, propertyComps, activityLog)
+  schema.ts               Full schema (includes userProfiles, loans, rehabBudgetItems, drawRequests, documents, messages, investments, investorPayouts, notifications, loanPayments, propertyComps, activityLog)
   auth.ts                 Auth providers (Google OAuth)
   auth.config.ts          JWT config
   http.ts                 HTTP routes
   lib/auth.ts             getCurrentUser, requireAdmin, requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers
   lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
-  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, createInvestment, updateInvestment, getInvestorDetail, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
+  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
-  investor.ts             Investor queries (getMyInvestments, getMyInvestment, getPortfolioStats, getInvestmentStatement)
+  investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
   documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
@@ -426,6 +452,9 @@ components/
     property-comps.tsx    Property comps table with mock fetch
     empty-state.tsx       Empty state CTA
     loan-status-timeline.tsx  Horizontal stepper for loan progression
+    payment-reminders-card.tsx  Past-due/due-soon reminders with filters and reason-required delete
+    delete-charge-dialog.tsx  Reason-required delete dialog for reminders and charges
+    deleted-charges.tsx       Loan page list of deleted charges/reminders with restore
     file-upload-dialog.tsx    Modal for Convex file upload
     message-thread.tsx        Chat bubbles with auto-scroll + mark-read
     conversation-list.tsx     Conversation list with unread badges
@@ -438,7 +467,7 @@ components/
 
 - First admin/developer must be manually seeded in Convex dashboard; subsequent users of any role can be created from the admin Users page
 - Auth supports Google OAuth and Email OTP (magic code via Resend)
-- Loan dates stored as strings (MM/DD/YYYY); investment dates use timestamps (`v.number()`)
+- Loan dates stored as strings (MM/DD/YYYY); investment dates are calendar days stored as UTC-midnight timestamps (`v.number()`), read and formatted only through `convex/lib/investmentSchedule.ts`
 - Payment dates stored as strings (MM/DD/YYYY) with full calendar validation (impossible dates like 02/31 rejected)
 - `getOverviewStats` uses `.collect()` on all loans — fine for now, may need optimization at scale
 - Messaging queries bounded with `.take(5000)` on sent/received — works at moderate volume, may need pagination at scale
@@ -461,6 +490,7 @@ components/
 - All mutation errors use `ConvexError` (from `convex/values`) to ensure human-readable messages reach the client in production; frontend displays them via `toast.error()` (sonner)
 - Activity log `getRecentActivity` returns latest 100 entries (limit capped at 500); `getActivityForEntity` scans 500 — may need pagination at scale
 - Developer role has identical permissions to admin; differentiation is organizational only
+- Deploy Convex schema/functions with or before the frontend: the investor pages call `investments.*` (the old `investor.*` queries and `admin.*Investment` mutations are removed), and the reminder delete dialog calls `loanCharges.deletePaymentReminder` with `source`, and loan-page charge deletes require `reason`
 
 ## Convex File Upload Pattern
 
