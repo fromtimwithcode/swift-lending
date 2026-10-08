@@ -1,38 +1,15 @@
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { roundCents } from "./financialRules";
 import {
   type CalendarDay,
-  getDefaultFirstPaymentDate,
   summarizeInvestment,
-  toCalendarDay,
   type InvestmentSummary,
   type InvestmentTerms,
 } from "./investmentSchedule";
 
 const MAX_INVESTMENTS_PER_INVESTOR = 100;
 const MAX_PAYOUTS_PER_INVESTMENT = 1000;
-
-/** Also reads documents written before migrations:backfillInvestmentPaymentSchedules. */
-export function getInvestmentTerms(investment: Doc<"investments">): InvestmentTerms {
-  const inceptionDate = toCalendarDay(investment.inceptionDate);
-  const firstPaymentDate = toCalendarDay(
-    investment.firstPaymentDate ??
-      investment.nextPaymentDate ??
-      getDefaultFirstPaymentDate(inceptionDate)
-  );
-  return {
-    investmentAmount: investment.investmentAmount,
-    interestRate: investment.interestRate,
-    inceptionDate,
-    firstPaymentDate:
-      firstPaymentDate > inceptionDate
-        ? firstPaymentDate
-        : getDefaultFirstPaymentDate(inceptionDate),
-    priorPaymentsReceived:
-      investment.priorPaymentsReceived ?? investment.totalPaymentsReceived ?? 0,
-  };
-}
 
 async function getInvestmentPayouts(ctx: QueryCtx, investmentId: Id<"investments">) {
   return await ctx.db
@@ -119,9 +96,7 @@ export async function loadInvestorPortfolio(
     .take(MAX_INVESTMENTS_PER_INVESTOR);
   const rows = await Promise.all(
     investments.map(async (investment) => ({
-      _id: investment._id,
-      ...getInvestmentTerms(investment),
-      notes: investment.notes,
+      ...investment,
       payouts: (await getInvestmentPayouts(ctx, investment._id)).map(
         ({ _id, amount, paidDate, method, notes }) => ({ _id, amount, paidDate, method, notes })
       ),

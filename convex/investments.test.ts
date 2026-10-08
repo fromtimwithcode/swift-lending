@@ -2,7 +2,7 @@
 
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import schema from "./schema";
 import { parseIsoCalendarDay } from "./lib/investmentSchedule";
 
@@ -208,41 +208,5 @@ describe("investments", () => {
     await expect(
       investor.mutation(api.investments.create, { investorId: ids.investor.profileId, ...terms })
     ).rejects.toThrow();
-  });
-
-  test("reads and migrates investments saved before the payment schedule", async () => {
-    const { t, ids, admin } = await fixture();
-    const investmentId = await t.run((ctx) =>
-      ctx.db.insert("investments", {
-        investorId: ids.investor.profileId,
-        investmentAmount: 100_000,
-        inceptionDate: day("2026-10-12"),
-        interestRate: 10,
-        totalPaymentsReceived: 833.33,
-        nextPaymentDate: day("2026-11-13"),
-      })
-    );
-
-    const before = await admin.query(api.investments.getInvestorDetail, { id: ids.investor.profileId, today });
-    expect(before.investments[0]).toMatchObject({
-      firstPaymentDate: day("2026-11-13"),
-      priorPaymentsReceived: 833.33,
-    });
-
-    expect(await t.mutation(internal.migrations.backfillInvestmentPaymentSchedules, {})).toEqual({
-      updated: 1,
-      isDone: true,
-    });
-    expect(await t.mutation(internal.migrations.backfillInvestmentPaymentSchedules, {})).toEqual({
-      updated: 0,
-      isDone: true,
-    });
-    const migrated = await t.run((ctx) => ctx.db.get(investmentId));
-    expect(migrated).toMatchObject({ firstPaymentDate: day("2026-11-13"), priorPaymentsReceived: 833.33 });
-    expect(migrated).not.toHaveProperty("nextPaymentDate");
-    expect(migrated).not.toHaveProperty("totalPaymentsReceived");
-
-    const after = await admin.query(api.investments.getInvestorDetail, { id: ids.investor.profileId, today });
-    expect(after.investments[0].summary).toEqual(before.investments[0].summary);
   });
 });

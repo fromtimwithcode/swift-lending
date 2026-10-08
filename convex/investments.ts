@@ -14,7 +14,7 @@ import {
   isCalendarDay,
   type InvestmentTerms,
 } from "./lib/investmentSchedule";
-import { getInvestmentTerms, loadInvestorPortfolio } from "./lib/investorPortfolio";
+import { loadInvestorPortfolio } from "./lib/investorPortfolio";
 
 const termsArgs = {
   investmentAmount: v.number(),
@@ -136,12 +136,8 @@ export const update = mutation({
     const admin = await requireAdmin(ctx);
     const investment = await requireInvestment(ctx, id);
     const terms = parseTerms(args);
-    const changes = describeTermChanges(getInvestmentTerms(investment), terms);
-    await ctx.db.patch("investments", id, {
-      ...terms,
-      totalPaymentsReceived: undefined,
-      nextPaymentDate: undefined,
-    });
+    const changes = describeTermChanges(investment, terms);
+    await ctx.db.patch("investments", id, terms);
     if (terms.notes !== investment.notes) changes.push("Notes updated");
     if (changes.length === 0) return id;
     await logInvestmentActivity(
@@ -186,7 +182,7 @@ export const recordPayout = mutation({
     const amount = roundCents(args.amount);
     const error = getPayoutError(
       { amount, paidDate: args.paidDate },
-      getInvestmentTerms(investment),
+      investment,
       getBusinessCalendarDay()
     );
     if (error) throw publicError(error.message);

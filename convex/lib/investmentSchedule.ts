@@ -33,10 +33,6 @@ export function isCalendarDay(value: number) {
   return Number.isSafeInteger(value) && value % MS_PER_DAY === 0;
 }
 
-export function toCalendarDay(timestamp: number): CalendarDay {
-  return Math.floor(timestamp / MS_PER_DAY) * MS_PER_DAY;
-}
-
 export function parseIsoCalendarDay(value: string): CalendarDay | null {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
