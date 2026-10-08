@@ -358,7 +358,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Investment dates are calendar days stored as UTC-midnight timestamps and formatted in UTC (fixes dates showing one day early in US timezones)
 - [x] Deleting an investment requires deleting its recorded payments first. Activity Log entries: `investment.create`, `investment.update` (lists changed terms), `investment.delete`, `investment.payout`, `investment.payoutDelete`
 - [x] Schedule math: `convex/lib/investmentSchedule.ts`; loading and portfolio totals: `convex/lib/investorPortfolio.ts`; functions: `convex/investments.ts`
-- [ ] After deploying, run `pnpm exec convex run migrations:backfillInvestmentPaymentSchedules` (with `--prod` for production), then make `firstPaymentDate`/`priorPaymentsReceived` required and drop `nextPaymentDate`/`totalPaymentsReceived` and the fallback in `getInvestmentTerms`
+- [x] Legacy `nextPaymentDate`/`totalPaymentsReceived` migrated to `firstPaymentDate`/`priorPaymentsReceived` in production (2026-10-08); both new fields are now required and the legacy fields are dropped
 
 ---
 

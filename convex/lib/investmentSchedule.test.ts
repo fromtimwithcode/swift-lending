@@ -8,7 +8,6 @@ import {
   getPayoutError,
   parseIsoCalendarDay,
   summarizeInvestment,
-  toCalendarDay,
   toIsoCalendarDay,
   type InvestmentTerms,
 } from "./investmentSchedule";
@@ -36,10 +35,6 @@ describe("calendar days", () => {
   test("reject impossible dates", () => {
     expect(parseIsoCalendarDay("2026-02-30")).toBeNull();
     expect(parseIsoCalendarDay("10/12/2026")).toBeNull();
-  });
-
-  test("normalize an instant to its UTC calendar day", () => {
-    expect(toCalendarDay(day("2026-10-12") + 5 * 3_600_000)).toBe(day("2026-10-12"));
   });
 
   test("use the Wisconsin date for today", () => {
