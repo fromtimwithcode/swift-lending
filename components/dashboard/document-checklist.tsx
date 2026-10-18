@@ -21,6 +21,7 @@ import { DocumentPreviewRow } from "@/components/dashboard/document-preview-row"
 type DocType =
   | "articles"
   | "operating_agreement"
+  | "purchase_contract"
   | "closing_statement"
   | "wire_instructions"
   | "property_photo"
@@ -66,6 +67,12 @@ export function DocumentChecklist({
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const requiredRows: DocRow[] = [
+    {
+      label: "Purchase Contract",
+      types: ["purchase_contract"],
+      multi: true,
+      required: true,
+    },
     {
       label: "Rehab Breakdown",
       types: ["rehab_budget"],

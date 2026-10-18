@@ -24,6 +24,7 @@ const ACCEPTED_FALLBACK_CONTENT_TYPES = new Set(["application/octet-stream"]);
 const documentTypeValidator = v.union(
   v.literal("articles"),
   v.literal("operating_agreement"),
+  v.literal("purchase_contract"),
   v.literal("closing_statement"),
   v.literal("wire_instructions"),
   v.literal("property_photo"),

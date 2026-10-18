@@ -60,6 +60,8 @@ describe("loan funding source of truth", () => {
       paymentType: "monthly",
       drawFundsTotal: 50_000,
       drawFundsUsed: 20_000,
+      purchaseContractFiles: [],
+      missingDocumentsNote: "Missing purchase contract",
     });
 
     const state = await t.run(async (ctx) => ({

@@ -32,6 +32,11 @@ import {
 import { getAppConfigurationState } from "./lib/settings";
 import { getPropertyDetailsError } from "./lib/propertyDetails";
 import {
+  insertPurchaseContracts,
+  normalizeMissingDocumentsNote,
+  purchaseContractFilesValidator,
+} from "./lib/loanDocuments";
+import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
 } from "./lib/propertyValidators";
@@ -130,6 +135,7 @@ const LOAN_UPDATE_FIELD_LABELS: Record<string, string> = {
   drawFundsTotal: "Construction holdback",
   drawFundsUsed: "Draw funds used",
   notes: "Notes",
+  missingDocumentsNote: "Missing documents",
 };
 
 function changedFieldSummary(keys: string[]) {
@@ -483,6 +489,8 @@ export const createLoan = mutation({
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
+    purchaseContractFiles: purchaseContractFilesValidator,
+    missingDocumentsNote: v.optional(v.string()),
     rehabBudgetItems: v.optional(v.array(v.object({
       category: rehabCategoryValidator,
       itemName: v.string(),
@@ -510,6 +518,10 @@ export const createLoan = mutation({
     const titleCompanyContactEmail = requiredEmail(args.titleCompanyContactEmail, "Title contact email");
     const titleCompanyContactPhone = requiredString(args.titleCompanyContactPhone, "Title contact phone");
     const notes = optionalString(args.notes);
+    const missingDocumentsNote = normalizeMissingDocumentsNote(args.missingDocumentsNote);
+    if (args.purchaseContractFiles.length === 0 && !missingDocumentsNote) {
+      throw new ConvexError("Upload the purchase contract or list the missing documents");
+    }
     const closeDate = requiredString(args.closeDate, "Close date");
     const maturityDate =
       (args.useDefaultMaturityDate && closeDate
@@ -572,7 +584,7 @@ export const createLoan = mutation({
 
     const openingDrawTotal = roundCents(args.drawFundsUsed ?? 0);
     const rehabBudgetItems = args.rehabBudgetItems;
-    const loanFields = { ...args };
+    const { purchaseContractFiles, ...loanFields } = args;
     delete loanFields.rehabBudgetItems;
     delete loanFields.useDefaultMaturityDate;
     delete loanFields.monthlyPayment;
@@ -606,6 +618,7 @@ export const createLoan = mutation({
       titleCompanyContactEmail,
       titleCompanyContactPhone,
       notes,
+      missingDocumentsNote,
       closeDate,
       maturityDate,
       paymentDueDay: args.paymentDueDay ?? loanDefaults.paymentDueDay,
@@ -642,6 +655,12 @@ export const createLoan = mutation({
         });
       }
     }
+
+    await insertPurchaseContracts(ctx, {
+      ownerId: admin._id,
+      loanId: id,
+      files: purchaseContractFiles,
+    });
 
     await saveBorrowerTitleContact(
       ctx,
@@ -684,6 +703,9 @@ export const createLoan = mutation({
         { label: "Status", value: LOAN_STATUS_LABELS[args.status] ?? args.status },
         { label: "Close date", value: optionalDetail(closeDate) },
         { label: "Title company", value: optionalDetail(titleCompany) },
+        ...(missingDocumentsNote
+          ? [{ label: "Missing documents", value: missingDocumentsNote }]
+          : []),
       ],
       actionPath: `/dashboard/admin/loans/${id}`,
       actionLabel: "View Loan",
@@ -736,6 +758,7 @@ export const updateLoan = mutation({
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
+    missingDocumentsNote: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
@@ -834,7 +857,7 @@ export const updateLoan = mutation({
       "titleCompanyContactPhone",
     ]);
     const optionalStringFields = new Set([
-      "maturityDate", "notes",
+      "maturityDate", "notes", "missingDocumentsNote",
     ]);
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
@@ -855,6 +878,7 @@ export const updateLoan = mutation({
             }
             if (key === "closeDate") validateUsDate(trimmed, "Close date", { allowFuture: true });
             if (key === "maturityDate") validateUsDate(trimmed, "Maturity date", { allowFuture: true });
+            if (key === "missingDocumentsNote") normalizeMissingDocumentsNote(trimmed);
             updates[key] = key === "titleCompanyContactEmail"
               ? optionalEmail(trimmed, "Title contact email")
               : trimmed;

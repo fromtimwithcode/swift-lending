@@ -86,6 +86,7 @@ const schema = defineSchema({
     drawFundsTotal: v.optional(v.number()),
     drawFundsUsed: v.optional(v.number()),
     notes: v.optional(v.string()),
+    missingDocumentsNote: v.optional(v.string()),
     statusNote: v.optional(v.string()),
     statusUpdatedAt: v.optional(v.number()),
     statusUpdatedBy: v.optional(v.id("userProfiles")),
@@ -255,6 +256,7 @@ const schema = defineSchema({
     type: v.union(
       v.literal("articles"),
       v.literal("operating_agreement"),
+      v.literal("purchase_contract"),
       v.literal("closing_statement"),
       v.literal("wire_instructions"),
       v.literal("property_photo"),

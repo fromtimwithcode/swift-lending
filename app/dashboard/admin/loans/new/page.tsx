@@ -25,6 +25,11 @@ import {
   LoanPropertyFields,
   parseLoanPropertyForm,
 } from "@/components/dashboard/loan-property-fields";
+import {
+  PurchaseContractUpload,
+  type PendingPurchaseContract,
+} from "@/components/dashboard/purchase-contract-upload";
+import { MAX_MISSING_DOCUMENTS_NOTE_LENGTH } from "@/convex/lib/loanDocuments";
 
 type RehabCategory = (typeof REHAB_CATEGORIES)[number]["value"];
 type RehabItem = {
@@ -77,8 +82,11 @@ export default function NewLoanPage() {
     drawFundsTotal: "",
     drawFundsUsed: "",
     notes: "",
+    missingDocumentsNote: "",
   });
   const [propertyDetails, setPropertyDetails] = useState(createEmptyLoanPropertyForm);
+  const [purchaseContractFiles, setPurchaseContractFiles] = useState<PendingPurchaseContract[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [rehabItems, setRehabItems] = useState<RehabItem[]>([]);
   const selectedBorrower = borrowers?.find((b) => b._id === form.borrowerId);
@@ -312,6 +320,10 @@ export default function NewLoanPage() {
       toast.error("Title contact phone is required");
       return;
     }
+    if (purchaseContractFiles.length === 0 && !form.missingDocumentsNote.trim()) {
+      toast.error("Upload the purchase contract or list the missing documents");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -366,6 +378,8 @@ export default function NewLoanPage() {
           ? Number(form.drawFundsUsed)
           : undefined,
         notes: form.notes || undefined,
+        purchaseContractFiles,
+        missingDocumentsNote: form.missingDocumentsNote || undefined,
         rehabBudgetItems: validRehabItems.length > 0 ? validRehabItems : undefined,
       });
       router.push(`/dashboard/admin/loans/${id}`);
@@ -880,6 +894,39 @@ export default function NewLoanPage() {
           </div>
         </div>
 
+        {/* Purchase Contract */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="mb-1 text-base font-semibold">
+            Purchase Contract <span className="text-destructive">*</span>
+          </h3>
+          <p className="mb-4 text-sm text-muted-foreground text-pretty">
+            Upload the purchase contract. If you don&apos;t have it yet, list the missing documents instead.
+          </p>
+          <PurchaseContractUpload
+            files={purchaseContractFiles}
+            onFilesChange={setPurchaseContractFiles}
+            uploading={uploading}
+            onUploadingChange={setUploading}
+          />
+          <div className="mt-4">
+            <label htmlFor="new-loan-missing-documents" className={labelClass}>
+              Missing Documents
+            </label>
+            <textarea
+              id="new-loan-missing-documents"
+              className={inputClass}
+              rows={2}
+              maxLength={MAX_MISSING_DOCUMENTS_NOTE_LENGTH}
+              value={form.missingDocumentsNote}
+              onChange={(e) => update("missingDocumentsNote", e.target.value)}
+              placeholder="e.g. Missing purchase contract"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground text-pretty">
+              Required without a purchase contract. The borrower sees this on their loan page.
+            </p>
+          </div>
+        </div>
+
         {/* Draw Funds */}
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="mb-1 text-base font-semibold">Construction Holdback</h3>
@@ -937,7 +984,7 @@ export default function NewLoanPage() {
           </Link>
           <button
             type="submit"
-            disabled={submitting || loanDefaultsLoading}
+            disabled={submitting || uploading || loanDefaultsLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
