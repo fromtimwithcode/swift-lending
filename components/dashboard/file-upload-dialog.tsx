@@ -23,6 +23,7 @@ import {
 const DOC_TYPES = [
   { value: "articles", label: "Articles of Organization" },
   { value: "operating_agreement", label: "Operating Agreement" },
+  { value: "purchase_contract", label: "Purchase Contract" },
   { value: "closing_statement", label: "Closing Statement" },
   { value: "wire_instructions", label: "Wire Instructions" },
   { value: "property_photo", label: "Property Photo" },

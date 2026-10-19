@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { LoanStatusNote } from "@/components/dashboard/loan-status-note";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
 import { DocumentChecklist } from "@/components/dashboard/document-checklist";
+import { MissingDocumentsNote } from "@/components/dashboard/missing-documents-note";
 import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
@@ -214,6 +215,7 @@ export default function BorrowerLoanDetailPage() {
       </div>
 
       <LoanStatusNote status={loan.status} note={loan.statusNote} />
+      <MissingDocumentsNote note={loan.missingDocumentsNote} />
 
       {/* Loan Details */}
       <div className="grid gap-6 lg:grid-cols-2">

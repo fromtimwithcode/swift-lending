@@ -1,4 +1,4 @@
-export const PROPERTY_TYPES = ["single_family", "duplex", "four_family"] as const;
+export const PROPERTY_TYPES = ["single_family", "condo", "duplex", "four_family"] as const;
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 export type LoanStrategy = "flip_and_resell" | "brrrr";
@@ -20,6 +20,7 @@ export type PropertyDetails = {
 
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   single_family: "Single family",
+  condo: "Condo",
   duplex: "Duplex",
   four_family: "Four-family",
 };
@@ -58,9 +59,10 @@ export function getPropertyDetailsError(details: Partial<PropertyDetails>) {
   const expectedUnitCount = getPropertyUnitCount(details.propertyType);
   const units = details.unitDetails ?? [];
   if (units.length !== expectedUnitCount) {
+    const label = PROPERTY_TYPE_LABELS[details.propertyType];
     return expectedUnitCount === 0
-      ? "Single-family properties cannot include unit details"
-      : `${PROPERTY_TYPE_LABELS[details.propertyType]} properties require ${expectedUnitCount} unit details`;
+      ? `${label} properties cannot include unit details`
+      : `${label} properties require ${expectedUnitCount} unit details`;
   }
 
   for (const [index, unit] of units.entries()) {

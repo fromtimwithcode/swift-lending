@@ -40,6 +40,11 @@
 - `LoanStatusDialog` uses Base UI for focus trapping, Escape, and scroll locking. Preserve explicit focus on initiating buttons for Safari; return focus to the status section if saving removes the trigger. Keep the dialog footer visible at short viewport heights. The root Toaster uses z-index 55, below status dialogs at 60; preserve that ordering to avoid toast interception in landscape Firefox.
 - Existing loans and initial admin-created statuses may have no status explanation; the new fields are optional and need no backfill. See `docs/loan-status-workflow.md` and `docs/loan-status-review.md`.
 
+## New Loan Documents
+- Borrower applications (`submitApplication` in `convex/borrower.ts`) require at least one purchase contract file, saved as `purchase_contract` documents. Applications no longer ask whether the property is under contract; new applications store `isUnderContract: true`.
+- Admin-created loans (`createLoan` in `convex/admin.ts`) need purchase contract files or a nonblank `loans.missingDocumentsNote` (maximum 2,000 characters). Admins edit or clear the note from the loan page's edit mode.
+- The note is borrower-visible: both loan pages show it with `MissingDocumentsNote`. Shared validators and helpers live in `convex/lib/loanDocuments.ts`; both forms use `PurchaseContractUpload`.
+
 ## Payment Reminders and Charges
 - Reminders come from `getReminderData` in `convex/loanPayments.ts`: open charge groups (same-day `monthly_interest` + `draw_proration` combine) and, for due dates with no monthly-interest charge, an estimated `monthly_payment` reminder.
 - Deleting requires a trimmed reason (`getDeleteReasonError` in `convex/lib/paymentReminders.ts`). Charge-backed deletes waive the open charges and store `loanCharges.waiver`; estimated reminders get a `paymentReminderDismissals` row. Both are restorable from the loan page and logged to the Activity Log.

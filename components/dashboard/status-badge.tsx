@@ -106,6 +106,11 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
     className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
     dot: "bg-gray-500",
   },
+  purchase_contract: {
+    label: "Purchase Contract",
+    className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",
+    dot: "bg-gray-500",
+  },
   closing_statement: {
     label: "Closing Statement",
     className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-800/60 dark:text-gray-300 dark:ring-gray-400/10",

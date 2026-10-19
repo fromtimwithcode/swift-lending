@@ -22,6 +22,10 @@ import {
   LoanPropertyFields,
   parseLoanPropertyForm,
 } from "@/components/dashboard/loan-property-fields";
+import {
+  PurchaseContractUpload,
+  type PendingPurchaseContract,
+} from "@/components/dashboard/purchase-contract-upload";
 
 interface UploadedPhoto {
   storageId: Id<"_storage">;
@@ -58,7 +62,6 @@ export default function LoanApplicationPage() {
     titleCompanyContact: "",
     titleCompanyContactEmail: "",
     titleCompanyContactPhone: "",
-    isUnderContract: "" as "" | "yes" | "no",
     acquisitionType: "" as "" | "wholesaler" | "direct_to_seller",
     desiredCloseDate: "",
   });
@@ -67,6 +70,7 @@ export default function LoanApplicationPage() {
 
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [uploadedEntityDocuments, setUploadedEntityDocuments] = useState<UploadedEntityDocument[]>([]);
+  const [purchaseContractFiles, setPurchaseContractFiles] = useState<PendingPurchaseContract[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const entityDocumentInputRefs = useRef<Record<EntityDocumentType, HTMLInputElement | null>>({
@@ -268,6 +272,10 @@ export default function LoanApplicationPage() {
       toast.error("Close date is required");
       return;
     }
+    if (purchaseContractFiles.length === 0) {
+      toast.error("A purchase contract is required");
+      return;
+    }
     if (!form.titleCompanyName.trim()) {
       toast.error("Title company is required");
       return;
@@ -300,11 +308,7 @@ export default function LoanApplicationPage() {
         titleCompanyContact: form.titleCompanyContact,
         titleCompanyContactEmail: form.titleCompanyContactEmail,
         titleCompanyContactPhone: form.titleCompanyContactPhone,
-        isUnderContract: form.isUnderContract === "yes" ? true : form.isUnderContract === "no" ? false : undefined,
-        acquisitionType:
-          form.isUnderContract === "yes" && form.acquisitionType
-            ? (form.acquisitionType as "wholesaler" | "direct_to_seller")
-            : undefined,
+        acquisitionType: form.acquisitionType || undefined,
         desiredCloseDate: form.desiredCloseDate,
         ...parsedPropertyDetails.data,
         photoFileIds: uploadedPhotos.map((p) => ({
@@ -317,6 +321,7 @@ export default function LoanApplicationPage() {
           fileSize: doc.fileSize,
           type: doc.type,
         })),
+        purchaseContractFiles,
       });
       router.push(`/dashboard/borrower/loans/${loanId}`);
     } catch (err) {
@@ -614,62 +619,38 @@ export default function LoanApplicationPage() {
             </div>
 
             <div>
+              <p className="mb-1.5 text-sm font-medium">
+                Purchase Contract <span className="text-destructive">*</span>
+              </p>
+              <PurchaseContractUpload
+                files={purchaseContractFiles}
+                onFilesChange={setPurchaseContractFiles}
+                uploading={uploading}
+                onUploadingChange={setUploading}
+              />
+            </div>
+
+            <div>
               <label className="mb-2 block text-sm font-medium">
-                Do you currently have this under contract?
+                Acquisition type
               </label>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      isUnderContract: prev.isUnderContract === "yes" ? "" : "yes",
-                      acquisitionType: prev.isUnderContract === "yes" ? "" : prev.acquisitionType,
-                    }))
-                  }
-                  className={toggleBtnClass(form.isUnderContract === "yes")}
+                  onClick={() => update("acquisitionType", "wholesaler")}
+                  className={toggleBtnClass(form.acquisitionType === "wholesaler")}
                 >
-                  Yes
+                  Wholesaler
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      isUnderContract: prev.isUnderContract === "no" ? "" : "no",
-                      acquisitionType: "",
-                    }))
-                  }
-                  className={toggleBtnClass(form.isUnderContract === "no")}
+                  onClick={() => update("acquisitionType", "direct_to_seller")}
+                  className={toggleBtnClass(form.acquisitionType === "direct_to_seller")}
                 >
-                  No
+                  Direct to Seller
                 </button>
               </div>
             </div>
-
-            {form.isUnderContract === "yes" && (
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Acquisition type
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => update("acquisitionType", "wholesaler")}
-                    className={toggleBtnClass(form.acquisitionType === "wholesaler")}
-                  >
-                    Wholesaler
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => update("acquisitionType", "direct_to_seller")}
-                    className={toggleBtnClass(form.acquisitionType === "direct_to_seller")}
-                  >
-                    Direct to Seller
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">

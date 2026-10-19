@@ -31,6 +31,7 @@ const firstLoan = {
   terms: "12 months",
   status: "under_review" as LoanStatus,
   statusNote: undefined as string | undefined,
+  missingDocumentsNote: undefined as string | undefined,
   progressStatus: undefined as LoanProgressStatus | undefined,
   returnedDate: undefined as string | undefined,
   drawFundsTotal: undefined as number | undefined,
@@ -201,6 +202,10 @@ export function useQuery(
       return buildInvestorPortfolio(investments, investmentToday);
     case "borrower:isRepeatEntity":
       return false;
+    case "settings:getLoanDefaults":
+      return { defaultInterestRate: 12, defaultPointsPercentage: 3, defaultPaymentDueDay: 1, defaultLoanTermMonths: 12 };
+    case "users:getAllBorrowers":
+      return [{ _id: "borrower-1", displayName: "Jordan Morgan", company: "Morgan Property Group LLC", email: "jordan@example.com", titleContacts: [] }];
     case "payoffs:getPayoffReadiness":
       return undefined;
     default:
@@ -216,6 +221,8 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     if (controls.error) throw new Error(controls.error);
     if (name === "draws:createManualDrawRequest" || name === "borrower:submitDrawRequest")
       return "draw-new";
+    if (name === "documents:generateUploadUrl") return "/__upload";
+    if (name === "borrower:submitApplication" || name === "admin:createLoan") return "loan-new";
     if (name.startsWith("investments:")) return mutateInvestments(name, args);
     if (name === "loanCharges:deletePaymentReminder" || name === "loanCharges:removeCharge") {
       const error = getDeleteReasonError(args.reason as string);

@@ -183,6 +183,7 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
 export const DOC_TYPE_LABELS: Record<string, string> = {
   articles: "Articles of Organization",
   operating_agreement: "Operating Agreement",
+  purchase_contract: "Purchase Contract",
   closing_statement: "Closing Statement",
   wire_instructions: "Wire Instructions",
   property_photo: "Property Photo",

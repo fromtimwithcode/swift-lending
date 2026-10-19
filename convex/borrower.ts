@@ -17,6 +17,7 @@ import {
   propertyUnitDetailsValidator,
 } from "./lib/propertyValidators";
 import { getAvailableDrawFunds, getFundingLedgerStatus } from "./lib/fundingLedger";
+import { insertPurchaseContracts, purchaseContractFilesValidator } from "./lib/loanDocuments";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -84,7 +85,6 @@ export const submitApplication = mutation({
     titleCompanyContactEmail: v.string(),
     titleCompanyContactPhone: v.string(),
     titlePreference: v.optional(v.string()),
-    isUnderContract: v.optional(v.boolean()),
     acquisitionType: v.optional(v.union(v.literal("wholesaler"), v.literal("direct_to_seller"))),
     desiredCloseDate: v.string(),
     strategy: v.union(v.literal("flip_and_resell"), v.literal("brrrr")),
@@ -104,6 +104,7 @@ export const submitApplication = mutation({
       fileSize: v.optional(v.number()),
       type: v.union(v.literal("articles"), v.literal("operating_agreement")),
     }))),
+    purchaseContractFiles: purchaseContractFilesValidator,
   },
   handler: async (ctx, args) => {
     const profile = await requireRole(ctx, "borrower");
@@ -142,6 +143,9 @@ export const submitApplication = mutation({
     }
     if (args.photoFileIds.length > 50) {
       throw new ConvexError("Maximum 50 photos allowed per application");
+    }
+    if (args.purchaseContractFiles.length === 0) {
+      throw new ConvexError("A purchase contract is required");
     }
     if ((args.entityDocumentFileIds?.length ?? 0) > 20) {
       throw new ConvexError("Maximum 20 LLC documents allowed per application");
@@ -190,7 +194,7 @@ export const submitApplication = mutation({
       titleCompanyContactPhone,
       isTitleOpen: true,
       titleCompanyName,
-      isUnderContract: args.isUnderContract,
+      isUnderContract: true,
       acquisitionType: args.acquisitionType,
       strategy: args.strategy,
       propertyType: args.propertyType,
@@ -226,6 +230,12 @@ export const submitApplication = mutation({
         fileSize: doc.fileSize,
       });
     }
+
+    await insertPurchaseContracts(ctx, {
+      ownerId: profile._id,
+      loanId: id,
+      files: args.purchaseContractFiles,
+    });
 
     const applicationDetails = [
       { label: "Borrower", value: profile.displayName },

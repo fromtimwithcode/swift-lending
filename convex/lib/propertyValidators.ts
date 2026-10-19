@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 export const propertyTypeValidator = v.union(
   v.literal("single_family"),
+  v.literal("condo"),
   v.literal("duplex"),
   v.literal("four_family")
 );

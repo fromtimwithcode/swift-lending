@@ -6,6 +6,7 @@ import { type Doc, type Id } from "@/convex/_generated/dataModel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { FileUploadDialog } from "@/components/dashboard/file-upload-dialog";
+import { MissingDocumentsNote } from "@/components/dashboard/missing-documents-note";
 import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
 import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { RehabBudgetEditor } from "@/components/dashboard/rehab-budget-editor";
@@ -42,6 +43,7 @@ import {
   getCurrentPrincipalOut,
 } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, isDrawEligibleLoan } from "@/convex/lib/constants";
+import { MAX_MISSING_DOCUMENTS_NOTE_LENGTH } from "@/convex/lib/loanDocuments";
 import {
   isCombinedInterestChargeType,
   DEFAULT_LOAN_TERM_MONTHS,
@@ -472,6 +474,7 @@ export default function LoanDetailPage() {
       titleCompanyContactEmail: loan.titleCompanyContactEmail ?? "",
       titleCompanyContactPhone: loan.titleCompanyContactPhone ?? "",
       notes: loan.notes ?? "",
+      missingDocumentsNote: loan.missingDocumentsNote ?? "",
     });
   };
 
@@ -534,6 +537,7 @@ export default function LoanDetailPage() {
         titleCompanyContactPhone: editData.titleCompanyContactPhone,
         ...parsedPropertyDetails.data,
         notes: editData.notes || undefined,
+        missingDocumentsNote: editData.missingDocumentsNote ?? "",
       });
       setEditing(false);
       toast.success("Loan saved");
@@ -1015,6 +1019,8 @@ export default function LoanDetailPage() {
         onSave={handleStatusSave}
         onClose={() => setStatusChange(null)}
       />}
+
+      <MissingDocumentsNote note={loan.missingDocumentsNote} />
 
       {/* Loan Details */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -1561,11 +1567,30 @@ export default function LoanDetailPage() {
           Notes
         </h3>
         {editing ? (
-          <textarea
-            {...field("notes")}
-            rows={4}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
-          />
+          <div className="space-y-4">
+            <textarea
+              {...field("notes")}
+              aria-label="Notes"
+              rows={4}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            />
+            <div>
+              <label htmlFor="loan-missing-documents" className="mb-1.5 block text-sm text-muted-foreground">
+                Missing Documents
+              </label>
+              <textarea
+                {...field("missingDocumentsNote")}
+                id="loan-missing-documents"
+                rows={2}
+                maxLength={MAX_MISSING_DOCUMENTS_NOTE_LENGTH}
+                placeholder="e.g. Missing purchase contract"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+              />
+              <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                The borrower sees this on their loan page. Clear it once the documents arrive.
+              </p>
+            </div>
+          </div>
         ) : (
           <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{loan.notes || "No notes"}</p>
         )}

@@ -15,6 +15,15 @@ describe("getPropertyDetailsError", () => {
     expect(getPropertyDetailsError(singleFamily)).toBeUndefined();
   });
 
+  it("accepts a condo as a single unit without a unit breakdown", () => {
+    expect(getPropertyDetailsError({ ...singleFamily, propertyType: "condo" })).toBeUndefined();
+    expect(getPropertyDetailsError({
+      ...singleFamily,
+      propertyType: "condo",
+      unitDetails: [{ unitNumber: 1, bedrooms: 3, bathrooms: 2.5 }],
+    })).toBe("Condo properties cannot include unit details");
+  });
+
   it("accepts a duplex when totals match both units", () => {
     expect(getPropertyDetailsError({
       ...singleFamily,

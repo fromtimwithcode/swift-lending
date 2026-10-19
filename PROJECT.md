@@ -95,7 +95,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 
 ### Loan Application
 - [x] Borrower-facing loan application form (entity, property, loan request, title & contract info, property photos, notes)
-- [x] Title & contract section: Is title open? (yes → title company name, no → title preference), under contract? (yes → wholesaler/direct-to-seller), desired close date
+- [x] Title & contract section: title company and contact, required purchase contract upload (`purchase_contract` documents), wholesaler/direct-to-seller, desired close date
 - [x] Property photo upload: inline upload via `generateUploadUrl`, thumbnail previews with remove, min 1 / max 20 photos required
 - [x] Application submission creates loan with `status: "submitted"`, zeroes for admin-set fields, creates `property_photo` document records
 - [x] Alert email sent to external recipients on submission via `LOAN_ALERT_EMAILS` env var (fire-and-forget `sendLoanApplicationAlert` internalAction)
