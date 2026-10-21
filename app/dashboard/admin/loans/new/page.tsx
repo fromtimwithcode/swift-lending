@@ -10,9 +10,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, type FormEvent } from "react";
 import { calculatePoints } from "@/lib/loan-calc";
-import { calculateMonthlyInterest, getCurrentPrincipalOut } from "@/convex/lib/loanCalculations";
+import { calculateMonthlyInterest, getCurrentPrincipalOut, getPointsPercentageError } from "@/convex/lib/loanCalculations";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
-import { DEFAULT_LOAN_TERM_MONTHS } from "@/convex/lib/financialRules";
+import { DEFAULT_LOAN_TERM_MONTHS, formatLoanTerm } from "@/convex/lib/financialRules";
 import { formatCurrency } from "@/lib/format";
 import { getMaturityDate } from "@/lib/dates";
 import { toast } from "sonner";
@@ -53,6 +53,7 @@ export default function NewLoanPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [interestRateEdited, setInterestRateEdited] = useState(false);
+  const [pointsPercentageInput, setPointsPercentageInput] = useState<string | null>(null);
   const [maturityDateEdited, setMaturityDateEdited] = useState(false);
   const loanDefaultsLoading = loanDefaults === undefined;
 
@@ -67,11 +68,9 @@ export default function NewLoanPage() {
     afterRepairValue: "",
     closeDate: "",
     maturityDate: "",
-    terms: "",
     interestRate: String(DEFAULT_INTEREST_RATE),
     monthlyPayment: "",
     paymentDueDay: String(DEFAULT_PAYMENT_DUE_DAY),
-    pointsEarned: "",
     monthlyInterestEarned: "",
     paymentType: "monthly" as "balloon" | "monthly",
     status: "submitted" as const,
@@ -100,6 +99,8 @@ export default function NewLoanPage() {
   const [loanAmountEdited, setLoanAmountEdited] = useState(false);
   const defaultPointsPercentage =
     loanDefaults?.defaultPointsPercentage ?? DEFAULT_POINTS_PERCENTAGE;
+  const pointsPercentage = pointsPercentageInput ?? String(defaultPointsPercentage);
+  const pointsEarned = calculatePoints(Number(form.loanAmount) || 0, Number(pointsPercentage) || 0);
   const defaultLoanTermMonths =
     loanDefaults?.defaultLoanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
 
@@ -113,16 +114,13 @@ export default function NewLoanPage() {
       drawFundsUsed: Number(form.drawFundsUsed) || undefined,
     });
     const monthly = form.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-    const points = calculatePoints(loanAmount, defaultPointsPercentage);
     const nextLoanAmount = loanAmountEdited ? form.loanAmount : defaultLoanAmount ? String(defaultLoanAmount) : "";
     const nextMonthlyPayment = monthly ? String(monthly) : "";
-    const nextPointsEarned = points ? String(points) : "";
 
     setForm((prev) => {
       if (
         prev.loanAmount === nextLoanAmount &&
-        prev.monthlyPayment === nextMonthlyPayment &&
-        prev.pointsEarned === nextPointsEarned
+        prev.monthlyPayment === nextMonthlyPayment
       ) {
         return prev;
       }
@@ -131,10 +129,9 @@ export default function NewLoanPage() {
         ...prev,
         loanAmount: nextLoanAmount,
         monthlyPayment: nextMonthlyPayment,
-        pointsEarned: nextPointsEarned,
       };
     });
-  }, [defaultLoanAmount, defaultPointsPercentage, form.loanAmount, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, loanAmountEdited]);
+  }, [defaultLoanAmount, form.loanAmount, form.interestRate, form.paymentType, form.drawFundsTotal, form.drawFundsUsed, loanAmountEdited]);
 
   useEffect(() => {
     if (!loanDefaults || interestRateEdited) return;
@@ -287,8 +284,10 @@ export default function NewLoanPage() {
       toast.error("Monthly payment cannot be negative");
       return;
     }
-    if (Number(form.pointsEarned) < 0) {
-      toast.error("Points earned cannot be negative");
+    const pointsPercentageValue = pointsPercentage.trim() ? Number(pointsPercentage) : Number.NaN;
+    const pointsPercentageError = getPointsPercentageError(pointsPercentageValue);
+    if (pointsPercentageError) {
+      toast.error(pointsPercentageError);
       return;
     }
     if (form.paymentDueDay && (Number(form.paymentDueDay) < 1 || Number(form.paymentDueDay) > 31)) {
@@ -355,12 +354,11 @@ export default function NewLoanPage() {
         closeDate: form.closeDate,
         maturityDate: form.maturityDate || undefined,
         useDefaultMaturityDate: !maturityDateEdited,
-        terms: form.terms || "N/A",
         interestRate: Number(form.interestRate) || 0,
         paymentDueDay: form.paymentDueDay
           ? Number(form.paymentDueDay)
           : undefined,
-        pointsEarned: Number(form.pointsEarned) || 0,
+        pointsPercentage: pointsPercentageValue,
         monthlyInterestEarned: form.monthlyInterestEarned
           ? Number(form.monthlyInterestEarned)
           : undefined,
@@ -530,12 +528,12 @@ export default function NewLoanPage() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Terms</label>
+              <label htmlFor="new-loan-terms" className={labelClass}>Terms</label>
               <input
-                className={inputClass}
-                value={form.terms}
-                onChange={(e) => update("terms", e.target.value)}
-                placeholder='e.g. "3/13"'
+                id="new-loan-terms"
+                className={`${inputClass} bg-muted/40 font-medium`}
+                value={formatLoanTerm(defaultLoanTermMonths)}
+                readOnly
               />
             </div>
             <div>
@@ -582,11 +580,25 @@ export default function NewLoanPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>Points Earned</label>
+              <label htmlFor="new-loan-points-percentage" className={labelClass}>Points (%)</label>
               <input
+                id="new-loan-points-percentage"
+                className={inputClass}
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={pointsPercentage}
+                onChange={(e) => setPointsPercentageInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="new-loan-points-earned" className={labelClass}>Points Earned</label>
+              <input
+                id="new-loan-points-earned"
                 className={`${inputClass} bg-muted/40 font-medium`}
                 type="number"
-                value={form.pointsEarned}
+                value={pointsEarned ? String(pointsEarned) : ""}
                 placeholder="0"
                 readOnly
               />

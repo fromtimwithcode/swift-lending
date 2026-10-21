@@ -41,6 +41,7 @@ import {
   calculateMonthlyPaymentDue,
   getEffectivePointsPercentage,
   getCurrentPrincipalOut,
+  getPointsPercentageError,
 } from "@/convex/lib/loanCalculations";
 import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { MAX_MISSING_DOCUMENTS_NOTE_LENGTH } from "@/convex/lib/loanDocuments";
@@ -221,6 +222,14 @@ export default function LoanDetailPage() {
   const fundingNeedsReconciliation = fundingLedgerStatus?.isReconciled === false;
   const loanPointsPercentage =
     loan.pointsPercentage ?? getEffectivePointsPercentage(loan);
+  const loanPointsPercentageInput = String(Number(loanPointsPercentage.toFixed(2)));
+  const pointsPercentageEdited =
+    editData.pointsPercentage !== undefined &&
+    editData.pointsPercentage !== loanPointsPercentageInput;
+  const editPointsEarned = calculatePoints(
+    Number(editData.loanAmount) || 0,
+    pointsPercentageEdited ? Number(editData.pointsPercentage) || 0 : loanPointsPercentage
+  );
   const loanTermMonths = loan.loanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
   const titleContacts = (selectedBorrower?.titleContacts ?? []) as TitleContactOption[];
   const currentPrincipalOut = getCurrentPrincipalOut(loan);
@@ -462,7 +471,7 @@ export default function LoanDetailPage() {
       terms: loan.terms,
       interestRate: String(loan.interestRate),
       monthlyPayment: String(loan.monthlyPayment),
-      pointsEarned: String(loan.pointsEarned),
+      pointsPercentage: loanPointsPercentageInput,
       monthlyInterestEarned: loan.monthlyInterestEarned ? String(loan.monthlyInterestEarned) : "",
       paymentType: loan.paymentType ?? "monthly",
       drawFundsTotal: loan.drawFundsTotal ? String(loan.drawFundsTotal) : "",
@@ -488,6 +497,16 @@ export default function LoanDetailPage() {
       }
       if (editData.drawFundsTotal && Number(editData.drawFundsTotal) > loanAmount) {
         toast.error("Construction holdback cannot exceed total loan amount");
+        return;
+      }
+      const pointsPercentage = editData.pointsPercentage?.trim()
+        ? Number(editData.pointsPercentage)
+        : Number.NaN;
+      const pointsPercentageError = pointsPercentageEdited
+        ? getPointsPercentageError(pointsPercentage)
+        : null;
+      if (pointsPercentageError) {
+        toast.error(pointsPercentageError);
         return;
       }
       const parsedPropertyDetails = parseLoanPropertyForm(editPropertyDetails);
@@ -526,6 +545,7 @@ export default function LoanDetailPage() {
         rehabBudgetTotal: editData.rehabBudgetTotal ? Number(editData.rehabBudgetTotal) : undefined,
         terms: editData.terms,
         interestRate: Number(editData.interestRate),
+        pointsPercentage: pointsPercentageEdited ? pointsPercentage : undefined,
         monthlyInterestEarned: editData.monthlyInterestEarned ? Number(editData.monthlyInterestEarned) : undefined,
         paymentType: editData.paymentType as "balloon" | "monthly",
         drawFundsTotal: editData.drawFundsTotal ? Number(editData.drawFundsTotal) : undefined,
@@ -645,14 +665,10 @@ export default function LoanDetailPage() {
         drawFundsUsed: Number(next.drawFundsUsed) || undefined,
       });
       const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-      const loanAmountChanged = Object.prototype.hasOwnProperty.call(updates, "loanAmount");
 
       return {
         ...next,
         monthlyPayment: monthly ? String(monthly) : "",
-        ...(loanAmountChanged
-          ? { pointsEarned: String(calculatePoints(loanAmount, loanPointsPercentage)) }
-          : {}),
       };
     });
   };
@@ -671,12 +687,10 @@ export default function LoanDetailPage() {
         drawFundsUsed: Number(next.drawFundsUsed) || undefined,
       });
       const monthly = next.paymentType === "balloon" ? 0 : calculateMonthlyInterest(principalOut, rate);
-      const points = calculatePoints(loanAmount, loanPointsPercentage);
 
       return {
         ...next,
         monthlyPayment: monthly ? String(monthly) : "",
-        pointsEarned: points ? String(points) : "",
       };
     });
   };
@@ -1175,9 +1189,21 @@ export default function LoanDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Points Earned</label>
+                  <label htmlFor="loan-points-percentage" className="text-sm text-muted-foreground">Points (%)</label>
                   <input
-                    {...field("pointsEarned")}
+                    {...field("pointsPercentage")}
+                    id="loan-points-percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="loan-points-earned" className="text-sm text-muted-foreground">Points Earned</label>
+                  <input
+                    id="loan-points-earned"
+                    value={editPointsEarned ? String(editPointsEarned) : ""}
                     type="number"
                     readOnly
                     className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
@@ -1232,6 +1258,7 @@ export default function LoanDetailPage() {
                   value={formatCurrency(currentMonthlyPayment)}
                   tooltip={FINANCIAL_CONTEXT.currentMonthlyPayment}
                 />
+                <DetailRow label="Points" value={`${loanPointsPercentageInput}%`} />
                 <DetailRow label="Points Earned" value={formatCurrency(loan.pointsEarned)} />
                 <DetailRow
                   label="Current Monthly Interest"

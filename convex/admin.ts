@@ -14,12 +14,14 @@ import {
   isPreFundingLoanStatus,
 } from "./lib/constants";
 import { getMaturityDate, parseUsDate, validateUsDate } from "./lib/dates";
+import { formatLoanTerm } from "./lib/financialRules";
 import {
   calculateMonthlyInterest,
   calculateMonthlyPaymentDue,
   calculatePoints,
   getCurrentPrincipalOut,
   getEffectivePointsPercentage,
+  getPointsPercentageError,
   roundCents,
 } from "./lib/loanCalculations";
 import { notifyTeam } from "./lib/notifications";
@@ -118,6 +120,7 @@ const LOAN_UPDATE_FIELD_LABELS: Record<string, string> = {
   interestRate: "Interest rate",
   monthlyPayment: "Monthly payment",
   paymentDueDay: "Payment due day",
+  pointsPercentage: "Points",
   pointsEarned: "Points earned",
   monthlyInterestEarned: "Monthly interest earned",
   strategy: "Strategy",
@@ -467,11 +470,10 @@ export const createLoan = mutation({
     closeDate: v.string(),
     maturityDate: v.optional(v.string()),
     useDefaultMaturityDate: v.optional(v.boolean()),
-    terms: v.string(),
     interestRate: v.number(),
     monthlyPayment: v.optional(v.number()),
     paymentDueDay: v.optional(v.number()),
-    pointsEarned: v.number(),
+    pointsPercentage: v.number(),
     monthlyInterestEarned: v.optional(v.number()),
     status: loanStatusValidator,
     titleCompany: v.string(),
@@ -512,7 +514,6 @@ export const createLoan = mutation({
     const borrowerName = args.borrowerName.trim();
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
-    const terms = args.terms.trim();
     const titleCompany = requiredString(args.titleCompany, "Title company");
     const titleCompanyContact = requiredString(args.titleCompanyContact, "Title contact");
     const titleCompanyContactEmail = requiredEmail(args.titleCompanyContactEmail, "Title contact email");
@@ -534,16 +535,11 @@ export const createLoan = mutation({
     if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
-    if (!terms) throw new ConvexError("Terms cannot be empty");
 
     const propertyDetailsError = getPropertyDetailsError(args);
     if (propertyDetailsError) throw new ConvexError(propertyDetailsError);
 
     const loanAmount = args.loanAmount;
-    const canonicalPointsEarned = getPointsEarned(
-      loanAmount,
-      loanDefaults.originationPointsPercentage
-    );
 
     // Validate financial fields
     if (loanAmount <= 0) throw new ConvexError("Total loan amount must be greater than 0");
@@ -551,7 +547,8 @@ export const createLoan = mutation({
     if (args.interestRate < 0) throw new ConvexError("Interest rate cannot be negative");
     if (args.monthlyPayment !== undefined && args.monthlyPayment < 0)
       throw new ConvexError("Monthly payment cannot be negative");
-    if (args.pointsEarned < 0) throw new ConvexError("Points earned cannot be negative");
+    const pointsPercentageError = getPointsPercentageError(args.pointsPercentage);
+    if (pointsPercentageError) throw new ConvexError({ publicMessage: pointsPercentageError });
     if (args.paymentDueDay !== undefined && (args.paymentDueDay < 1 || args.paymentDueDay > 31)) {
       throw new ConvexError("Payment due day must be between 1 and 31");
     }
@@ -605,14 +602,13 @@ export const createLoan = mutation({
       ...loanFields,
       loanAmount,
       monthlyPayment,
-      pointsEarned: canonicalPointsEarned,
-      pointsPercentage: loanDefaults.originationPointsPercentage,
+      pointsEarned: getPointsEarned(loanAmount, args.pointsPercentage),
       loanTermMonths: loanDefaults.loanTermMonths,
       configurationVersion,
       borrowerName,
       entityName,
       propertyAddress,
-      terms,
+      terms: formatLoanTerm(loanDefaults.loanTermMonths),
       titleCompany,
       titleCompanyContact,
       titleCompanyContactEmail,
@@ -741,7 +737,7 @@ export const updateLoan = mutation({
     interestRate: v.optional(v.number()),
     monthlyPayment: v.optional(v.number()),
     paymentDueDay: v.optional(v.number()),
-    pointsEarned: v.optional(v.number()),
+    pointsPercentage: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
     strategy: v.optional(strategyValidator),
     propertyType: v.optional(propertyTypeValidator),
@@ -814,8 +810,10 @@ export const updateLoan = mutation({
       throw new ConvexError("Total loan amount must be greater than 0");
     if (fields.interestRate !== undefined && fields.interestRate < 0)
       throw new ConvexError("Interest rate cannot be negative");
-    if (fields.pointsEarned !== undefined && fields.pointsEarned < 0)
-      throw new ConvexError("Points earned cannot be negative");
+    if (fields.pointsPercentage !== undefined) {
+      const pointsPercentageError = getPointsPercentageError(fields.pointsPercentage);
+      if (pointsPercentageError) throw new ConvexError({ publicMessage: pointsPercentageError });
+    }
     if (fields.paymentDueDay !== undefined && (fields.paymentDueDay < 1 || fields.paymentDueDay > 31))
       throw new ConvexError("Payment due day must be between 1 and 31");
     if (fields.afterRepairValue !== undefined && fields.afterRepairValue < 0)
@@ -891,17 +889,18 @@ export const updateLoan = mutation({
       }
     }
 
-    delete updates.pointsEarned;
-    if (effectiveLoanAmount !== existing.loanAmount) {
-      const pointsPercentage = existing.pointsPercentage ?? getEffectivePointsPercentage({
-        loanAmount: existing.loanAmount,
-        pointsEarned: existing.pointsEarned,
-      });
-      updates.loanAmount = effectiveLoanAmount;
-      updates.pointsEarned = getPointsEarned(effectiveLoanAmount, pointsPercentage);
-      if (existing.pointsPercentage === undefined) {
-        updates.pointsPercentage = pointsPercentage;
-      }
+    const existingPointsPercentage = existing.pointsPercentage ?? getEffectivePointsPercentage({
+      loanAmount: existing.loanAmount,
+      pointsEarned: existing.pointsEarned,
+    });
+    const effectivePointsPercentage = fields.pointsPercentage ?? existingPointsPercentage;
+    delete updates.pointsPercentage;
+    if (
+      effectiveLoanAmount !== existing.loanAmount ||
+      effectivePointsPercentage !== existingPointsPercentage
+    ) {
+      updates.pointsPercentage = effectivePointsPercentage;
+      updates.pointsEarned = getPointsEarned(effectiveLoanAmount, effectivePointsPercentage);
     }
 
     if (

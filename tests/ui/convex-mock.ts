@@ -116,7 +116,7 @@ const controls = {
   delay: 0,
   error: "",
   calls: [] as { name: string; args: Record<string, unknown> }[],
-  setLoan: (patch: Partial<typeof firstLoan>) => {
+  setLoan: (patch: Partial<typeof firstLoan> & Record<string, unknown>) => {
     loans = [{ ...loans[0], ...patch }, loans[1]];
     notify();
   },
@@ -203,7 +203,7 @@ export function useQuery(
     case "borrower:isRepeatEntity":
       return false;
     case "settings:getLoanDefaults":
-      return { defaultInterestRate: 12, defaultPointsPercentage: 3, defaultPaymentDueDay: 1, defaultLoanTermMonths: 12 };
+      return { defaultInterestRate: 12, defaultPointsPercentage: 3, defaultPaymentDueDay: 1, defaultLoanTermMonths: 6 };
     case "users:getAllBorrowers":
       return [{ _id: "borrower-1", displayName: "Jordan Morgan", company: "Morgan Property Group LLC", email: "jordan@example.com", titleContacts: [] }];
     case "payoffs:getPayoffReadiness":
@@ -223,6 +223,7 @@ export function useMutation(reference: FunctionReference<"mutation">) {
       return "draw-new";
     if (name === "documents:generateUploadUrl") return "/__upload";
     if (name === "borrower:submitApplication" || name === "admin:createLoan") return "loan-new";
+    if (name === "admin:updateLoan") return args.id;
     if (name.startsWith("investments:")) return mutateInvestments(name, args);
     if (name === "loanCharges:deletePaymentReminder" || name === "loanCharges:removeCharge") {
       const error = getDeleteReasonError(args.reason as string);

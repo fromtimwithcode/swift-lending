@@ -67,12 +67,19 @@ test("borrower applications require a purchase contract", async ({ page }) => {
     purchaseContractFiles: [{ storageId: "storage-2", fileName: "contract.pdf", fileSize: 8 }],
   });
   expect(args).not.toHaveProperty("isUnderContract");
+  expect(args).not.toHaveProperty("terms");
 });
 
-test("admins can create a loan by listing missing documents", async ({ page }) => {
-  await stubUploads(page);
-  await page.goto("/?page=new-loan");
+test("borrower applications show the standard loan term instead of a choice", async ({ page }) => {
+  await page.goto("/?page=apply");
 
+  await expect(page.getByText("Desired Terms")).toHaveCount(0);
+  await page.locator('label:has-text("Purchase Price") + input').fill("150000");
+  await expect(page.getByText("Loan Term", { exact: true })).toBeVisible();
+  await expect(page.getByText("6 months", { exact: true })).toBeVisible();
+});
+
+async function fillNewLoan(page: Page) {
   await page.getByRole("combobox").first().selectOption("borrower-1");
   await fillProperty(page, "new-loan-property", "single_family");
   await page.locator('label:has-text("Purchase Price") + input').fill("150000");
@@ -82,6 +89,12 @@ test("admins can create a loan by listing missing documents", async ({ page }) =
   await page.locator("#new-loan-title-contact").fill("Title Contact");
   await page.locator("#new-loan-title-contact-email").fill("title@example.com");
   await page.locator("#new-loan-title-contact-phone").fill("555-555-1212");
+}
+
+test("admins can create a loan by listing missing documents", async ({ page }) => {
+  await stubUploads(page);
+  await page.goto("/?page=new-loan");
+  await fillNewLoan(page);
 
   await page.getByRole("button", { name: "Create Loan" }).click();
   await expect(page.getByText("Upload the purchase contract or list the missing documents")).toBeVisible();
@@ -95,6 +108,22 @@ test("admins can create a loan by listing missing documents", async ({ page }) =
     purchaseContractFiles: [],
     missingDocumentsNote: "Missing purchase contract",
   });
+});
+
+test("admin-created loans show the standard loan term instead of a choice", async ({ page }) => {
+  await stubUploads(page);
+  await page.goto("/?page=new-loan");
+  await fillNewLoan(page);
+  await page.getByLabel("Missing Documents").fill("Missing purchase contract");
+
+  const terms = page.getByLabel("Terms", { exact: true });
+  await expect(terms).toHaveValue("6 months");
+  await expect(terms).not.toBeEditable();
+
+  await page.getByRole("button", { name: "Create Loan" }).click();
+  await expect.poll(() => calls(page, "admin:createLoan")).toHaveLength(1);
+  const [{ args }] = await calls(page, "admin:createLoan");
+  expect(args).not.toHaveProperty("terms");
 });
 
 for (const { name, path } of [
@@ -112,3 +141,77 @@ for (const { name, path } of [
     }
   });
 }
+
+test("admins set the points percentage on a new loan", async ({ page }) => {
+  await stubUploads(page);
+  await page.goto("/?page=new-loan");
+  await fillNewLoan(page);
+  await page.getByLabel("Missing Documents").fill("Missing purchase contract");
+
+  const points = page.getByLabel("Points (%)", { exact: true });
+  const pointsEarned = page.getByLabel("Points Earned", { exact: true });
+  await expect(points).toHaveValue("3");
+  await expect(pointsEarned).toHaveValue("4500");
+
+  await points.fill("");
+  await page.getByRole("button", { name: "Create Loan" }).click();
+  await expect(page.getByText("Points must be between 0% and 100%")).toBeVisible();
+  expect(await calls(page, "admin:createLoan")).toHaveLength(0);
+
+  await points.fill("2.5");
+  await expect(pointsEarned).toHaveValue("3750");
+  await page.getByRole("button", { name: "Create Loan" }).click();
+  await expect.poll(() => calls(page, "admin:createLoan")).toHaveLength(1);
+  const [{ args }] = await calls(page, "admin:createLoan");
+  expect(args).toMatchObject({ loanAmount: 150000, pointsPercentage: 2.5 });
+  expect(args).not.toHaveProperty("pointsEarned");
+});
+
+const editableLoan = {
+  closeDate: "01/15/2026",
+  titleCompany: "Test Title",
+  titleCompanyContact: "Title Contact",
+  titleCompanyContactEmail: "title@example.com",
+  titleCompanyContactPhone: "555-555-1212",
+  strategy: "flip_and_resell",
+  propertyType: "single_family",
+  bedrooms: 3,
+  bathrooms: 2,
+  squareFeetAboveGrade: 1500,
+  squareFeetBelowGrade: 0,
+  unitDetails: [],
+};
+
+test("admins adjust a loan's points percentage", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate((loan) => window.statusTest.setLoan(loan), editableLoan);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+
+  const points = page.getByLabel("Points (%)", { exact: true });
+  const pointsEarned = page.getByLabel("Points Earned", { exact: true });
+  await expect(points).toHaveValue("3");
+  await expect(pointsEarned).toHaveValue("6600");
+
+  await points.fill("2.5");
+  await expect(pointsEarned).toHaveValue("5500");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => calls(page, "admin:updateLoan")).toHaveLength(1);
+  const [{ args }] = await calls(page, "admin:updateLoan");
+  expect(args).toMatchObject({ pointsPercentage: 2.5 });
+});
+
+test("saving other loan edits leaves legacy points untouched", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    (loan) => window.statusTest.setLoan({ ...loan, pointsEarned: 6567.89 }),
+    editableLoan,
+  );
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+
+  await expect(page.getByLabel("Points (%)", { exact: true })).toHaveValue("2.99");
+  await expect(page.getByLabel("Points Earned", { exact: true })).toHaveValue("6567.89");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => calls(page, "admin:updateLoan")).toHaveLength(1);
+  const [{ args }] = await calls(page, "admin:updateLoan");
+  expect(args.pointsPercentage).toBeUndefined();
+});

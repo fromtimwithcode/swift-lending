@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ArrowLeft, Loader2, Upload, X, ImageIcon, Info, FileText } from "lucide-react";
 import { calculateMonthlyPayment, calculatePoints } from "@/lib/loan-calc";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { DEFAULT_LOAN_TERM_MONTHS, formatLoanTerm } from "@/convex/lib/financialRules";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { AddressInput } from "@/components/dashboard/address-input";
 import Link from "next/link";
@@ -56,7 +57,6 @@ export default function LoanApplicationPage() {
     afterRepairValue: "",
     rehabBudgetTotal: "",
     loanAmount: "",
-    terms: "12 months",
     notes: "",
     titleCompanyName: "",
     titleCompanyContact: "",
@@ -84,6 +84,8 @@ export default function LoanApplicationPage() {
   const defaultInterestRate = loanDefaults?.defaultInterestRate ?? DEFAULT_INTEREST_RATE;
   const defaultPointsPercentage =
     loanDefaults?.defaultPointsPercentage ?? DEFAULT_POINTS_PERCENTAGE;
+  const defaultLoanTermMonths =
+    loanDefaults?.defaultLoanTermMonths ?? DEFAULT_LOAN_TERM_MONTHS;
 
   useEffect(() => {
     if (loanAmountEdited) return;
@@ -302,7 +304,6 @@ export default function LoanApplicationPage() {
         loanAmount: totalLoanAmount,
         afterRepairValue: Number(form.afterRepairValue),
         rehabBudgetTotal: rehabBudgetTotal || undefined,
-        terms: form.terms,
         notes: form.notes || undefined,
         titleCompanyName: form.titleCompanyName,
         titleCompanyContact: form.titleCompanyContact,
@@ -511,18 +512,6 @@ export default function LoanApplicationPage() {
                 )}
               </div>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                Desired Terms
-              </label>
-              <select {...field("terms")}>
-                <option value="6 months">6 months</option>
-                <option value="9 months">9 months</option>
-                <option value="12 months">12 months</option>
-                <option value="18 months">18 months</option>
-                <option value="24 months">24 months</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -535,7 +524,13 @@ export default function LoanApplicationPage() {
                 Estimated Loan Terms
               </h3>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Loan Term</p>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  {formatLoanTerm(defaultLoanTermMonths)}
+                </p>
+              </div>
               <div>
                 <p className="text-xs text-blue-600 dark:text-blue-400">Interest Rate</p>
                 <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
