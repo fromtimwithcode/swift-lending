@@ -57,6 +57,14 @@ export function calculatePoints(loanAmount: number, pointsPercentage: number) {
   return roundCents((loanAmount * pointsPercentage) / PERCENTAGE_DIVISOR);
 }
 
+export function getPointsPercentageError(pointsPercentage: number) {
+  return Number.isFinite(pointsPercentage) &&
+    pointsPercentage >= 0 &&
+    pointsPercentage <= PERCENTAGE_DIVISOR
+    ? null
+    : `Points must be between 0% and ${PERCENTAGE_DIVISOR}%`;
+}
+
 export function getEffectivePointsPercentage(args: {
   loanAmount: number;
   pointsEarned: number;

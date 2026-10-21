@@ -52,7 +52,7 @@ export function getCalculationGuide(configuration: AppConfiguration) {
     {
       label: "Origination points",
       value: `${loanDefaults.originationPointsPercentage}%`,
-      detail: `${loanDefaults.originationPointsPercentage} points equals ${loanDefaults.originationPointsPercentage}% of the total loan amount.`,
+      detail: `${loanDefaults.originationPointsPercentage} points equals ${loanDefaults.originationPointsPercentage}% of the total loan amount. Used for new loans. Admins can set a different percentage on each loan.`,
     },
     {
       label: "Default payment day",
@@ -89,8 +89,8 @@ export function getCalculationGuide(configuration: AppConfiguration) {
         },
         {
           name: "Origination points",
-          formula: `Total loan amount × ${loanDefaults.originationPointsPercentage}%`,
-          detail: "Swift Capital recalculates points when the total loan amount changes.",
+          formula: "Total loan amount × the loan’s points percentage",
+          detail: `New loans default to ${loanDefaults.originationPointsPercentage}%. Swift Capital recalculates points when the total loan amount or points percentage changes.`,
         },
         {
           name: "Suggested maturity date",

@@ -45,6 +45,9 @@
 - Admin-created loans (`createLoan` in `convex/admin.ts`) need purchase contract files or a nonblank `loans.missingDocumentsNote` (maximum 2,000 characters). Admins edit or clear the note from the loan page's edit mode.
 - The note is borrower-visible: both loan pages show it with `MissingDocumentsNote`. Shared validators and helpers live in `convex/lib/loanDocuments.ts`; both forms use `PurchaseContractUpload`.
 
+## Loan Points
+- `loans.pointsPercentage` is the source of truth for points. Admins set it per loan on the new-loan form and in loan edit mode; it defaults to the configured origination points. `createLoan` and `updateLoan` accept only the percentage and recalculate `pointsEarned`. Bounds live in `getPointsPercentageError` (`convex/lib/loanCalculations.ts`).
+
 ## Payment Reminders and Charges
 - Reminders come from `getReminderData` in `convex/loanPayments.ts`: open charge groups (same-day `monthly_interest` + `draw_proration` combine) and, for due dates with no monthly-interest charge, an estimated `monthly_payment` reminder.
 - Deleting requires a trimmed reason (`getDeleteReasonError` in `convex/lib/paymentReminders.ts`). Charge-backed deletes waive the open charges and store `loanCharges.waiver`; estimated reminders get a `paymentReminderDismissals` row. Both are restorable from the loan page and logged to the Activity Log.

@@ -58,7 +58,7 @@ describe("loan configuration snapshot migration", () => {
     });
   });
 
-  test("preserves legacy points when a later edit submits a stale calculated value", async () => {
+  test("preserves legacy points on an unrelated edit", async () => {
     const t = convexTest(schema, modules);
     const { userId, loanId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", { email: "edit-admin@example.com" });
@@ -91,7 +91,6 @@ describe("loan configuration snapshot migration", () => {
     await admin.mutation(api.admin.updateLoan, {
       id: loanId,
       loanAmount: 250_000,
-      pointsEarned: 7_500,
       notes: "Unrelated servicing note",
     });
 

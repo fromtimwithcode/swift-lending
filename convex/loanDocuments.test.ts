@@ -75,7 +75,7 @@ function adminLoanArgs(borrowerId: Id<"userProfiles">) {
     closeDate: "12/15/2026",
     terms: "12 months",
     interestRate: 12,
-    pointsEarned: 0,
+    pointsPercentage: 3,
     status: "submitted" as const,
     titleCompany: "Test Title",
     titleCompanyContact: "Title Contact",
