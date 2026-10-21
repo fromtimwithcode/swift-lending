@@ -36,6 +36,7 @@ import type * as lib_interestChargeStatus from "../lib/interestChargeStatus.js";
 import type * as lib_investmentSchedule from "../lib/investmentSchedule.js";
 import type * as lib_investorPortfolio from "../lib/investorPortfolio.js";
 import type * as lib_loanCalculations from "../lib/loanCalculations.js";
+import type * as lib_loanDocuments from "../lib/loanDocuments.js";
 import type * as lib_loanStatus from "../lib/loanStatus.js";
 import type * as lib_notifications from "../lib/notifications.js";
 import type * as lib_paymentReminders from "../lib/paymentReminders.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "lib/investmentSchedule": typeof lib_investmentSchedule;
   "lib/investorPortfolio": typeof lib_investorPortfolio;
   "lib/loanCalculations": typeof lib_loanCalculations;
+  "lib/loanDocuments": typeof lib_loanDocuments;
   "lib/loanStatus": typeof lib_loanStatus;
   "lib/notifications": typeof lib_notifications;
   "lib/paymentReminders": typeof lib_paymentReminders;
