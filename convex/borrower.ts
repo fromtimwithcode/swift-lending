@@ -8,6 +8,7 @@ import { getAppConfigurationState } from "./lib/settings";
 import { notifyTeam } from "./lib/notifications";
 import { calculateMonthlyInterest, calculatePoints } from "./lib/loanCalculations";
 import { getMaturityDate, validateUsDate } from "./lib/dates";
+import { formatLoanTerm } from "./lib/financialRules";
 import {
   getPropertyDetailsError,
   PROPERTY_TYPE_LABELS,
@@ -77,7 +78,6 @@ export const submitApplication = mutation({
     loanAmount: v.number(),
     afterRepairValue: v.number(),
     rehabBudgetTotal: v.optional(v.number()),
-    terms: v.string(),
     notes: v.optional(v.string()),
     isTitleOpen: v.optional(v.boolean()),
     titleCompanyName: v.string(),
@@ -112,7 +112,6 @@ export const submitApplication = mutation({
     // Trim string inputs
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
-    const terms = args.terms.trim();
     const notes = optionalString(args.notes);
     const titleCompanyName = requiredString(args.titleCompanyName, "Title company");
     const titleCompanyContact = requiredString(args.titleCompanyContact, "Title contact");
@@ -122,7 +121,6 @@ export const submitApplication = mutation({
 
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
-    if (!terms) throw new ConvexError("Terms cannot be empty");
     validateUsDate(desiredCloseDate, "Close date", { allowFuture: true });
 
     const propertyDetailsError = getPropertyDetailsError(args);
@@ -177,7 +175,7 @@ export const submitApplication = mutation({
       loanAmount: totalLoanAmount,
       afterRepairValue: args.afterRepairValue,
       rehabBudgetTotal: args.rehabBudgetTotal,
-      terms,
+      terms: formatLoanTerm(loanDefaults.loanTermMonths),
       interestRate,
       monthlyPayment,
       paymentDueDay: loanDefaults.paymentDueDay,

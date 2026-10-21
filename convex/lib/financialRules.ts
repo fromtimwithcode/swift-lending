@@ -14,6 +14,10 @@ export const COMBINED_INTEREST_CHARGE_TYPES = [
   "draw_proration",
 ] as const;
 
+export function formatLoanTerm(months: number) {
+  return `${months} ${months === 1 ? "month" : "months"}`;
+}
+
 export function roundCents(value: number) {
   return Math.round(value * MONEY_SCALE) / MONEY_SCALE;
 }

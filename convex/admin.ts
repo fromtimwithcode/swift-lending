@@ -14,6 +14,7 @@ import {
   isPreFundingLoanStatus,
 } from "./lib/constants";
 import { getMaturityDate, parseUsDate, validateUsDate } from "./lib/dates";
+import { formatLoanTerm } from "./lib/financialRules";
 import {
   calculateMonthlyInterest,
   calculateMonthlyPaymentDue,
@@ -469,7 +470,6 @@ export const createLoan = mutation({
     closeDate: v.string(),
     maturityDate: v.optional(v.string()),
     useDefaultMaturityDate: v.optional(v.boolean()),
-    terms: v.string(),
     interestRate: v.number(),
     monthlyPayment: v.optional(v.number()),
     paymentDueDay: v.optional(v.number()),
@@ -514,7 +514,6 @@ export const createLoan = mutation({
     const borrowerName = args.borrowerName.trim();
     const entityName = args.entityName.trim();
     const propertyAddress = args.propertyAddress.trim();
-    const terms = args.terms.trim();
     const titleCompany = requiredString(args.titleCompany, "Title company");
     const titleCompanyContact = requiredString(args.titleCompanyContact, "Title contact");
     const titleCompanyContactEmail = requiredEmail(args.titleCompanyContactEmail, "Title contact email");
@@ -536,7 +535,6 @@ export const createLoan = mutation({
     if (!borrowerName) throw new ConvexError("Borrower name cannot be empty");
     if (!entityName) throw new ConvexError("Entity name cannot be empty");
     if (!propertyAddress) throw new ConvexError("Property address cannot be empty");
-    if (!terms) throw new ConvexError("Terms cannot be empty");
 
     const propertyDetailsError = getPropertyDetailsError(args);
     if (propertyDetailsError) throw new ConvexError(propertyDetailsError);
@@ -610,7 +608,7 @@ export const createLoan = mutation({
       borrowerName,
       entityName,
       propertyAddress,
-      terms,
+      terms: formatLoanTerm(loanDefaults.loanTermMonths),
       titleCompany,
       titleCompanyContact,
       titleCompanyContactEmail,

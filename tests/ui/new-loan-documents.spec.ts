@@ -67,6 +67,16 @@ test("borrower applications require a purchase contract", async ({ page }) => {
     purchaseContractFiles: [{ storageId: "storage-2", fileName: "contract.pdf", fileSize: 8 }],
   });
   expect(args).not.toHaveProperty("isUnderContract");
+  expect(args).not.toHaveProperty("terms");
+});
+
+test("borrower applications show the standard loan term instead of a choice", async ({ page }) => {
+  await page.goto("/?page=apply");
+
+  await expect(page.getByText("Desired Terms")).toHaveCount(0);
+  await page.locator('label:has-text("Purchase Price") + input').fill("150000");
+  await expect(page.getByText("Loan Term", { exact: true })).toBeVisible();
+  await expect(page.getByText("6 months", { exact: true })).toBeVisible();
 });
 
 async function fillNewLoan(page: Page) {
@@ -98,6 +108,22 @@ test("admins can create a loan by listing missing documents", async ({ page }) =
     purchaseContractFiles: [],
     missingDocumentsNote: "Missing purchase contract",
   });
+});
+
+test("admin-created loans show the standard loan term instead of a choice", async ({ page }) => {
+  await stubUploads(page);
+  await page.goto("/?page=new-loan");
+  await fillNewLoan(page);
+  await page.getByLabel("Missing Documents").fill("Missing purchase contract");
+
+  const terms = page.getByLabel("Terms", { exact: true });
+  await expect(terms).toHaveValue("6 months");
+  await expect(terms).not.toBeEditable();
+
+  await page.getByRole("button", { name: "Create Loan" }).click();
+  await expect.poll(() => calls(page, "admin:createLoan")).toHaveLength(1);
+  const [{ args }] = await calls(page, "admin:createLoan");
+  expect(args).not.toHaveProperty("terms");
 });
 
 for (const { name, path } of [

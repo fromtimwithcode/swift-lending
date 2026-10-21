@@ -47,7 +47,6 @@ function applicationArgs(photoFileId: Id<"_storage">) {
     loanAmount: 180_000,
     afterRepairValue: 250_000,
     rehabBudgetTotal: 30_000,
-    terms: "12 months",
     titleCompanyName: "Test Title",
     titleCompanyContact: "Title Contact",
     titleCompanyContactEmail: "title@example.com",
@@ -73,7 +72,6 @@ function adminLoanArgs(borrowerId: Id<"userProfiles">) {
     purchasePrice: 150_000,
     loanAmount: 180_000,
     closeDate: "12/15/2026",
-    terms: "12 months",
     interestRate: 12,
     pointsPercentage: 3,
     status: "submitted" as const,
@@ -127,6 +125,33 @@ describe("borrower applications", () => {
     expect(state.purchaseContracts).toMatchObject([
       { ownerId: borrowerId, fileId: contractFileId, fileName: "contract.pdf", fileSize: 8 },
     ]);
+  });
+});
+
+describe("new loan terms", () => {
+  test("borrower applications use the standard loan term", async () => {
+    const { t, borrower, photoFileId, contractFileId } = await setup();
+
+    const loanId = await borrower.mutation(api.borrower.submitApplication, {
+      ...applicationArgs(photoFileId),
+      purchaseContractFiles: [{ storageId: contractFileId, fileName: "contract.pdf" }],
+    });
+
+    const { loan } = await getLoanState(t, loanId);
+    expect(loan).toMatchObject({ terms: "6 months", loanTermMonths: 6 });
+  });
+
+  test("admin-created loans use the standard loan term", async () => {
+    const { t, admin, borrowerId } = await setup();
+
+    const loanId = await admin.mutation(api.admin.createLoan, {
+      ...adminLoanArgs(borrowerId),
+      purchaseContractFiles: [],
+      missingDocumentsNote: "Missing purchase contract",
+    });
+
+    const { loan } = await getLoanState(t, loanId);
+    expect(loan).toMatchObject({ terms: "6 months", loanTermMonths: 6 });
   });
 });
 

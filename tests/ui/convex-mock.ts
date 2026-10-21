@@ -203,7 +203,7 @@ export function useQuery(
     case "borrower:isRepeatEntity":
       return false;
     case "settings:getLoanDefaults":
-      return { defaultInterestRate: 12, defaultPointsPercentage: 3, defaultPaymentDueDay: 1, defaultLoanTermMonths: 12 };
+      return { defaultInterestRate: 12, defaultPointsPercentage: 3, defaultPaymentDueDay: 1, defaultLoanTermMonths: 6 };
     case "users:getAllBorrowers":
       return [{ _id: "borrower-1", displayName: "Jordan Morgan", company: "Morgan Property Group LLC", email: "jordan@example.com", titleContacts: [] }];
     case "payoffs:getPayoffReadiness":

@@ -62,7 +62,7 @@ export function getCalculationGuide(configuration: AppConfiguration) {
     {
       label: "Standard loan term",
       value: `${loanDefaults.loanTermMonths} months`,
-      detail: "New loan forms suggest this maturity date, which can be adjusted.",
+      detail: "New loans use this term. New loan forms suggest this maturity date, which can be adjusted.",
     },
   ];
 

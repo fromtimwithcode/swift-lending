@@ -41,7 +41,6 @@ function loanArgs(borrowerId: Id<"userProfiles">) {
     rehabBudgetTotal: 50_000,
     closeDate: "01/15/2026",
     maturityDate: "12/31/2026",
-    terms: "Test terms",
     interestRate: 12,
     pointsPercentage: 3,
     status: "funded" as const,

@@ -12,7 +12,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { calculatePoints } from "@/lib/loan-calc";
 import { calculateMonthlyInterest, getCurrentPrincipalOut, getPointsPercentageError } from "@/convex/lib/loanCalculations";
 import { DEFAULT_INTEREST_RATE, DEFAULT_POINTS_PERCENTAGE, DEFAULT_PAYMENT_DUE_DAY, PAYMENT_TYPE_LABELS, REHAB_CATEGORIES } from "@/convex/lib/constants";
-import { DEFAULT_LOAN_TERM_MONTHS } from "@/convex/lib/financialRules";
+import { DEFAULT_LOAN_TERM_MONTHS, formatLoanTerm } from "@/convex/lib/financialRules";
 import { formatCurrency } from "@/lib/format";
 import { getMaturityDate } from "@/lib/dates";
 import { toast } from "sonner";
@@ -68,7 +68,6 @@ export default function NewLoanPage() {
     afterRepairValue: "",
     closeDate: "",
     maturityDate: "",
-    terms: "",
     interestRate: String(DEFAULT_INTEREST_RATE),
     monthlyPayment: "",
     paymentDueDay: String(DEFAULT_PAYMENT_DUE_DAY),
@@ -355,7 +354,6 @@ export default function NewLoanPage() {
         closeDate: form.closeDate,
         maturityDate: form.maturityDate || undefined,
         useDefaultMaturityDate: !maturityDateEdited,
-        terms: form.terms || "N/A",
         interestRate: Number(form.interestRate) || 0,
         paymentDueDay: form.paymentDueDay
           ? Number(form.paymentDueDay)
@@ -530,12 +528,12 @@ export default function NewLoanPage() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Terms</label>
+              <label htmlFor="new-loan-terms" className={labelClass}>Terms</label>
               <input
-                className={inputClass}
-                value={form.terms}
-                onChange={(e) => update("terms", e.target.value)}
-                placeholder='e.g. "3/13"'
+                id="new-loan-terms"
+                className={`${inputClass} bg-muted/40 font-medium`}
+                value={formatLoanTerm(defaultLoanTermMonths)}
+                readOnly
               />
             </div>
             <div>
