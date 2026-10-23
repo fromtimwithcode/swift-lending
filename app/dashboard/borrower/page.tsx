@@ -14,6 +14,8 @@ import { formatCurrency } from "@/lib/format";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
+import { isFundedLoanStatus } from "@/convex/lib/constants";
+import { isActiveLoanDisplay, isPendingLoanDisplay } from "@/lib/loan-display";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);
@@ -25,14 +27,14 @@ export default function BorrowerDashboardPage() {
     return <PageSkeleton />;
   }
 
-  const activeLoans = loans.filter(
-    (l) => l.status !== "closed" && l.status !== "denied"
-  );
-  const totalBorrowed = loans.reduce((sum, l) => sum + l.loanAmount, 0);
+  const totalBorrowed = loans
+    .filter((l) => isFundedLoanStatus(l.status))
+    .reduce((sum, l) => sum + l.loanAmount, 0);
   const pendingDraws = draws?.filter((d) => d.status === "pending").length ?? 0;
 
   const kpis = [
-    { label: "Active Loans", value: activeLoans.length },
+    { label: "Active Loans", value: loans.filter(isActiveLoanDisplay).length },
+    { label: "Pending Applications", value: loans.filter(isPendingLoanDisplay).length },
     { label: "Total Borrowed", value: formatCurrency(totalBorrowed) },
     { label: "Pending Draws", value: pendingDraws },
   ];
@@ -96,7 +98,7 @@ export default function BorrowerDashboardPage() {
 
       {/* KPI Cards */}
       <motion.div
-        className="grid gap-4 sm:grid-cols-3"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         variants={staggerContainer}
         initial="hidden"
         animate="visible"

@@ -28,17 +28,21 @@ import {
   getLoanDisplayStatusLabel,
   getLoanStatusLabel,
   isPendingLoanDisplay,
+  isActiveLoanDisplay,
   isClosedLoanDisplay,
   isDeniedLoanDisplay,
+  isCanceledLoanDisplay,
   isFundsReturnedLoan,
 } from "@/lib/loan-display";
 
 const LOAN_TABS = [
   { label: "All", value: "all", matches: () => true },
   { label: "Pending", value: "pending", matches: isPendingLoanDisplay },
+  { label: "Active", value: "active", matches: isActiveLoanDisplay },
   { label: "Closed", value: "closed", matches: isClosedLoanDisplay },
   { label: "Funds Returned", value: "funds_returned", matches: isFundsReturnedLoan },
   { label: "Denied", value: "denied", matches: isDeniedLoanDisplay },
+  { label: "Canceled", value: "canceled", matches: isCanceledLoanDisplay },
 ] as const;
 
 type TabFilter = (typeof LOAN_TABS)[number]["value"];

@@ -64,7 +64,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied), search, sort
+- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = Submitted through Approved (no money out). Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out); Closed is a subset of Active
 - [x] Loan detail page with inline editing
 - [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
@@ -88,7 +88,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Phase 2 — Borrower Portal & Document Management (Completed)
 
 ### Borrower Dashboard
-- [x] Borrower home with KPI cards (Active Loans, Total Borrowed, Pending Draws)
+- [x] Borrower home with KPI cards (Active Loans, Pending Applications, Total Borrowed, Pending Draws)
 - [x] Loans table with row click → detail
 - [x] Loan detail view (read-only) with status timeline
 - [x] Loan status timeline/tracker (horizontal stepper with denied/info-needed states)
@@ -348,6 +348,23 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Loans list tabs renamed Active → Pending and a Denied tab added
 - [x] Borrower timeline keeps the step a loan had reached (`loans.progressStatus`) while it is in Info Needed or Denied
 
+## Canceled Loan Applications (Completed)
+
+- [x] New `canceled` loan status for applications that end without a denial (borrower withdrew, deal fell through, duplicate)
+- [x] Admins cancel any unfunded loan from the status controls or bulk Change Status, and reopen it by choosing another status
+- [x] Borrowers cancel their own Submitted, Under Review, Info Needed, or Approved application from **Cancel application** on their loan page; they cannot reopen it
+- [x] Loans with approved draw funds cannot be canceled; funded loans use Record funds returned
+- [x] Optional reason with quick picks, saved as the borrower-visible status note; borrower and team are notified; activity log records who canceled
+- [x] Canceled loans leave the Applications queue and pending counts; Canceled tab on the loans list; neutral banner on the borrower timeline
+- [x] Rules: `convex/lib/loanStatus.ts`; shared save path: `convex/lib/loanStatusChanges.ts`; details in `docs/loan-status-workflow.md`
+
+## Loans List Active Tab (Completed)
+
+- [x] Active tab restored for loans with money out: Funded, Sent to Title, and Closed loans whose funds have not been returned (the same loans as the Capital Out KPI)
+- [x] Pending narrowed to unfunded loans (Submitted through Approved); Funded and Sent to Title rows now show their own status badge instead of Pending
+- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`)
+- [x] Borrower home uses the same definitions: Active Loans (money out), Pending Applications (unfunded), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
+
 ## Investor Payment Schedule (Completed)
 
 - [x] Payments are calculated, not typed in: interest is paid monthly at amount × annual rate ÷ 12 on the first payment date's day of the month (clamped in short months)
@@ -374,7 +391,7 @@ convex/
   lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
   admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
-  borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
+  borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
   documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)

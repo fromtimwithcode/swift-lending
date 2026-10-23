@@ -4,6 +4,11 @@ import { Dialog } from "@base-ui/react/dialog";
 import { ArrowRight, Loader2, MessageSquareText } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { StatusBadge } from "./status-badge";
+import {
+  ADMIN_CANCEL_REASONS,
+  CancelReasonPicker,
+  composeCancelNote,
+} from "./cancel-reason-picker";
 import { getErrorMessage } from "@/lib/errors";
 import { getLoanStatusLabel } from "@/lib/loan-display";
 import {
@@ -34,6 +39,7 @@ export function LoanStatusDialog({
 }) {
   const [status, setStatus] = useState<LoanStatus | "">(change.status ?? "");
   const [note, setNote] = useState("");
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [invalidField, setInvalidField] = useState<"status" | "note" | null>(
     null,
@@ -45,6 +51,8 @@ export function LoanStatusDialog({
   const id = useId();
   const required = status !== "" && requiresStatusNote(status);
   const isBulk = change.count !== undefined;
+  const canceling = status === "canceled";
+  const savedNote = canceling ? composeCancelNote(cancelReason, note) : note;
   const label =
     status === "additional_info_needed"
       ? "What information is needed?"
@@ -61,7 +69,7 @@ export function LoanStatusDialog({
       statusField.current?.focus();
       return;
     }
-    const validationError = getStatusNoteError(status, note);
+    const validationError = getStatusNoteError(status, savedNote);
     if (validationError) {
       setError(validationError);
       setInvalidField("note");
@@ -73,7 +81,7 @@ export function LoanStatusDialog({
     setError(null);
     setInvalidField(null);
     try {
-      await onSave(note.trim(), status);
+      await onSave(savedNote.trim(), status);
       onClose();
     } catch (err) {
       setError(
@@ -171,6 +179,18 @@ export function LoanStatusDialog({
                     {status && <StatusBadge status={status} />}
                   </div>
                 )}
+                {canceling && (
+                  <CancelReasonPicker
+                    reasons={ADMIN_CANCEL_REASONS}
+                    value={cancelReason}
+                    onChange={(reason) => {
+                      setCancelReason(reason);
+                      setError(null);
+                      setInvalidField(null);
+                    }}
+                    disabled={saving}
+                  />
+                )}
                 <div>
                   <label
                     htmlFor={id}
@@ -219,7 +239,7 @@ export function LoanStatusDialog({
                       notifications.
                     </p>
                     <span id={`${id}-count`} className="shrink-0 tabular-nums">
-                      {note.length.toLocaleString("en-US")} / 2,000
+                      {savedNote.length.toLocaleString("en-US")} / 2,000
                     </span>
                   </div>
                   {error && (

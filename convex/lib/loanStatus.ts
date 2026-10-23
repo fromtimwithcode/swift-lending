@@ -1,4 +1,9 @@
-import { LOAN_STATUS_LABELS } from "./constants";
+import { v } from "convex/values";
+import {
+  LOAN_STATUS_LABELS,
+  isFundedLoanStatus,
+  isPreFundingLoanStatus,
+} from "./constants";
 
 export const LOAN_STATUSES = [
   "submitted",
@@ -6,11 +11,15 @@ export const LOAN_STATUSES = [
   "additional_info_needed",
   "approved",
   "denied",
+  "canceled",
   "funded",
   "sent_to_title",
   "closed",
 ] as const;
 export type LoanStatus = (typeof LOAN_STATUSES)[number];
+export const loanStatusValidator = v.union(
+  ...LOAN_STATUSES.map((status) => v.literal(status)),
+);
 export const STATUS_NOTE_MAX_LENGTH = 2000;
 
 export const LOAN_PROGRESS_STATUSES = [
@@ -23,11 +32,17 @@ export const LOAN_PROGRESS_STATUSES = [
 ] as const;
 export type LoanProgressStatus = (typeof LOAN_PROGRESS_STATUSES)[number];
 
+type StatusChangeLoan = {
+  status: LoanStatus;
+  returnedDate?: string;
+  drawFundsUsed?: number;
+};
+
 export function isLoanProgressStatus(status: LoanStatus): status is LoanProgressStatus {
   return (LOAN_PROGRESS_STATUSES as readonly LoanStatus[]).includes(status);
 }
 
-/** The timeline step a loan was on when it moved to Info Needed or Denied. */
+/** The timeline step a loan was on when it moved to Info Needed, Denied, or Canceled. */
 export function getProgressStatusAfterChange(
   loan: { status: LoanStatus; progressStatus?: LoanProgressStatus },
   next: LoanStatus,
@@ -36,10 +51,30 @@ export function getProgressStatusAfterChange(
   return isLoanProgressStatus(loan.status) ? loan.status : loan.progressStatus;
 }
 
-export function getNextLoanStatuses(status: LoanStatus): readonly LoanStatus[] {
-  return status === "closed"
-    ? []
-    : LOAN_STATUSES.filter((next) => next !== status);
+function getCancelError(loan: StatusChangeLoan) {
+  if (isFundedLoanStatus(loan.status)) {
+    return "Funded loans can't be canceled. Record returned funds instead.";
+  }
+  if ((loan.drawFundsUsed ?? 0) > 0) {
+    return "Loans with approved draws can't be canceled.";
+  }
+  return null;
+}
+
+export function getNextLoanStatuses(loan: StatusChangeLoan): readonly LoanStatus[] {
+  if (loan.status === "closed" || loan.returnedDate) return [];
+  return LOAN_STATUSES.filter(
+    (next) =>
+      next !== loan.status &&
+      (next !== "canceled" || getCancelError(loan) === null),
+  );
+}
+
+export function getBorrowerCancelError(loan: StatusChangeLoan) {
+  if (!isPreFundingLoanStatus(loan.status)) {
+    return "This application can no longer be canceled. Send us a message if you need help.";
+  }
+  return getCancelError(loan);
 }
 
 export function requiresStatusNote(status: LoanStatus) {
@@ -62,7 +97,7 @@ export function getStatusNoteError(
 }
 
 export function getLoanStatusChangeError(
-  loan: { status: LoanStatus; returnedDate?: string },
+  loan: StatusChangeLoan,
   next: LoanStatus,
   expectedStatus?: LoanStatus,
 ) {
@@ -74,8 +109,8 @@ export function getLoanStatusChangeError(
   if (expectedStatus !== undefined && loan.status !== expectedStatus) {
     return `The status changed to ${LOAN_STATUS_LABELS[loan.status]} while you were reviewing. Close this dialog and review the latest status.`;
   }
-  if (!getNextLoanStatuses(loan.status).includes(next)) {
-    return `Cannot move from ${LOAN_STATUS_LABELS[loan.status]} to ${LOAN_STATUS_LABELS[next]}.`;
-  }
-  return null;
+  if (getNextLoanStatuses(loan).includes(next)) return null;
+  const cancelError =
+    next === "canceled" && loan.status !== "closed" ? getCancelError(loan) : null;
+  return cancelError ?? `Cannot move from ${LOAN_STATUS_LABELS[loan.status]} to ${LOAN_STATUS_LABELS[next]}.`;
 }

@@ -36,6 +36,11 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
     className: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10 dark:bg-red-900/30 dark:text-red-300 dark:ring-red-400/10",
     dot: "bg-red-500",
   },
+  canceled: {
+    label: "Canceled",
+    className: "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-600/15 dark:bg-slate-800/60 dark:text-slate-300 dark:ring-slate-400/15",
+    dot: "bg-slate-400",
+  },
   funded: {
     label: "Funded",
     className: "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-900/30 dark:text-purple-300 dark:ring-purple-400/10",

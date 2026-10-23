@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
 import {
+  getBorrowerCancelError,
   getLoanStatusChangeError,
   getStatusNoteError,
   type LoanProgressStatus,
@@ -31,6 +32,7 @@ const firstLoan = {
   terms: "12 months",
   status: "under_review" as LoanStatus,
   statusNote: undefined as string | undefined,
+  statusUpdatedBy: undefined as string | undefined,
   missingDocumentsNote: undefined as string | undefined,
   progressStatus: undefined as LoanProgressStatus | undefined,
   returnedDate: undefined as string | undefined,
@@ -156,10 +158,13 @@ export function useQuery(
       details: 'Changed status from "Under Review" to "Additional Info Needed" for 1428 North Prospect Avenue\nExplanation: Please upload an updated insurance policy.\nInclude the property address and coverage dates.',
     }];
     case "admin:getLoans":
+    case "borrower:getMyLoans":
       return loans;
+    case "loanPayments:getMyPaymentReminders":
+      return undefined;
     case "admin:getOverviewStats":
       return {
-        totalLoans: 0, activePipeline: 1, closedLoans: 1, returnedLoans: 0, capitalCurrentlyOut: 0,
+        totalLoans: 0, pendingLoans: 1, activeLoans: 1, returnedLoans: 0, capitalCurrentlyOut: 0,
         totalDrawRemaining: 0, closedLoanRevenue: 0, monthlyCashFlow: 0, cashFlowInterestRate: 0,
         totalPrincipalOut: 0, pipelineValue: 0, statusCounts: {}, monthlyVolume: {}, recentLoans: loans,
       };
@@ -243,6 +248,18 @@ export function useMutation(reference: FunctionReference<"mutation">) {
       );
       notify();
       return waive ? args.id : { restored: true };
+    }
+    if (name === "borrower:cancelApplication") {
+      const loan = loans[0];
+      if (loan.status === "canceled") return args.id;
+      const error = getBorrowerCancelError(loan) ?? getStatusNoteError("canceled", args.note as string);
+      if (error) throw new ConvexError({ publicMessage: error });
+      controls.setLoan({
+        status: "canceled",
+        statusNote: (args.note as string | undefined)?.trim() || undefined,
+        statusUpdatedBy: loan.borrowerId,
+      });
+      return args.id;
     }
     const status = args.status as LoanStatus;
     const update = (id: string, expectedStatus?: LoanStatus) => {

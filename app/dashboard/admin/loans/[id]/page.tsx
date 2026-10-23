@@ -1022,9 +1022,7 @@ export default function LoanDetailPage() {
 
       <LoanStatusControls
         ref={statusPanelRef}
-        status={loan.status}
-        note={loan.statusNote}
-        returnedDate={loan.returnedDate}
+        loan={loan}
         onSelect={(status, trigger) => setStatusChange({ status, currentStatus: loan.status, trigger })}
       />
       {statusChange && <LoanStatusDialog

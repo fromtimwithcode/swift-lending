@@ -206,10 +206,13 @@ describe("loan status feedback", () => {
     }
   });
 
-  test("lets any open status move to any other status", () => {
+  test("lets any open status move to any other status, except funded loans to Canceled", () => {
     for (const status of LOAN_STATUSES.filter((item) => item !== "closed")) {
-      expect(getNextLoanStatuses(status)).toEqual(
-        LOAN_STATUSES.filter((item) => item !== status),
+      const funded = status === "funded" || status === "sent_to_title";
+      expect(getNextLoanStatuses({ status })).toEqual(
+        LOAN_STATUSES.filter(
+          (item) => item !== status && !(funded && item === "canceled"),
+        ),
       );
     }
   });
@@ -252,7 +255,7 @@ describe("loan status feedback", () => {
 
   test("rejects leaving closed and returned loans", async () => {
     const { t, admin, loanId } = await fixture("closed");
-    expect(getNextLoanStatuses("closed")).toEqual([]);
+    expect(getNextLoanStatuses({ status: "closed" })).toEqual([]);
     await expect(
       admin.mutation(api.admin.updateLoanStatus, {
         id: loanId,
@@ -435,5 +438,184 @@ describe("bulk loan status feedback", () => {
     expect(
       await t.run(async (ctx) => await ctx.db.query("activityLog").collect()),
     ).toHaveLength(0);
+  });
+});
+
+describe("canceling loan applications", () => {
+  async function snapshot(t: Awaited<ReturnType<typeof fixture>>["t"]) {
+    return await t.run(async (ctx) => ({
+      notifications: await ctx.db.query("notifications").collect(),
+      logs: await ctx.db.query("activityLog").collect(),
+      jobs: await ctx.db.system.query("_scheduled_functions").collect(),
+    }));
+  }
+
+  test.each([
+    "submitted",
+    "under_review",
+    "additional_info_needed",
+    "approved",
+    "denied",
+  ] as const)("admins can cancel a %s loan without a reason", async (status) => {
+    const { admin, borrower, loanId } = await fixture(status);
+    await admin.mutation(api.admin.updateLoanStatus, {
+      id: loanId,
+      status: "canceled",
+      expectedStatus: status,
+    });
+    const loan = await borrower.query(api.borrower.getMyLoan, { id: loanId });
+    expect(loan.status).toBe("canceled");
+    expect(loan.statusNote).toBeUndefined();
+    const [notice] = await borrower.query(api.notifications.getMyNotifications, {});
+    expect(notice.body).toContain('"Canceled"');
+  });
+
+  test("admins can reopen a canceled loan", async () => {
+    const { admin, borrower, loanId } = await fixture("approved");
+    await admin.mutation(api.admin.updateLoanStatus, {
+      id: loanId,
+      status: "canceled",
+      note: "Duplicate application",
+    });
+    expect(
+      (await borrower.query(api.borrower.getMyLoan, { id: loanId })).progressStatus,
+    ).toBe("approved");
+    await admin.mutation(api.admin.updateLoanStatus, {
+      id: loanId,
+      status: "under_review",
+      expectedStatus: "canceled",
+    });
+    const loan = await borrower.query(api.borrower.getMyLoan, { id: loanId });
+    expect(loan.status).toBe("under_review");
+    expect(loan.statusNote).toBeUndefined();
+  });
+
+  test.each(["funded", "sent_to_title"] as const)(
+    "rejects canceling a %s loan",
+    async (status) => {
+      const { admin, loanId } = await fixture(status);
+      await expect(
+        admin.mutation(api.admin.updateLoanStatus, { id: loanId, status: "canceled" }),
+      ).rejects.toThrow("Funded loans can't be canceled.");
+      expect(
+        await admin.mutation(api.admin.bulkUpdateLoanStatus, {
+          loanIds: [loanId],
+          status: "canceled",
+        }),
+      ).toMatchObject([
+        { success: false, error: expect.stringContaining("Funded loans can't be canceled.") },
+      ]);
+    },
+  );
+
+  test("rejects canceling a loan with approved draws", async () => {
+    const { t, admin, borrower, loanId } = await fixture("approved");
+    await t.run(async (ctx) => await ctx.db.patch(loanId, { drawFundsUsed: 5000 }));
+    expect(getNextLoanStatuses({ status: "approved", drawFundsUsed: 5000 })).not.toContain(
+      "canceled",
+    );
+    await expect(
+      admin.mutation(api.admin.updateLoanStatus, { id: loanId, status: "canceled" }),
+    ).rejects.toThrow("approved draws");
+    await expect(
+      borrower.mutation(api.borrower.cancelApplication, { id: loanId }),
+    ).rejects.toThrow("approved draws");
+  });
+
+  test("borrowers can cancel their own application with a reason", async () => {
+    const { t, admin, borrower, loanId, borrowerId } = await fixture("under_review");
+    await borrower.mutation(api.borrower.cancelApplication, {
+      id: loanId,
+      note: "  Deal fell through\n\nThe seller accepted another offer.  ",
+    });
+    const loan = await borrower.query(api.borrower.getMyLoan, { id: loanId });
+    expect(loan).toMatchObject({
+      status: "canceled",
+      statusNote: "Deal fell through\n\nThe seller accepted another offer.",
+      statusUpdatedBy: borrowerId,
+      progressStatus: "under_review",
+    });
+    const [borrowerNotice] = await borrower.query(api.notifications.getMyNotifications, {});
+    expect(borrowerNotice.body).toContain("The seller accepted another offer.");
+    const [teamNotice] = await admin.query(api.notifications.getMyNotifications, {});
+    expect(teamNotice).toMatchObject({
+      title: "Loan Application Canceled",
+      body: expect.stringContaining("Borrower canceled their loan application"),
+    });
+    const [entry] = await admin.query(api.activityLog.getActivityForEntity, {
+      entityId: loanId,
+    });
+    expect(entry).toMatchObject({ userId: borrowerId, action: "loan.status" });
+    expect(await admin.query(api.admin.getApplications, {})).toHaveLength(0);
+    expect((await admin.query(api.admin.getOverviewStats, {})).pendingLoans).toBe(0);
+
+    const before = await snapshot(t);
+    await borrower.mutation(api.borrower.cancelApplication, { id: loanId, note: "Again" });
+    expect(await snapshot(t)).toEqual(before);
+  });
+
+  test.each(["denied", "funded", "closed"] as const)(
+    "borrowers cannot cancel a %s loan",
+    async (status) => {
+      const { t, borrower, loanId } = await fixture(status);
+      const before = await snapshot(t);
+      await expect(
+        borrower.mutation(api.borrower.cancelApplication, { id: loanId }),
+      ).rejects.toThrow("can no longer be canceled");
+      expect(await snapshot(t)).toEqual(before);
+      expect(
+        (await t.run(async (ctx) => await ctx.db.get(loanId)))?.status,
+      ).toBe(status);
+    },
+  );
+
+  test("only the loan's borrower can cancel it", async () => {
+    const { t, admin, borrower, loanId } = await fixture();
+    const otherUserId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: "other@example.com" });
+      await ctx.db.insert("userProfiles", {
+        authUserId: userId,
+        role: "borrower",
+        displayName: "Other Borrower",
+        email: "other@example.com",
+        isActive: true,
+      });
+      return userId;
+    });
+    for (const client of [t, admin, t.withIdentity({ subject: otherUserId })]) {
+      await expect(
+        client.mutation(api.borrower.cancelApplication, { id: loanId }),
+      ).rejects.toThrow();
+    }
+    await expect(
+      borrower.mutation(api.borrower.cancelApplication, {
+        id: loanId,
+        note: "x".repeat(2001),
+      }),
+    ).rejects.toThrow("2,000");
+    expect(
+      (await t.run(async (ctx) => await ctx.db.get(loanId)))?.status,
+    ).toBe("under_review");
+  });
+});
+
+describe("overview loan counts", () => {
+  test("pending loans have no money out; active loans are the ones with money out", async () => {
+    const { t, admin, loanId } = await fixture("under_review");
+    await t.run(async (ctx) => {
+      const { _id, _creationTime, ...fields } = (await ctx.db.get(loanId))!;
+      void _id;
+      void _creationTime;
+      for (const status of ["submitted", "approved", "funded", "sent_to_title", "closed", "denied", "canceled"] as const) {
+        await ctx.db.insert("loans", { ...fields, status });
+      }
+      await ctx.db.insert("loans", { ...fields, status: "closed", returnedDate: "09/20/2026" });
+    });
+    expect(await admin.query(api.admin.getOverviewStats, {})).toMatchObject({
+      totalLoans: 9,
+      pendingLoans: 3,
+      activeLoans: 3,
+      returnedLoans: 1,
+    });
   });
 });

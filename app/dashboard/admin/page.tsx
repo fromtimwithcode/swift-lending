@@ -32,6 +32,7 @@ import {
 } from "@/lib/loan-display";
 import { useEffect, useState } from "react";
 import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
+import type { LoanStatus } from "@/convex/lib/loanStatus";
 
 const LoanOverviewCharts = dynamic(
   () => import("@/components/dashboard/admin-overview-charts").then((mod) => mod.LoanOverviewCharts),
@@ -49,23 +50,12 @@ const STATUS_COLORS: Record<string, string> = {
   additional_info_needed: "#f59e0b",
   approved: "#22c55e",
   denied: "#ef4444",
+  canceled: "#64748b",
   funded: "#a855f7",
   sent_to_title: "#6366f1",
   closed: "#10b981",
   funds_returned: "#14b8a6",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  submitted: "Submitted",
-  under_review: "Under Review",
-  additional_info_needed: "Info Needed",
-  approved: "Approved",
-  denied: "Denied",
-  funded: "Funded",
-  sent_to_title: "Sent to Title",
-  closed: "Closed",
-  funds_returned: "Funds Returned",
-};
+} satisfies Record<LoanStatus | "funds_returned", string>;
 
 function ChartCardSkeleton() {
   return (
@@ -132,7 +122,7 @@ export default function AdminOverviewPage() {
   // Use pre-computed chart data from getOverviewStats (no duplicate getLoans call)
   const pieData = Object.entries(stats.statusCounts).map(([status, count]) => ({
     status,
-    name: STATUS_LABELS[status] ?? status,
+    name: getLoanStatusLabel(status),
     value: count,
     fill: STATUS_COLORS[status] ?? "#9ca3af",
   }));
@@ -178,7 +168,7 @@ export default function AdminOverviewPage() {
     setDrilldownRequest({
       kind: "status",
       value: status,
-      title: `${STATUS_LABELS[status] ?? status} Loans`,
+      title: `${getLoanStatusLabel(status)} Loans`,
     });
   };
 
@@ -198,7 +188,7 @@ export default function AdminOverviewPage() {
       ? "Loading matching loans..."
       : drilldownRequest.kind === "month"
         ? `${drilldownMatches.length} loan${drilldownMatches.length === 1 ? "" : "s"} with a close date in this month`
-        : `${drilldownMatches.length} loan${drilldownMatches.length === 1 ? "" : "s"} currently marked ${STATUS_LABELS[drilldownRequest.value] ?? drilldownRequest.value}`
+        : `${drilldownMatches.length} loan${drilldownMatches.length === 1 ? "" : "s"} currently marked ${getLoanStatusLabel(drilldownRequest.value)}`
     : "";
 
   const columns: Column<(typeof recentLoans)[number]>[] = [
@@ -294,7 +284,7 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
-          subtitle={`${stats.activePipeline} pending / ${stats.closedLoans} closed / ${stats.returnedLoans} returned`}
+          subtitle={`${stats.pendingLoans} pending / ${stats.activeLoans} active / ${stats.returnedLoans} returned`}
           icon={Landmark}
         />
         <KpiCard

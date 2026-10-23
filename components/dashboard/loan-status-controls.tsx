@@ -10,19 +10,22 @@ import {
 import { getLoanStatusLabel } from "@/lib/loan-display";
 
 export function LoanStatusControls({
-  status,
-  note,
-  returnedDate,
+  loan,
   onSelect,
   ref,
 }: {
-  status: LoanStatus;
-  note?: string;
-  returnedDate?: string;
+  loan: {
+    status: LoanStatus;
+    statusNote?: string;
+    statusUpdatedBy?: string;
+    borrowerId: string;
+    returnedDate?: string;
+    drawFundsUsed?: number;
+  };
   onSelect: (status: LoanStatus, trigger: HTMLButtonElement) => void;
   ref?: Ref<HTMLElement>;
 }) {
-  const nextStatuses = returnedDate ? [] : getNextLoanStatuses(status);
+  const nextStatuses = getNextLoanStatuses(loan);
   return (
     <section
       ref={ref}
@@ -32,9 +35,14 @@ export function LoanStatusControls({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">Loan status</h2>
-        <StatusBadge status={status} />
+        <StatusBadge status={loan.status} />
       </div>
-      <LoanStatusNote status={status} note={note} />
+      {loan.status === "canceled" && loan.statusUpdatedBy === loan.borrowerId && (
+        <p className="text-sm text-muted-foreground">
+          The borrower canceled this application.
+        </p>
+      )}
+      <LoanStatusNote status={loan.status} note={loan.statusNote} />
       {nextStatuses.length > 0 ? (
         <div>
           <p className="mb-3 text-sm text-muted-foreground">
@@ -58,7 +66,7 @@ export function LoanStatusControls({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {returnedDate
+          {loan.returnedDate
             ? "Funds have been returned. This loan is closed."
             : "This loan is closed."}
         </p>

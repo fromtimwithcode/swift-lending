@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { appConfigurationValidator } from "./lib/appConfiguration";
+import { loanStatusValidator } from "./lib/loanStatus";
 import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
@@ -54,16 +55,7 @@ const schema = defineSchema({
     loanTermMonths: v.optional(v.number()),
     configurationVersion: v.optional(v.number()),
     monthlyInterestEarned: v.optional(v.number()),
-    status: v.union(
-      v.literal("submitted"),
-      v.literal("under_review"),
-      v.literal("additional_info_needed"),
-      v.literal("approved"),
-      v.literal("denied"),
-      v.literal("funded"),
-      v.literal("sent_to_title"),
-      v.literal("closed")
-    ),
+    status: loanStatusValidator,
     titleCompany: v.optional(v.string()),
     titleCompanyContact: v.optional(v.string()),
     titleCompanyContactEmail: v.optional(v.string()),

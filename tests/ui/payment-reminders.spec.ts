@@ -13,7 +13,7 @@ async function openPage(page: Page, path: string) {
 
 test("deletes a payment reminder only after a reason is given", async ({ page }) => {
   const errors = await openPage(page, "/?page=overview");
-  await expect(page.getByText("1 pending / 1 closed / 0 returned")).toBeVisible();
+  await expect(page.getByText("1 pending / 1 active / 0 returned")).toBeVisible();
   await expect(page.getByRole("cell", { name: "Pending Under Review" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Delete .* reminder due/ })).toHaveCount(3);
   await expect(page.getByText("06/01/2026")).toBeVisible();
@@ -158,21 +158,36 @@ for (const [width, height] of [
   });
 }
 
-test("loan list labels open loans Pending and filters denied loans", async ({ page }) => {
+test("loan list separates pending and active loans and filters denied loans", async ({ page }) => {
   await openPage(page, "/?page=bulk");
   const tabs = page.getByRole("tablist", { name: "Status filter" });
   await expect(tabs.getByRole("tab")).toHaveText([
     "All2",
     "Pending1",
+    "Active1",
     "Closed1",
     "Funds Returned0",
     "Denied0",
+    "Canceled0",
   ]);
   await expect(page.getByText("Pending", { exact: true }).last()).toBeVisible();
+
+  await page.evaluate(() => window.statusTest.setLoan({ status: "funded" }));
+  await tabs.getByRole("tab", { name: "Active2" }).click();
+  await expect(tabs.getByRole("tab", { name: "Pending0" })).toBeVisible();
+  await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
+  await expect(page.getByText("4820 West North Avenue")).toBeVisible();
+  await expect(page.getByText("Funded", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pending", { exact: true })).toHaveCount(1);
 
   await page.evaluate(() => window.statusTest.setLoan({ status: "denied" }));
   await expect(tabs.getByRole("tab", { name: "Denied1" })).toBeVisible();
   await tabs.getByRole("tab", { name: "Denied1" }).click();
   await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
   await expect(page.getByText("4820 West North Avenue")).toHaveCount(0);
+
+  await page.evaluate(() => window.statusTest.setLoan({ status: "canceled" }));
+  await tabs.getByRole("tab", { name: "Canceled1" }).click();
+  await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
+  await expect(tabs.getByRole("tab", { name: "Pending0" })).toBeVisible();
 });

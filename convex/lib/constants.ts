@@ -1,3 +1,5 @@
+import type { LoanStatus } from "./loanStatus";
+
 /** Maximum number of items allowed in a single bulk operation */
 export const MAX_BULK_OPERATION_SIZE = 50;
 
@@ -11,10 +13,11 @@ export const LOAN_STATUS_LABELS: Record<string, string> = {
   additional_info_needed: "Additional Info Needed",
   approved: "Approved",
   denied: "Denied",
+  canceled: "Canceled",
   funded: "Funded",
   sent_to_title: "Sent to Title",
   closed: "Closed",
-};
+} satisfies Record<LoanStatus, string>;
 
 /** Loan statuses before funds are out. */
 export const PRE_FUNDING_LOAN_STATUSES = [
