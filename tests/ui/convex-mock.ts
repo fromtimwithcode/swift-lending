@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { getFunctionName, type FunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
 import {
+  getBorrowerCancelError,
   getLoanStatusChangeError,
   getStatusNoteError,
   type LoanProgressStatus,
@@ -31,6 +32,7 @@ const firstLoan = {
   terms: "12 months",
   status: "under_review" as LoanStatus,
   statusNote: undefined as string | undefined,
+  statusUpdatedBy: undefined as string | undefined,
   missingDocumentsNote: undefined as string | undefined,
   progressStatus: undefined as LoanProgressStatus | undefined,
   returnedDate: undefined as string | undefined,
@@ -243,6 +245,18 @@ export function useMutation(reference: FunctionReference<"mutation">) {
       );
       notify();
       return waive ? args.id : { restored: true };
+    }
+    if (name === "borrower:cancelApplication") {
+      const loan = loans[0];
+      if (loan.status === "canceled") return args.id;
+      const error = getBorrowerCancelError(loan) ?? getStatusNoteError("canceled", args.note as string);
+      if (error) throw new ConvexError({ publicMessage: error });
+      controls.setLoan({
+        status: "canceled",
+        statusNote: (args.note as string | undefined)?.trim() || undefined,
+        statusUpdatedBy: loan.borrowerId,
+      });
+      return args.id;
     }
     const status = args.status as LoanStatus;
     const update = (id: string, expectedStatus?: LoanStatus) => {

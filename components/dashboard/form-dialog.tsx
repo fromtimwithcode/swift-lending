@@ -10,6 +10,7 @@ export function FormDialog({
   description,
   submitLabel,
   savingLabel,
+  cancelLabel = "Cancel",
   destructive = false,
   validate,
   onSubmit,
@@ -22,6 +23,7 @@ export function FormDialog({
   description: string;
   submitLabel: string;
   savingLabel: string;
+  cancelLabel?: string;
   destructive?: boolean;
   /** Runs before the fields are disabled, so it can move focus to an invalid field. */
   validate: () => boolean;
@@ -87,7 +89,7 @@ export function FormDialog({
                   disabled={saving}
                   className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary disabled:opacity-50"
                 >
-                  Cancel
+                  {cancelLabel}
                 </Dialog.Close>
                 <button
                   type="submit"

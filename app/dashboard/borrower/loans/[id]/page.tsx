@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { LoanStatusNote } from "@/components/dashboard/loan-status-note";
 import { LoanStatusTimeline } from "@/components/dashboard/loan-status-timeline";
+import { CancelApplicationDialog } from "@/components/dashboard/cancel-application-dialog";
 import { DocumentChecklist } from "@/components/dashboard/document-checklist";
 import { MissingDocumentsNote } from "@/components/dashboard/missing-documents-note";
 import { DrawDocumentFolders, type DrawFolderDraw } from "@/components/dashboard/draw-document-folders";
@@ -15,7 +16,7 @@ import { DataTable, type Column } from "@/components/dashboard/data-table";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import {
   calculateMonthlyInterest,
@@ -31,6 +32,7 @@ import { FINANCIAL_CONTEXT } from "@/lib/financial-context";
 import { PROPERTY_TYPE_LABELS } from "@/convex/lib/propertyDetails";
 import { PayoffStatementPanel } from "@/components/dashboard/payoff-statement-panel";
 import { getAvailableDrawFunds, getFundingLedgerStatus } from "@/convex/lib/fundingLedger";
+import { getBorrowerCancelError } from "@/convex/lib/loanStatus";
 
 function DetailRow({
   label,
@@ -62,6 +64,10 @@ export default function BorrowerLoanDetailPage() {
   const loanPayments = useQuery(api.borrower.getMyLoanPayments, { loanId: id });
   const charges = useQuery(api.loanCharges.getMyChargesForLoan, { loanId: id });
   const submitDraw = useMutation(api.borrower.submitDrawRequest);
+  const cancelApplication = useMutation(api.borrower.cancelApplication);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const cancelTrigger = useRef<HTMLButtonElement>(null);
+  const progressPanel = useRef<HTMLElement>(null);
   const [uploadDrawId, setUploadDrawId] = useState<Id<"drawRequests"> | undefined>();
   const [drawFormOpen, setDrawFormOpen] = useState(false);
   const [drawAmount, setDrawAmount] = useState("");
@@ -209,10 +215,43 @@ export default function BorrowerLoanDetailPage() {
         />
       </div>
 
-      {/* Timeline */}
-      <div className="rounded-xl border border-border bg-card p-6">
+      <section
+        ref={progressPanel}
+        tabIndex={-1}
+        aria-label="Loan progress"
+        className="rounded-xl border border-border bg-card p-6 outline-none"
+      >
         <LoanStatusTimeline status={loan.status} progressStatus={loan.progressStatus} />
-      </div>
+        {getBorrowerCancelError(loan) === null && (
+          <div className="mt-6 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground text-pretty">
+              Plans changed? You can cancel this application until it&apos;s funded.
+            </p>
+            <button
+              ref={cancelTrigger}
+              type="button"
+              onClick={(event) => {
+                event.currentTarget.focus();
+                setCancelOpen(true);
+              }}
+              className="min-h-11 shrink-0 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium transition-[background-color,border-color,color,scale] duration-150 hover:border-destructive/40 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-primary dark:hover:text-red-300 active:scale-[0.96] motion-reduce:active:scale-100"
+            >
+              Cancel application
+            </button>
+          </div>
+        )}
+      </section>
+      {cancelOpen && (
+        <CancelApplicationDialog
+          propertyAddress={loan.propertyAddress}
+          onConfirm={async (note) => {
+            await cancelApplication({ id, note: note || undefined });
+            toast.success("Application canceled");
+          }}
+          onClose={() => setCancelOpen(false)}
+          finalFocus={() => cancelTrigger.current?.isConnected ? cancelTrigger.current : progressPanel.current}
+        />
+      )}
 
       <LoanStatusNote status={loan.status} note={loan.statusNote} />
       <MissingDocumentsNote note={loan.missingDocumentsNote} />

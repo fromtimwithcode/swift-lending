@@ -27,10 +27,10 @@ import {
 import { notifyTeam } from "./lib/notifications";
 import {
   getLoanStatusChangeError,
-  getProgressStatusAfterChange,
   getStatusNoteError,
-  type LoanStatus,
+  loanStatusValidator,
 } from "./lib/loanStatus";
+import { saveLoanStatusChange } from "./lib/loanStatusChanges";
 import { getAppConfigurationState } from "./lib/settings";
 import { getPropertyDetailsError } from "./lib/propertyDetails";
 import {
@@ -57,17 +57,6 @@ const rehabCategoryValidator = v.union(
   v.literal("dumpster"),
   v.literal("miscellaneous"),
   v.literal("overage")
-);
-
-const loanStatusValidator = v.union(
-  v.literal("submitted"),
-  v.literal("under_review"),
-  v.literal("additional_info_needed"),
-  v.literal("approved"),
-  v.literal("denied"),
-  v.literal("funded"),
-  v.literal("sent_to_title"),
-  v.literal("closed")
 );
 
 function titleContactKey(titleCompany: string, titleCompanyContact: string | undefined) {
@@ -219,9 +208,7 @@ export const getOverviewStats = query({
     const closedLoans = allLoans.filter((l) => l.status === "closed" && !l.returnedDate).length;
     const returnedLoans = allLoans.filter((l) => l.returnedDate).length;
     const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
-    const activePipeline = allLoans.filter(
-      (l) => !l.returnedDate && l.status !== "closed" && l.status !== "denied"
-    ).length;
+    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
 
     const totalCapital = allLoans.reduce((sum, l) => sum + l.loanAmount, 0);
     const capitalCurrentlyOut = allLoans
@@ -273,7 +260,6 @@ export const getOverviewStats = query({
         )
       : 0;
 
-    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
     const pipelineValue = pipelineLoans.reduce(
       (sum, l) => sum + l.loanAmount,
       0
@@ -305,7 +291,7 @@ export const getOverviewStats = query({
 
     return {
       totalLoans,
-      activePipeline,
+      activePipeline: pipelineLoans.length,
       closedLoans,
       returnedLoans,
       deniedLoans,
@@ -1223,38 +1209,6 @@ export const getBorrowerDetail = query({
     };
   },
 });
-
-// Validation runs before writes; callers share the same atomic status/note/audit path.
-async function saveLoanStatusChange(
-  ctx: MutationCtx,
-  loan: Doc<"loans">,
-  admin: Doc<"userProfiles">,
-  status: LoanStatus,
-  note: string | undefined,
-) {
-  const statusNote = note?.trim() || undefined;
-  await ctx.db.patch(loan._id, {
-    status, statusNote, statusUpdatedAt: Date.now(), statusUpdatedBy: admin._id,
-    progressStatus: getProgressStatusAfterChange(loan, status),
-  });
-  await ctx.runMutation(internal.notifications.createNotification, {
-    recipientId: loan.borrowerId,
-    type: "loan_status_changed",
-    title: "Loan Status Updated",
-    body: `Your loan for ${loan.propertyAddress} has been updated to "${LOAN_STATUS_LABELS[status]}".${statusNote ? `\n\n${statusNote}` : ""}`,
-    loanId: loan._id,
-    sendSms: true,
-  });
-  await ctx.runMutation(internal.activityLog.log, {
-    userId: admin._id,
-    userName: admin.displayName,
-    action: "loan.status",
-    entityType: "loan",
-    entityId: loan._id,
-    details: `Changed status from "${LOAN_STATUS_LABELS[loan.status]}" to "${LOAN_STATUS_LABELS[status]}" for ${loan.propertyAddress}${statusNote ? `\nExplanation: ${statusNote}` : ""}`,
-    metadata: JSON.stringify({ previousStatus: loan.status, status, ...(statusNote ? { statusNote } : {}) }),
-  });
-}
 
 export const updateLoanStatus = mutation({
   args: {

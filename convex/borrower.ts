@@ -3,7 +3,12 @@ import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { formatCurrencyPlain, isDrawEligibleLoan, STRATEGY_LABELS } from "./lib/constants";
+import {
+  formatCurrencyPlain,
+  isDrawEligibleLoan,
+  LOAN_STATUS_LABELS,
+  STRATEGY_LABELS,
+} from "./lib/constants";
 import { getAppConfigurationState } from "./lib/settings";
 import { notifyTeam } from "./lib/notifications";
 import { calculateMonthlyInterest, calculatePoints } from "./lib/loanCalculations";
@@ -19,6 +24,8 @@ import {
 } from "./lib/propertyValidators";
 import { getAvailableDrawFunds, getFundingLedgerStatus } from "./lib/fundingLedger";
 import { insertPurchaseContracts, purchaseContractFilesValidator } from "./lib/loanDocuments";
+import { getBorrowerCancelError, getStatusNoteError } from "./lib/loanStatus";
+import { saveLoanStatusChange } from "./lib/loanStatusChanges";
 
 function optionalString(value: string | undefined) {
   return value?.trim() || undefined;
@@ -294,6 +301,43 @@ export const submitApplication = mutation({
     });
 
     return id;
+  },
+});
+
+export const cancelApplication = mutation({
+  args: {
+    id: v.id("loans"),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireRole(ctx, "borrower");
+    const loan = await ctx.db.get(args.id);
+    if (!loan) throw new ConvexError("Loan not found");
+    if (loan.borrowerId !== profile._id) throw new ConvexError("Not your loan");
+    if (loan.status === "canceled") return args.id;
+    const error = getBorrowerCancelError(loan) ?? getStatusNoteError("canceled", args.note);
+    if (error) throw new ConvexError({ publicMessage: error });
+
+    await saveLoanStatusChange(ctx, loan, profile, "canceled", args.note);
+    const note = args.note?.trim();
+    await notifyTeam(ctx, {
+      type: "loan_status_changed",
+      title: "Loan Application Canceled",
+      body: `${profile.displayName} canceled their loan application for ${loan.propertyAddress}.${note ? `\n\n${note}` : ""}`,
+      loanId: args.id,
+      details: [
+        { label: "Borrower", value: loan.borrowerName },
+        { label: "Property address", value: loan.propertyAddress },
+        { label: "Previous status", value: LOAN_STATUS_LABELS[loan.status] },
+        { label: "New status", value: LOAN_STATUS_LABELS.canceled },
+        { label: "Canceled by", value: profile.displayName },
+        ...(note ? [{ label: "Reason", value: note }] : []),
+      ],
+      actionPath: `/dashboard/admin/loans/${args.id}`,
+      actionLabel: "View Loan",
+      sendSms: true,
+    });
+    return args.id;
   },
 });
 

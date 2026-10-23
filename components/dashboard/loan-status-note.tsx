@@ -1,6 +1,12 @@
 import { MessageSquareText } from "lucide-react";
 import type { LoanStatus } from "@/convex/lib/loanStatus";
 
+const NOTE_HEADINGS: Partial<Record<LoanStatus, string>> = {
+  additional_info_needed: "Information needed",
+  denied: "Reason for denial",
+  canceled: "Reason for canceling",
+};
+
 export function LoanStatusNote({
   status,
   note,
@@ -18,11 +24,7 @@ export function LoanStatusNote({
       />
       <div className="min-w-0 space-y-1.5">
         <h3 className="text-sm font-semibold">
-          {status === "additional_info_needed"
-            ? "Information needed"
-            : status === "denied"
-              ? "Reason for denial"
-              : "Status note"}
+          {NOTE_HEADINGS[status] ?? "Status note"}
         </h3>
         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
           {note}

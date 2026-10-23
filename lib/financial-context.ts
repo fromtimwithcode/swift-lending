@@ -20,7 +20,7 @@ export const FINANCIAL_CONTEXT = {
   monthlyCashFlow:
     "Estimated next full-month interest across funded, sent-to-title, and non-matured closed loans, using each loan’s current principal and saved annual rate. It is not cash already collected or an existing billed amount.",
   pipelineValue:
-    "Total loan amount from submission through sent-to-title, excluding denied, closed, and returned loans.",
+    "Total loan amount from submission through sent-to-title, excluding denied, canceled, closed, and returned loans.",
   totalDue:
     "Sum of unpaid reminders in this card’s past-due and upcoming window. Monthly interest and draw proration sharing a due date are combined.",
 } as const;

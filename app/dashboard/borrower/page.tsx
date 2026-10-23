@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/format";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
+import { isPipelineLoanStatus } from "@/convex/lib/constants";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);
@@ -25,9 +26,7 @@ export default function BorrowerDashboardPage() {
     return <PageSkeleton />;
   }
 
-  const activeLoans = loans.filter(
-    (l) => l.status !== "closed" && l.status !== "denied"
-  );
+  const activeLoans = loans.filter((l) => isPipelineLoanStatus(l.status));
   const totalBorrowed = loans.reduce((sum, l) => sum + l.loanAmount, 0);
   const pendingDraws = draws?.filter((d) => d.status === "pending").length ?? 0;
 

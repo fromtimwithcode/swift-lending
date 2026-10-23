@@ -64,7 +64,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied), search, sort
+- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied / Canceled), search, sort
 - [x] Loan detail page with inline editing
 - [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
@@ -348,6 +348,16 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Loans list tabs renamed Active → Pending and a Denied tab added
 - [x] Borrower timeline keeps the step a loan had reached (`loans.progressStatus`) while it is in Info Needed or Denied
 
+## Canceled Loan Applications (Completed)
+
+- [x] New `canceled` loan status for applications that end without a denial (borrower withdrew, deal fell through, duplicate)
+- [x] Admins cancel any unfunded loan from the status controls or bulk Change Status, and reopen it by choosing another status
+- [x] Borrowers cancel their own Submitted, Under Review, Info Needed, or Approved application from **Cancel application** on their loan page; they cannot reopen it
+- [x] Loans with approved draw funds cannot be canceled; funded loans use Record funds returned
+- [x] Optional reason with quick picks, saved as the borrower-visible status note; borrower and team are notified; activity log records who canceled
+- [x] Canceled loans leave the Applications queue and pending counts; Canceled tab on the loans list; neutral banner on the borrower timeline
+- [x] Rules: `convex/lib/loanStatus.ts`; shared save path: `convex/lib/loanStatusChanges.ts`; details in `docs/loan-status-workflow.md`
+
 ## Investor Payment Schedule (Completed)
 
 - [x] Payments are calculated, not typed in: interest is paid monthly at amount × annual rate ÷ 12 on the first payment date's day of the month (clamped in short months)
@@ -374,7 +384,7 @@ convex/
   lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
   admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
-  borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
+  borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
   documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)

@@ -167,6 +167,7 @@ test("loan list labels open loans Pending and filters denied loans", async ({ pa
     "Closed1",
     "Funds Returned0",
     "Denied0",
+    "Canceled0",
   ]);
   await expect(page.getByText("Pending", { exact: true }).last()).toBeVisible();
 
@@ -175,4 +176,9 @@ test("loan list labels open loans Pending and filters denied loans", async ({ pa
   await tabs.getByRole("tab", { name: "Denied1" }).click();
   await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
   await expect(page.getByText("4820 West North Avenue")).toHaveCount(0);
+
+  await page.evaluate(() => window.statusTest.setLoan({ status: "canceled" }));
+  await tabs.getByRole("tab", { name: "Canceled1" }).click();
+  await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
+  await expect(tabs.getByRole("tab", { name: "Pending0" })).toBeVisible();
 });

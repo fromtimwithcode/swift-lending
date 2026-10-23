@@ -1,3 +1,5 @@
+import type { LoanStatus } from "@/convex/lib/loanStatus";
+
 const PENDING_LOAN_STATUSES = [
   "submitted",
   "under_review",
@@ -15,10 +17,11 @@ const LOAN_STATUS_LABELS: Record<string, string> = {
   additional_info_needed: "Info Needed",
   approved: "Approved",
   denied: "Denied",
+  canceled: "Canceled",
   funded: "Funded",
   sent_to_title: "Sent to Title",
   closed: "Closed",
-};
+} satisfies Record<LoanStatus | "pending" | "funds_returned", string>;
 
 type LoanDisplayInput = {
   status: string;
@@ -39,6 +42,10 @@ export function isClosedLoanDisplay(loan: LoanDisplayInput) {
 
 export function isDeniedLoanDisplay(loan: LoanDisplayInput) {
   return loan.status === "denied" && !loan.returnedDate;
+}
+
+export function isCanceledLoanDisplay(loan: LoanDisplayInput) {
+  return loan.status === "canceled";
 }
 
 export function getLoanDisplayStatus(loan: LoanDisplayInput) {
