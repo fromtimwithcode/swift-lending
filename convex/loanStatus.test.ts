@@ -547,7 +547,7 @@ describe("canceling loan applications", () => {
     });
     expect(entry).toMatchObject({ userId: borrowerId, action: "loan.status" });
     expect(await admin.query(api.admin.getApplications, {})).toHaveLength(0);
-    expect((await admin.query(api.admin.getOverviewStats, {})).activePipeline).toBe(0);
+    expect((await admin.query(api.admin.getOverviewStats, {})).pendingLoans).toBe(0);
 
     const before = await snapshot(t);
     await borrower.mutation(api.borrower.cancelApplication, { id: loanId, note: "Again" });
@@ -599,3 +599,23 @@ describe("canceling loan applications", () => {
   });
 });
 
+describe("overview loan counts", () => {
+  test("pending loans have no money out; active loans are the ones with money out", async () => {
+    const { t, admin, loanId } = await fixture("under_review");
+    await t.run(async (ctx) => {
+      const { _id, _creationTime, ...fields } = (await ctx.db.get(loanId))!;
+      void _id;
+      void _creationTime;
+      for (const status of ["submitted", "approved", "funded", "sent_to_title", "closed", "denied", "canceled"] as const) {
+        await ctx.db.insert("loans", { ...fields, status });
+      }
+      await ctx.db.insert("loans", { ...fields, status: "closed", returnedDate: "09/20/2026" });
+    });
+    expect(await admin.query(api.admin.getOverviewStats, {})).toMatchObject({
+      totalLoans: 9,
+      pendingLoans: 3,
+      activeLoans: 3,
+      returnedLoans: 1,
+    });
+  });
+});

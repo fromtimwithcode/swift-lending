@@ -64,7 +64,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pending / Closed / Funds Returned / Denied / Canceled), search, sort
+- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = Submitted through Approved (no money out). Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out); Closed is a subset of Active
 - [x] Loan detail page with inline editing
 - [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
@@ -88,7 +88,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Phase 2 — Borrower Portal & Document Management (Completed)
 
 ### Borrower Dashboard
-- [x] Borrower home with KPI cards (Active Loans, Total Borrowed, Pending Draws)
+- [x] Borrower home with KPI cards (Active Loans, Pending Applications, Total Borrowed, Pending Draws)
 - [x] Loans table with row click → detail
 - [x] Loan detail view (read-only) with status timeline
 - [x] Loan status timeline/tracker (horizontal stepper with denied/info-needed states)
@@ -357,6 +357,13 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Optional reason with quick picks, saved as the borrower-visible status note; borrower and team are notified; activity log records who canceled
 - [x] Canceled loans leave the Applications queue and pending counts; Canceled tab on the loans list; neutral banner on the borrower timeline
 - [x] Rules: `convex/lib/loanStatus.ts`; shared save path: `convex/lib/loanStatusChanges.ts`; details in `docs/loan-status-workflow.md`
+
+## Loans List Active Tab (Completed)
+
+- [x] Active tab restored for loans with money out: Funded, Sent to Title, and Closed loans whose funds have not been returned (the same loans as the Capital Out KPI)
+- [x] Pending narrowed to unfunded loans (Submitted through Approved); Funded and Sent to Title rows now show their own status badge instead of Pending
+- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`)
+- [x] Borrower home uses the same definitions: Active Loans (money out), Pending Applications (unfunded), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
 
 ## Investor Payment Schedule (Completed)
 

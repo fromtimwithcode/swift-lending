@@ -158,10 +158,13 @@ export function useQuery(
       details: 'Changed status from "Under Review" to "Additional Info Needed" for 1428 North Prospect Avenue\nExplanation: Please upload an updated insurance policy.\nInclude the property address and coverage dates.',
     }];
     case "admin:getLoans":
+    case "borrower:getMyLoans":
       return loans;
+    case "loanPayments:getMyPaymentReminders":
+      return undefined;
     case "admin:getOverviewStats":
       return {
-        totalLoans: 0, activePipeline: 1, closedLoans: 1, returnedLoans: 0, capitalCurrentlyOut: 0,
+        totalLoans: 0, pendingLoans: 1, activeLoans: 1, returnedLoans: 0, capitalCurrentlyOut: 0,
         totalDrawRemaining: 0, closedLoanRevenue: 0, monthlyCashFlow: 0, cashFlowInterestRate: 0,
         totalPrincipalOut: 0, pipelineValue: 0, statusCounts: {}, monthlyVolume: {}, recentLoans: loans,
       };

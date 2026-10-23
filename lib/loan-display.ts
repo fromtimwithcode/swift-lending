@@ -1,13 +1,5 @@
 import type { LoanStatus } from "@/convex/lib/loanStatus";
-
-const PENDING_LOAN_STATUSES = [
-  "submitted",
-  "under_review",
-  "additional_info_needed",
-  "approved",
-  "funded",
-  "sent_to_title",
-] as const;
+import { isFundedLoanStatus, isPreFundingLoanStatus } from "@/convex/lib/constants";
 
 const LOAN_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
@@ -33,7 +25,11 @@ export function isFundsReturnedLoan(loan: LoanDisplayInput) {
 }
 
 export function isPendingLoanDisplay(loan: LoanDisplayInput) {
-  return !loan.returnedDate && PENDING_LOAN_STATUSES.includes(loan.status as (typeof PENDING_LOAN_STATUSES)[number]);
+  return isPreFundingLoanStatus(loan.status);
+}
+
+export function isActiveLoanDisplay(loan: LoanDisplayInput) {
+  return !loan.returnedDate && isFundedLoanStatus(loan.status);
 }
 
 export function isClosedLoanDisplay(loan: LoanDisplayInput) {

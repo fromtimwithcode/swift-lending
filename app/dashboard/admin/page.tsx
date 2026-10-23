@@ -284,7 +284,7 @@ export default function AdminOverviewPage() {
         <KpiCard
           label="Total Loans"
           value={stats.totalLoans}
-          subtitle={`${stats.activePipeline} pending / ${stats.closedLoans} closed / ${stats.returnedLoans} returned`}
+          subtitle={`${stats.pendingLoans} pending / ${stats.activeLoans} active / ${stats.returnedLoans} returned`}
           icon={Landmark}
         />
         <KpiCard

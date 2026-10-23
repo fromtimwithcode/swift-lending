@@ -205,15 +205,13 @@ export const getOverviewStats = query({
     const allLoans = await ctx.db.query("loans").collect();
 
     const totalLoans = allLoans.length;
-    const closedLoans = allLoans.filter((l) => l.status === "closed" && !l.returnedDate).length;
+    const pendingLoans = allLoans.filter((l) => isPreFundingLoanStatus(l.status)).length;
+    const moneyOutLoans = allLoans.filter((l) => isFundedLoanStatus(l.status) && !l.returnedDate);
     const returnedLoans = allLoans.filter((l) => l.returnedDate).length;
     const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
-    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
 
     const totalCapital = allLoans.reduce((sum, l) => sum + l.loanAmount, 0);
-    const capitalCurrentlyOut = allLoans
-      .filter((l) => isFundedLoanStatus(l.status) && !l.returnedDate)
-      .reduce((sum, l) => sum + getCurrentPrincipalOut(l), 0);
+    const capitalCurrentlyOut = moneyOutLoans.reduce((sum, l) => sum + getCurrentPrincipalOut(l), 0);
 
     // Closed loan revenue: points + interest from closed loans only
     const closedLoanRevenue = allLoans
@@ -222,7 +220,7 @@ export const getOverviewStats = query({
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const activeLoans = allLoans.filter((loan) => {
+    const cashFlowLoans = allLoans.filter((loan) => {
       if (loan.returnedDate) return false;
       if (loan.status === "funded" || loan.status === "sent_to_title") return true;
 
@@ -233,7 +231,7 @@ export const getOverviewStats = query({
 
       return false;
     });
-    const activeCashFlow = activeLoans.map((loan) => {
+    const activeCashFlow = cashFlowLoans.map((loan) => {
       const principalOut = getCurrentPrincipalOut(loan);
       return {
         principalOut,
@@ -260,6 +258,7 @@ export const getOverviewStats = query({
         )
       : 0;
 
+    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
     const pipelineValue = pipelineLoans.reduce(
       (sum, l) => sum + l.loanAmount,
       0
@@ -291,8 +290,8 @@ export const getOverviewStats = query({
 
     return {
       totalLoans,
-      activePipeline: pipelineLoans.length,
-      closedLoans,
+      pendingLoans,
+      activeLoans: moneyOutLoans.length,
       returnedLoans,
       deniedLoans,
       totalCapital,

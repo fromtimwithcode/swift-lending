@@ -177,3 +177,22 @@ for (const theme of ["light", "dark"]) {
     expect(adminDialog.violations).toEqual([]);
   });
 }
+
+test("borrower dashboard counts active loans, pending applications, and funded totals", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openPage(page, "/?page=borrower-home");
+  const kpi = (label: string) => page.locator("p", { hasText: label }).locator("xpath=following-sibling::p[1]");
+  const expectKpis = async (active: string, pending: string, borrowed: string) => {
+    await expect(kpi("Active Loans")).toHaveText(active);
+    await expect(kpi("Pending Applications")).toHaveText(pending);
+    await expect(kpi("Total Borrowed")).toHaveText(borrowed);
+  };
+  await expectKpis("1", "1", "$220,000");
+  await page.evaluate(() => window.statusTest.setLoan({ status: "funded" }));
+  await expectKpis("2", "0", "$440,000");
+  await page.evaluate(() => window.statusTest.setLoan({ status: "canceled" }));
+  await expectKpis("1", "0", "$220,000");
+  await page.evaluate(() => window.statusTest.setLoan({ status: "closed", returnedDate: "09/20/2026" }));
+  await expectKpis("1", "0", "$440,000");
+  await noHorizontalOverflow(page);
+});

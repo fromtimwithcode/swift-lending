@@ -28,6 +28,7 @@ import {
   getLoanDisplayStatusLabel,
   getLoanStatusLabel,
   isPendingLoanDisplay,
+  isActiveLoanDisplay,
   isClosedLoanDisplay,
   isDeniedLoanDisplay,
   isCanceledLoanDisplay,
@@ -37,6 +38,7 @@ import {
 const LOAN_TABS = [
   { label: "All", value: "all", matches: () => true },
   { label: "Pending", value: "pending", matches: isPendingLoanDisplay },
+  { label: "Active", value: "active", matches: isActiveLoanDisplay },
   { label: "Closed", value: "closed", matches: isClosedLoanDisplay },
   { label: "Funds Returned", value: "funds_returned", matches: isFundsReturnedLoan },
   { label: "Denied", value: "denied", matches: isDeniedLoanDisplay },
