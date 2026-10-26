@@ -141,7 +141,7 @@ export function FloatingMessenger({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-24 right-6 z-[60] flex h-[520px] w-[380px] max-w-[calc(100vw_-_2rem)] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/20 max-sm:bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] max-sm:left-4 max-sm:right-4 max-sm:h-[70dvh] max-sm:w-auto"
+            className="fixed bottom-24 right-6 z-[60] flex h-[520px] w-[380px] max-w-[calc(100vw_-_2rem)] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/20 max-sm:bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] max-sm:left-4 max-sm:right-4 max-sm:h-[70dvh] max-sm:w-auto admin:rounded-xl admin:border-border admin:shadow-lg admin:shadow-black/10"
           >
             {view === "list" && (
               <ConversationListView
@@ -205,14 +205,14 @@ function ConversationListView({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-        <h3 className="text-sm font-semibold">Messages</h3>
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 admin:border-border">
+        <h3 className="text-sm font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">Messages</h3>
         <div className="flex items-center gap-1">
           {showNewMessageButton && (
             <button
               type="button"
               onClick={onNewMessage}
-              className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
               aria-label="New message"
             >
               <Plus className="size-4" />
@@ -221,7 +221,7 @@ function ConversationListView({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -230,7 +230,7 @@ function ConversationListView({
       </div>
 
       {/* Search */}
-      <div className="border-b border-border/60 px-3 py-2">
+      <div className="border-b border-border/60 px-3 py-2 admin:border-border">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -239,7 +239,7 @@ function ConversationListView({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search conversations..."
-            className="min-h-10 w-full rounded-xl border border-border bg-background py-1.5 pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="min-h-10 w-full rounded-xl border border-border bg-background py-1.5 pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 admin:rounded-md"
           />
         </div>
       </div>
@@ -363,11 +363,11 @@ function ThreadView({
       transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Header */}
-        <div className="flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-3">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-3 admin:border-border">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
@@ -375,13 +375,13 @@ function ThreadView({
         <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
           {partnerName.charAt(0).toUpperCase()}
         </div>
-        <span className="flex-1 truncate text-sm font-semibold">
+        <span className="flex-1 truncate text-sm font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">
           {partnerName}
         </span>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
           aria-label="Close"
         >
           <X className="size-4" />
@@ -434,7 +434,7 @@ function ThreadView({
       </div>
 
       {/* Input */}
-      <div className="border-t border-border/60 p-2.5">
+      <div className="border-t border-border/60 p-2.5 admin:border-border">
         <div className="flex min-w-0 items-center gap-2">
           <input
             ref={inputRef}
@@ -448,14 +448,14 @@ function ThreadView({
               }
             }}
             placeholder="Type a message..."
-            className="min-h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="min-h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 admin:rounded-md"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={!text.trim() || sending}
             aria-label="Send message"
-            className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+            className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 admin:rounded-md"
           >
             {sending ? (
               <Loader2 className="size-4 animate-spin" />
@@ -491,20 +491,20 @@ function NewMessageView({
       transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Header */}
-      <div className="flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-3">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-3 admin:border-border">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
         </button>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">New Message</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">New Message</span>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
           aria-label="Close"
         >
           <X className="size-4" />
@@ -530,7 +530,7 @@ function NewMessageView({
               key={admin._id}
               type="button"
               onClick={() => onSelect(admin._id, admin.displayName)}
-              className="flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-lg"
             >
               <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {admin.displayName.charAt(0).toUpperCase()}

@@ -94,7 +94,7 @@ export function NotificationBell({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+        className="relative inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
         aria-label="Notifications"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -118,15 +118,15 @@ export function NotificationBell({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -4 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)]"
+            className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_4px_24px_oklch(0_0_0_/_8%),0_1px_4px_oklch(0_0_0_/_4%)] admin:rounded-xl admin:border-border admin:shadow-lg"
           >
-            <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
-              <h3 className="text-sm font-semibold">Notifications</h3>
+            <div className="flex items-center justify-between border-b border-border/40 px-4 py-3 admin:border-border">
+              <h3 className="text-sm font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide">Notifications</h3>
               {unreadCount !== undefined && unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={() => markAllRead()}
-                  className="rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  className="rounded-lg admin:rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 >
                   Mark all read
                 </button>
@@ -174,14 +174,14 @@ export function NotificationBell({
                 ))
               )}
             </div>
-            <div className="border-t border-border/40 px-4 py-2">
+            <div className="border-t border-border/40 px-4 py-2 admin:border-border">
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
                   router.push(`/dashboard/${rolePrefix}/notifications`);
                 }}
-                className="min-h-9 w-full rounded-xl text-center text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="min-h-9 w-full rounded-xl admin:rounded-md text-center text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 View all
               </button>

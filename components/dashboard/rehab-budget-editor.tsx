@@ -124,19 +124,19 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
   const selectClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
 
   return (
     <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
+        <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
           Rehab Budget
         </h3>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <Plus className="size-3" />
           Add Item
@@ -148,16 +148,16 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
         <div className="mb-4 grid grid-cols-1 gap-3 rounded-lg bg-muted/40 p-3 min-[420px]:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground">Total Allocated</p>
-            <p className="text-sm font-bold">{formatCurrency(totalAllocated)}</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(totalAllocated)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Total Actual</p>
-            <p className="text-sm font-bold">{formatCurrency(totalActual)}</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(totalActual)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Remaining</p>
             <p
-              className={`text-sm font-bold ${
+              className={`text-sm font-bold tabular-nums ${
                 remaining < 0
                   ? "text-red-600 dark:text-red-400"
                   : "text-green-600 dark:text-green-400"
@@ -239,14 +239,14 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               onClick={() => setShowAdd(false)}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
             >
               {adding && <Loader2 className="size-3 animate-spin" />}
               Add
@@ -330,7 +330,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                         item.itemName
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-2 pr-4 text-right tabular-nums">
                       {isEditing ? (
                         <input
                           className={inputClass + " text-right"}
@@ -347,7 +347,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                         formatCurrency(item.allocatedAmount)
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-2 pr-4 text-right tabular-nums">
                       {isEditing ? (
                         <input
                           className={inputClass + " text-right"}
@@ -364,7 +364,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                         formatCurrency(item.actualAmount ?? 0)
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-2 pr-4 text-right tabular-nums">
                       {!isEditing && (
                         <span
                           className={
@@ -383,7 +383,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                           <button
                             onClick={handleSaveEdit}
                             disabled={savingEdit}
-                            className="rounded-lg p-1 text-primary hover:bg-muted"
+                            className="rounded-md p-1 text-primary hover:bg-muted"
                           >
                             {savingEdit ? (
                               <Loader2 className="size-4 animate-spin" />
@@ -393,7 +393,7 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
+                            className="rounded-md p-1 text-muted-foreground hover:bg-muted"
                           >
                             <X className="size-4" />
                           </button>
@@ -402,14 +402,14 @@ export function RehabBudgetEditor({ loanId }: { loanId: Id<"loans"> }) {
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => startEdit(item)}
-                            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                           >
                             <Pencil className="size-3.5" />
                           </button>
                           <button
                             onClick={() => setConfirmDelete(item._id)}
                             disabled={deleting === item._id}
-                            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
+                            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
                           >
                             {deleting === item._id ? (
                               <Loader2 className="size-3.5 animate-spin" />

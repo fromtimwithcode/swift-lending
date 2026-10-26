@@ -29,7 +29,7 @@ export function MobileMenuBar({
   return (
     <nav
       aria-label="Primary mobile dashboard navigation"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 shadow-[0_-8px_24px_oklch(0_0_0_/_5%)] backdrop-blur-xl backdrop-saturate-150 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 shadow-[0_-8px_24px_oklch(0_0_0_/_5%)] backdrop-blur-xl backdrop-saturate-150 lg:hidden admin:border-border admin:bg-card/95 admin:shadow-none admin:backdrop-blur-md admin:backdrop-saturate-100"
     >
       <div className="mx-auto grid max-w-md grid-cols-5 gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
         {navItems.map((item) => {
@@ -43,9 +43,9 @@ export function MobileMenuBar({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]",
+                "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold admin:rounded-md transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]",
                 active
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary/10 text-primary admin:bg-primary admin:text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               )}
             >
@@ -69,9 +69,9 @@ export function MobileMenuBar({
           aria-controls="dashboard-sidebar"
           aria-expanded={moreOpen}
           className={cn(
-            "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]",
+            "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold admin:rounded-md transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]",
             moreActive
-              ? "bg-primary/10 text-primary"
+              ? "bg-primary/10 text-primary admin:bg-primary admin:text-primary-foreground"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           )}
         >

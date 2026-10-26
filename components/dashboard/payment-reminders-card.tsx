@@ -82,13 +82,13 @@ export function PaymentRemindersCard({
     <div
       ref={cardRef}
       tabIndex={-1}
-      className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] outline-none sm:p-6"
+      className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] outline-none sm:p-6 admin:rounded-xl admin:shadow-none"
     >
       <div className="mb-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div
             className={cn(
-              "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl",
+              "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl admin:rounded-lg",
               data && data.pastDueCount > 0
                 ? "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300"
                 : "bg-primary/10 text-primary"
@@ -97,7 +97,7 @@ export function PaymentRemindersCard({
             {data && !hasReminders ? <CheckCircle2 className="size-5" /> : <CalendarClock className="size-5" />}
           </div>
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-balance">{title}</h3>
+            <h3 className="text-base font-semibold text-balance admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">{title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {description ??
                 (data
@@ -119,7 +119,7 @@ export function PaymentRemindersCard({
                 activeFilter === "past_due" && "ring-2 ring-red-500/40 ring-offset-2 ring-offset-background"
               )}
             >
-              <p className="text-[11px] font-medium uppercase tracking-wide">Past Due</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide admin:font-bold">Past Due</p>
               <p className="text-lg font-bold tabular-nums">{data.pastDueCount}</p>
             </button>
             <button
@@ -132,11 +132,11 @@ export function PaymentRemindersCard({
                 activeFilter === "due_soon" && "ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background"
               )}
             >
-              <p className="text-[11px] font-medium uppercase tracking-wide">Due Soon</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide admin:font-bold">Due Soon</p>
               <p className="text-lg font-bold tabular-nums">{data.dueSoonCount}</p>
             </button>
             <div className="rounded-lg bg-muted/60 px-3 py-2">
-              <p className="flex items-center justify-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="flex items-center justify-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground admin:font-bold">
                 <span>Total Due</span>
                 <ContextTooltip label="Total Due" content={FINANCIAL_CONTEXT.totalDue} />
               </p>
@@ -147,20 +147,20 @@ export function PaymentRemindersCard({
       </div>
 
       {!data ? (
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground admin:border-border">
           Loading payment reminders...
         </div>
       ) : hasReminders ? (
         <>
           {activeFilter && (
-            <div className="mb-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between admin:border-border">
               <p className="text-muted-foreground">
                 Showing {filteredReminders.length} {statusLabel(activeFilter).toLowerCase()} payment{filteredReminders.length === 1 ? "" : "s"}
               </p>
               <button
                 type="button"
                 onClick={() => setActiveFilter(null)}
-                className="self-start rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:self-auto"
+                className="self-start rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:self-auto admin:rounded-md"
               >
                 Clear filter
               </button>
@@ -168,7 +168,7 @@ export function PaymentRemindersCard({
           )}
 
           {visibleReminders.length > 0 ? (
-            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/60">
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/60 admin:border-border">
               {visibleReminders.map((reminder) => (
                 <div
                   key={`${reminder.loanId}-${reminder.dueDate}-${reminder.type}-${reminder.chargeId ?? "monthly"}`}
@@ -230,7 +230,7 @@ export function PaymentRemindersCard({
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground admin:border-border">
               No {activeFilter ? statusLabel(activeFilter).toLowerCase() : "matching"} payments in this window.
             </div>
           )}

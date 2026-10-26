@@ -27,7 +27,7 @@ type DialogState =
   | { kind: "deletePayout"; investment: Investment; payout: Payout };
 
 const iconButtonClassName =
-  "inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary";
+  "inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary";
 
 export function getInvestmentLabel(investment: { investmentAmount: number; interestRate: number }) {
   return `${formatCurrency(investment.investmentAmount)} investment at ${investment.interestRate}%`;
@@ -65,7 +65,7 @@ function InvestmentCard({
   const label = getInvestmentLabel(investment);
   const next = describeNextPayment(investment, today);
   return (
-    <article aria-label={label} className="rounded-xl border border-border p-4 sm:p-5">
+    <article aria-label={label} className="rounded-lg border border-border p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h4 className="text-base font-semibold tabular-nums">
@@ -80,7 +80,7 @@ function InvestmentCard({
           <button
             type="button"
             onClick={(event) => onOpen({ kind: "payout", investment }, event.currentTarget)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary"
           >
             <Banknote className="size-4" aria-hidden="true" />
             Record payment
@@ -138,11 +138,11 @@ function InvestmentCard({
       )}
 
       {investment.payouts.length > 0 && (
-        <details className="mt-4 rounded-lg border border-border/60">
+        <details className="mt-4 rounded-lg border border-border">
           <summary className="min-h-11 cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
             Payment history <span className="tabular-nums text-muted-foreground">({investment.payouts.length})</span>
           </summary>
-          <ul className="divide-y divide-border border-t border-border/60">
+          <ul className="divide-y divide-border border-t border-border">
             {investment.payouts.map((payout) => (
               <li key={payout._id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <div className="min-w-0">
@@ -223,13 +223,13 @@ export function InvestorInvestments({
   return (
     <section ref={section} tabIndex={-1} aria-labelledby="investments-heading" className="rounded-xl border border-border bg-card p-4 outline-none sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 id="investments-heading" className="text-sm font-medium text-muted-foreground">
+        <h3 id="investments-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground">
           Investments ({investments.length})
         </h3>
         <button
           type="button"
           onClick={(event) => open({ kind: "create" }, event.currentTarget)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Plus className="size-4" aria-hidden="true" />
           Add investment

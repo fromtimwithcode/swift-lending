@@ -70,7 +70,7 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
             <button
               type="button"
               onClick={() => markAllRead()}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] admin:rounded-md"
             >
               Mark All Read
             </button>
@@ -85,7 +85,7 @@ export function NotificationFeed({ rolePrefix }: { rolePrefix: string }) {
           description="When something needs your attention, it will appear here."
         />
       ) : (
-        <div className="min-w-0 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%)]">
+        <div className="min-w-0 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%)] admin:rounded-xl admin:shadow-none">
           {notifications.map((n) => (
             <button
               key={n._id}

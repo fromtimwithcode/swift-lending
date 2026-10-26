@@ -56,7 +56,7 @@ export function ConfirmDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-            className="fixed inset-0 z-50 bg-black/50"
+            className="fixed inset-0 z-50 bg-black/50 admin:bg-black/40 admin:backdrop-blur-sm"
             onClick={loading ? undefined : onCancel}
           />
           {/* Dialog */}
@@ -73,10 +73,10 @@ export function ConfirmDialog({
               aria-modal="true"
               aria-labelledby={titleId}
               aria-describedby={description ? descriptionId : undefined}
-              className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border/60 bg-card p-6 shadow-[0_4px_24px_oklch(0_0_0_/_12%)]"
+              className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border/60 bg-card p-6 shadow-[0_4px_24px_oklch(0_0_0_/_12%)] admin:rounded-xl admin:border-border admin:shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 id={titleId} className="text-lg font-semibold">{title}</h3>
+              <h3 id={titleId} className="text-lg font-semibold admin:font-bold">{title}</h3>
               {description && (
                 <p id={descriptionId} className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
                   {description}
@@ -88,7 +88,7 @@ export function ConfirmDialog({
                   type="button"
                   onClick={onCancel}
                   disabled={loading}
-                  className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                  className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 admin:rounded-md"
                 >
                   Cancel
                 </button>
@@ -97,7 +97,7 @@ export function ConfirmDialog({
                   onClick={onConfirm}
                   disabled={loading || confirmDisabled}
                   className={cn(
-                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-[background-color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100",
+                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-[background-color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 admin:rounded-md",
                     variant === "destructive"
                       ? "bg-destructive text-white hover:bg-destructive/90"
                       : "bg-primary text-primary-foreground hover:bg-primary/90"

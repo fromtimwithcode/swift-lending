@@ -31,10 +31,10 @@ export function LoanStatusControls({
       ref={ref}
       tabIndex={-1}
       aria-label="Loan status"
-      className="outline-none space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6"
+      className="outline-none space-y-5 rounded-xl border border-border bg-card p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Loan status</h2>
+        <h2 className="text-[13px] font-bold uppercase tracking-wide text-foreground">Loan status</h2>
         <StatusBadge status={loan.status} />
       </div>
       {loan.status === "canceled" && loan.statusUpdatedBy === loan.borrowerId && (
@@ -57,7 +57,7 @@ export function LoanStatusControls({
                   event.currentTarget.focus();
                   onSelect(next, event.currentTarget);
                 }}
-                className="min-h-11 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium transition-[background-color,border-color,scale] duration-150 hover:border-ring/30 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-primary active:scale-[0.96] motion-reduce:active:scale-100"
+                className="min-h-11 rounded-md border border-border bg-background px-4 py-2.5 text-sm font-medium transition-[background-color,border-color,scale] duration-150 hover:border-ring/30 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-primary active:scale-[0.96] motion-reduce:active:scale-100"
               >
                 {getLoanStatusLabel(next)}
               </button>

@@ -389,7 +389,7 @@ export default function NewLoanPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
   const labelClass = "block text-sm font-medium text-muted-foreground mb-1.5";
 
   return (
@@ -397,7 +397,7 @@ export default function NewLoanPage() {
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/loans"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -407,7 +407,7 @@ export default function NewLoanPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Borrower Info */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Borrower Information</h3>
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">Borrower Information</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelClass}>Select Borrower</label>
@@ -446,7 +446,7 @@ export default function NewLoanPage() {
 
         {/* Property Details */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Property Details</h3>
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">Property Details</h3>
           <LoanPropertyFields
             idPrefix="new-loan-property"
             value={propertyDetails}
@@ -477,7 +477,7 @@ export default function NewLoanPage() {
 
         {/* Loan Terms */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Loan Terms</h3>
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">Loan Terms</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className={labelClass}>Purchase Price</label>
@@ -656,7 +656,7 @@ export default function NewLoanPage() {
         {/* Rehab Budget */}
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold">Rehab Budget</h3>
+            <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">Rehab Budget</h3>
             <button
               type="button"
               onClick={() =>
@@ -670,7 +670,7 @@ export default function NewLoanPage() {
                   },
                 ])
               }
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
             >
               <Plus className="size-3" />
               Add Item
@@ -682,7 +682,7 @@ export default function NewLoanPage() {
               <div className="mb-4 grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-3">
                 <div>
                   <p className="text-xs text-muted-foreground">Total Allocated</p>
-                  <p className="text-sm font-bold">
+                  <p className="text-sm font-bold tabular-nums">
                     {formatCurrency(
                       rehabItems.reduce(
                         (s, i) => s + (Number(i.allocatedAmount) || 0),
@@ -693,7 +693,7 @@ export default function NewLoanPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Items</p>
-                  <p className="text-sm font-bold">{rehabItems.length}</p>
+                  <p className="text-sm font-bold tabular-nums">{rehabItems.length}</p>
                 </div>
               </div>
 
@@ -774,7 +774,7 @@ export default function NewLoanPage() {
                             prev.filter((i) => i.id !== item.id)
                           )
                         }
-                        className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-red-600"
+                        className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-red-600"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -794,7 +794,7 @@ export default function NewLoanPage() {
 
         {/* Dates & Title */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Dates & Title Company
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -826,7 +826,7 @@ export default function NewLoanPage() {
               </p>
             </div>
             {titleContacts.length > 0 && (
-              <div className="sm:col-span-2 rounded-xl border border-border bg-muted/25 p-3">
+              <div className="sm:col-span-2 rounded-lg border border-border bg-muted/25 p-3">
                 <label className={labelClass}>Saved Title Contacts</label>
                 <select
                   className={inputClass}
@@ -908,7 +908,7 @@ export default function NewLoanPage() {
 
         {/* Purchase Contract */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-1 text-base font-semibold">
+          <h3 className="mb-1 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Purchase Contract <span className="text-destructive">*</span>
           </h3>
           <p className="mb-4 text-sm text-muted-foreground text-pretty">
@@ -941,7 +941,7 @@ export default function NewLoanPage() {
 
         {/* Draw Funds */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-1 text-base font-semibold">Construction Holdback</h3>
+          <h3 className="mb-1 text-[13px] font-bold uppercase tracking-wide text-foreground">Construction Holdback</h3>
           <p className="mb-4 text-sm text-muted-foreground">
             Enter the construction holdback amount. Approved draws subtract from this amount to calculate draw remaining.
           </p>
@@ -976,7 +976,7 @@ export default function NewLoanPage() {
 
         {/* Notes */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-base font-semibold">Notes</h3>
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">Notes</h3>
           <textarea
             className={inputClass}
             rows={4}
@@ -990,14 +990,14 @@ export default function NewLoanPage() {
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Link
             href="/dashboard/admin/loans"
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting || uploading || loanDefaultsLoading}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
             {loanDefaultsLoading ? "Loading Defaults" : "Create Loan"}

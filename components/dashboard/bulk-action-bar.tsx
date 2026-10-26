@@ -36,7 +36,7 @@ export function BulkActionBar({
           transition={{ type: "spring", duration: shouldReduceMotion ? 0 : 0.3, bounce: 0 }}
           className="fixed inset-x-4 bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 lg:bottom-[max(1rem,env(safe-area-inset-bottom))]"
         >
-          <div className="flex max-h-[calc(100dvh_-_2rem)] max-w-full flex-col gap-3 overflow-y-auto rounded-2xl border border-border/60 bg-card/95 px-4 py-3 shadow-[0_4px_24px_oklch(0_0_0_/_10%),0_1px_4px_oklch(0_0_0_/_5%)] backdrop-blur-xl sm:flex-row sm:items-center">
+          <div className="flex max-h-[calc(100dvh_-_2rem)] max-w-full flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur-xl sm:flex-row sm:items-center">
             <span className="text-sm font-medium whitespace-nowrap tabular-nums">
               {selectedCount} selected
             </span>
@@ -48,7 +48,7 @@ export function BulkActionBar({
                   type="button"
                   onClick={(event) => { event.currentTarget.focus(); action.onClick(); }}
                   disabled={disabled}
-                  className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1 ${
+                  className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1 ${
                     action.variant === "destructive"
                       ? "bg-red-600 text-white hover:bg-red-700"
                       : "bg-primary text-primary-foreground hover:bg-primary/80"
@@ -63,7 +63,7 @@ export function BulkActionBar({
               type="button"
               onClick={onClear}
               aria-label="Clear selected rows"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
             >
               <X className="size-4" />
             </button>

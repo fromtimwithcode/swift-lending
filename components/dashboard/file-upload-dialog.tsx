@@ -273,11 +273,11 @@ export function FileUploadDialog({
       aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      <div className="fixed inset-0 bg-black/55 backdrop-blur-[2px]" onClick={handleClose} />
-      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.28)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
-        <div className="flex min-w-0 items-start justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5">
+      <div className="fixed inset-0 bg-black/55 backdrop-blur-[2px] admin:bg-black/40 admin:backdrop-blur-sm" onClick={handleClose} />
+      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.28)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150 admin:rounded-xl admin:shadow-lg">
+        <div className="flex min-w-0 items-start justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5 admin:border-border">
           <div className="min-w-0">
-            <h3 id={titleId} className="text-xl font-semibold text-balance">
+            <h3 id={titleId} className="text-xl font-semibold text-balance admin:text-lg admin:font-bold">
               {title}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground text-pretty">
@@ -288,7 +288,7 @@ export function FileUploadDialog({
             type="button"
             onClick={handleClose}
             disabled={uploading}
-            className="-mr-2 inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.96] disabled:opacity-50"
+            className="-mr-2 inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
             aria-label="Close upload dialog"
           >
             <X className="size-5" />
@@ -305,7 +305,7 @@ export function FileUploadDialog({
                 value={docType}
                 onChange={(e) => setDocType(e.target.value as DocType)}
                 disabled={uploading}
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition-[border-color,box-shadow] focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition-[border-color,box-shadow] focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50 admin:rounded-md"
               >
                 {DOC_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -321,7 +321,7 @@ export function FileUploadDialog({
                   Draw Folder
                 </label>
                 {drawRequestId ? (
-                  <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-muted/35 px-3 text-sm">
+                  <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-muted/35 px-3 text-sm admin:rounded-md">
                     <FolderOpen className="size-4 shrink-0 text-primary" />
                     <span className="min-w-0 truncate">
                       {targetDraw ? getDrawOptionLabel(targetDraw) : "Selected draw request"}
@@ -332,7 +332,7 @@ export function FileUploadDialog({
                     value={selectedDrawRequestId}
                     onChange={(e) => setSelectedDrawRequestId(e.target.value as Id<"drawRequests"> | "")}
                     disabled={uploading}
-                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition-[border-color,box-shadow] focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition-[border-color,box-shadow] focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50 admin:rounded-md"
                   >
                     <option value="">General documents</option>
                     {drawOptions.map((draw) => (
@@ -376,9 +376,9 @@ export function FileUploadDialog({
               addFiles(Array.from(event.dataTransfer.files));
             }}
             className={cn(
-              "group relative cursor-pointer rounded-2xl border border-dashed p-6 text-center transition-[border-color,background-color,box-shadow,transform] active:scale-[0.99]",
+              "group relative cursor-pointer rounded-2xl border border-dashed p-6 text-center transition-[border-color,background-color,box-shadow,transform] active:scale-[0.99] admin:rounded-lg",
               dragActive
-                ? "border-primary bg-primary/10 shadow-sm ring-4 ring-primary/10"
+                ? "border-primary bg-primary/10 shadow-sm ring-4 ring-primary/10 admin:shadow-none"
                 : "border-border bg-muted/20 hover:border-primary/60 hover:bg-primary/5"
             )}
           >
@@ -391,7 +391,7 @@ export function FileUploadDialog({
               className="sr-only"
               disabled={uploading}
             />
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-background shadow-[0_1px_0_rgba(255,255,255,0.35),0_10px_28px_rgba(0,0,0,0.08)] transition-transform group-hover:-translate-y-0.5">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-background shadow-[0_1px_0_rgba(255,255,255,0.35),0_10px_28px_rgba(0,0,0,0.08)] transition-transform group-hover:-translate-y-0.5 admin:rounded-lg admin:shadow-[inset_0_0_0_1px_var(--border)]">
               <Upload className="size-6 text-primary" />
             </div>
             <p className="mt-4 text-sm font-semibold">
@@ -403,7 +403,7 @@ export function FileUploadDialog({
           </div>
 
           {files.length > 0 && (
-            <div className="rounded-2xl border border-border bg-muted/20 p-3">
+            <div className="rounded-2xl border border-border bg-muted/20 p-3 admin:rounded-lg">
               <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3">
                 <div>
                   <p className="text-sm font-semibold">
@@ -419,7 +419,7 @@ export function FileUploadDialog({
                     setFiles([]);
                   }}
                   disabled={uploading}
-                  className="inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground active:scale-[0.96] disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
                 >
                   Clear all
                 </button>
@@ -440,12 +440,12 @@ export function FileUploadDialog({
           )}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border/70 bg-muted/10 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <div className="flex flex-col-reverse gap-2 border-t border-border/70 bg-muted/10 px-4 py-4 sm:flex-row sm:justify-end sm:px-6 admin:border-border admin:bg-muted/30">
           <button
             type="button"
             onClick={handleClose}
             disabled={uploading}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.96] disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
           >
             Cancel
           </button>
@@ -453,7 +453,7 @@ export function FileUploadDialog({
             type="button"
             onClick={handleUpload}
             disabled={!canUpload}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] hover:bg-primary/85 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] hover:bg-primary/85 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 admin:rounded-md"
           >
             {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
             {uploadLabel}
@@ -477,7 +477,7 @@ function SelectedFileRow({
   const isImage = file.type.startsWith("image/");
 
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-background px-3 py-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="flex items-center gap-3 rounded-xl bg-background px-3 py-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)] admin:rounded-lg admin:shadow-[inset_0_0_0_1px_var(--border)]">
       <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
         {isImage && previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- Local object URLs are not compatible with next/image.
@@ -501,7 +501,7 @@ function SelectedFileRow({
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-red-500 active:scale-[0.96] disabled:opacity-50"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-red-500 active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
         aria-label={`Remove ${file.name}`}
       >
         <Trash2 className="size-4" />

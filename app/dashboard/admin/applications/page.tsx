@@ -84,6 +84,7 @@ export default function AdminApplicationsPage() {
       header: "Amount",
       sortable: true,
       render: (row) => formatCurrency(row.loanAmount),
+      className: "tabular-nums",
     },
     {
       key: "status",

@@ -67,7 +67,7 @@ export function DeleteChargeDialog({
       initialFocus={field}
       finalFocus={finalFocus}
     >
-      <div className="rounded-xl bg-muted/60 p-3.5 text-sm">
+      <div className="rounded-xl bg-muted/60 p-3.5 text-sm admin:rounded-lg">
         <p className="break-words font-semibold [overflow-wrap:anywhere]">
           {charge.borrowerName} - {charge.propertyAddress}
         </p>
@@ -98,7 +98,7 @@ export function DeleteChargeDialog({
           rows={4}
           aria-invalid={error !== null}
           aria-describedby={`${id}-count${error ? ` ${id}-error` : ""}`}
-          className="block min-h-32 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-base leading-6 transition-[border-color,box-shadow] duration-150 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm"
+          className="block min-h-32 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-base leading-6 transition-[border-color,box-shadow] duration-150 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm admin:rounded-md"
         />
         <p
           id={`${id}-count`}

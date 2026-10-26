@@ -3,7 +3,7 @@
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -57,6 +57,18 @@ function RedirectToLogin() {
   useEffect(() => {
     router.replace("/login");
   }, [router]);
+  return null;
+}
+
+// On <html> so dialogs and popovers portaled to <body> share the admin theme.
+function AdminDashboardTheme() {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.adminDashboard = "";
+    return () => {
+      delete root.dataset.adminDashboard;
+    };
+  }, []);
   return null;
 }
 
@@ -125,6 +137,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
+      {rolePrefix === "admin" && <AdminDashboardTheme />}
       <Sidebar
         role={profile.role}
         displayName={profile.displayName}

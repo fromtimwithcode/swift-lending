@@ -124,7 +124,7 @@ export function RecordPayoutDialog({
             ariaLabel="Date paid"
             ariaInvalid={isInvalid("paidDate")}
             ariaDescribedBy={isInvalid("paidDate") ? errorId : undefined}
-            buttonClassName="min-h-11 rounded-xl"
+            buttonClassName="min-h-11 rounded-md"
           />
         </div>
       </div>

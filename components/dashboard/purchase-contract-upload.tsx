@@ -121,7 +121,7 @@ export function PurchaseContractUpload({
                   onFilesChange((prev) => prev.filter((f) => f.storageId !== file.storageId))
                 }
                 disabled={uploading}
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 active:scale-[0.96]"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 active:scale-[0.96] admin:rounded-md"
                 aria-label={`Remove ${file.fileName}`}
               >
                 <X className="size-4" />

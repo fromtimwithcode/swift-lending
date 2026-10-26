@@ -175,7 +175,7 @@ export function InvestmentFormDialog({
             placeholder="Select date"
             required
             ariaLabel="Inception date"
-            buttonClassName="min-h-11 rounded-xl"
+            buttonClassName="min-h-11 rounded-md"
             ariaInvalid={isInvalid("inceptionDate")}
             ariaDescribedBy={isInvalid("inceptionDate") ? errorId : undefined}
           />
@@ -192,13 +192,13 @@ export function InvestmentFormDialog({
             placeholder="Select date"
             required
             ariaLabel="First payment date"
-            buttonClassName="min-h-11 rounded-xl"
+            buttonClassName="min-h-11 rounded-md"
             ariaInvalid={isInvalid("firstPaymentDate")}
             ariaDescribedBy={isInvalid("firstPaymentDate") ? errorId : undefined}
           />
         </div>
       </div>
-      <p className="rounded-xl bg-muted/60 p-3.5 text-sm leading-6" aria-live="polite">
+      <p className="rounded-lg bg-muted/60 p-3.5 text-sm leading-6" aria-live="polite">
         {preview && preview.nextPayment ? (
           <>
             <span className="font-medium tabular-nums">{formatCurrency(preview.monthlyPayment)}</span> a

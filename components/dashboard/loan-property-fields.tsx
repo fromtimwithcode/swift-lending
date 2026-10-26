@@ -103,7 +103,7 @@ export function LoanPropertyFields({
   onChange: (value: LoanPropertyFormValues) => void;
 }) {
   const inputClass =
-    "min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
+    "min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md";
   const unitCount = getPropertyUnitCount(value.propertyType);
 
   const setField = (key: keyof LoanPropertyFormValues, nextValue: string) =>

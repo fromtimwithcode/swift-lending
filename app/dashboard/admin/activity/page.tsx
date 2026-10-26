@@ -141,7 +141,7 @@ export default function ActivityLogPage() {
                     <td className="max-w-md px-4 py-3 text-muted-foreground">
                       {entry.details?.includes("\n") ? (
                         <details className="min-w-60 max-w-md">
-                          <summary className="min-h-11 cursor-pointer rounded-lg py-2.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
+                          <summary className="min-h-11 cursor-pointer rounded-md py-2.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
                             {entry.details.split("\n")[0]}
                           </summary>
                           <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">

@@ -31,7 +31,7 @@ type BankAccountSummary = {
 };
 
 const inputClass =
-  "min-h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
+  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
 const labelClass = "text-sm font-medium text-foreground";
 
 const emptyAccountForm = {
@@ -189,11 +189,11 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
       <section className="card-premium overflow-hidden" aria-labelledby="tax-id-heading">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div className="flex min-w-0 gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-foreground">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-foreground">
               <Building2 className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h2 id="tax-id-heading" className="text-base font-semibold text-balance">
+              <h2 id="tax-id-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground text-balance">
                 Tax identification
               </h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground text-pretty">
@@ -209,7 +209,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
           )}
         </div>
 
-        <div className="border-t border-border/70 p-5 sm:p-6">
+        <div className="border-t border-border p-5 sm:p-6">
           {editingEin ? (
             <form onSubmit={submitEin} className="max-w-md space-y-4" aria-busy={savingEin}>
               <div className="space-y-1.5">
@@ -275,11 +275,11 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
       <section className="card-premium overflow-hidden" aria-labelledby="bank-accounts-heading">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div className="flex min-w-0 gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary/10 text-secondary dark:bg-secondary/25 dark:text-foreground">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary dark:bg-secondary/25 dark:text-foreground">
               <Landmark className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h2 id="bank-accounts-heading" className="text-base font-semibold text-balance">
+              <h2 id="bank-accounts-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground text-balance">
                 ACH bank accounts
               </h2>
               <p className="mt-1 text-sm leading-6 text-muted-foreground text-pretty">
@@ -295,7 +295,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
           )}
         </div>
 
-        <div className="mx-5 mb-5 flex gap-3 rounded-2xl bg-muted/60 p-4 sm:mx-6 sm:mb-6">
+        <div className="mx-5 mb-5 flex gap-3 rounded-lg bg-muted/60 p-4 sm:mx-6 sm:mb-6">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-secondary dark:text-primary" aria-hidden="true" />
           <p className="text-sm leading-6 text-muted-foreground text-pretty">
             Account values are encrypted and every reveal is logged. Saving details here does not authorize an ACH debit.
@@ -305,7 +305,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
         {accountForm && (
           <form
             onSubmit={submitAccount}
-            className="border-y border-border/70 bg-muted/25 p-5 sm:p-6"
+            className="border-y border-border bg-muted/25 p-5 sm:p-6"
             aria-busy={savingAccount}
           >
             <fieldset className="space-y-5">
@@ -355,7 +355,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
                   </select>
                 </div>
                 <div className="flex items-end">
-                  <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-1 text-sm font-medium">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-1 text-sm font-medium">
                     <input
                       type="checkbox"
                       checked={accountForm.isPrimary}
@@ -431,7 +431,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
 
         <div className="p-5 sm:p-6">
           {summary.accounts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+            <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <Landmark className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
               <p className="mt-3 text-sm font-semibold">No bank accounts yet</p>
               <p className="mt-1 text-sm text-muted-foreground">Add an account to keep ACH details with this borrower.</p>
@@ -439,7 +439,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {summary.accounts.map((account) => (
-                <article key={account._id} className="rounded-2xl bg-muted/45 p-4 shadow-[inset_0_0_0_1px_var(--border)] sm:p-5">
+                <article key={account._id} className="rounded-lg bg-muted/45 p-4 shadow-[inset_0_0_0_1px_var(--border)] sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -457,7 +457,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
                         type="button"
                         onClick={() => openAccountEdit(account)}
                         aria-label={`Edit ${account.bankName} account`}
-                        className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+                        className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
                       >
                         <Pencil className="size-4" aria-hidden="true" />
                       </button>
@@ -465,7 +465,7 @@ export function BorrowerFinancialPanel({ borrowerId }: BorrowerFinancialPanelPro
                         type="button"
                         onClick={() => setRemovingAccount(account)}
                         aria-label={`Remove ${account.bankName} account`}
-                        className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+                        className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
                       >
                         <Trash2 className="size-4" aria-hidden="true" />
                       </button>

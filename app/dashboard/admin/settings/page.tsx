@@ -120,7 +120,7 @@ export default function AdminSettingsPage() {
               handleToggle(row._id, row.displayName, row.isActive);
             }}
             disabled={togglingId === row._id}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
           >
             {togglingId === row._id ? (
               <Loader2 className="size-3 animate-spin" />
@@ -165,7 +165,7 @@ export default function AdminSettingsPage() {
               handleToggle(row._id, row.displayName, row.isActive);
             }}
             disabled={togglingId === row._id}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
           >
             {togglingId === row._id ? (
               <Loader2 className="size-3 animate-spin" />
@@ -190,7 +190,7 @@ export default function AdminSettingsPage() {
       <AppConfigurationEditor />
 
       <div className="border-t border-border pt-6">
-        <h2 className="text-lg font-semibold">Portal access</h2>
+        <h2 className="text-[13px] font-bold uppercase tracking-wide text-foreground">Portal access</h2>
         <p className="mt-1 text-sm text-muted-foreground">Manage borrower and investor access.</p>
       </div>
 
@@ -204,7 +204,7 @@ export default function AdminSettingsPage() {
                 setActiveTab(tab.key);
                 setSearch("");
               }}
-              className={`relative min-h-10 shrink-0 pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 ${
+              className={`relative min-h-10 shrink-0 rounded-md pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 ${
                 activeTab === tab.key
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"

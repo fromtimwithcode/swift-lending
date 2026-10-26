@@ -36,7 +36,7 @@ export function SearchInput({
         placeholder={placeholder}
         value={internal}
         onChange={(e) => setInternal(e.target.value)}
-        className="min-h-11 w-full rounded-2xl border border-border bg-card px-4 pl-10 text-sm shadow-[0_1px_2px_oklch(0_0_0_/_3%)] transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-muted-foreground/60 focus:border-ring focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:shadow-[0_0_0_3px_oklch(0.30_0.10_250_/_8%)]"
+        className="min-h-11 w-full rounded-md border border-border bg-card px-4 pl-10 text-sm transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-muted-foreground/60 focus:border-ring focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:shadow-[0_0_0_3px_oklch(0.30_0.10_250_/_8%)]"
       />
     </div>
   );

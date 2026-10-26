@@ -109,7 +109,7 @@ export default function AdminBorrowerDetailPage() {
   };
 
   const inputClass =
-    "min-h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20";
+    "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20";
 
   const loanColumns: Column<(typeof loans)[number]>[] = [
     {
@@ -130,6 +130,7 @@ export default function AdminBorrowerDetailPage() {
       header: "Amount",
       sortable: true,
       render: (row) => formatCurrency(row.loanAmount),
+      className: "tabular-nums",
     },
     {
       key: "status",
@@ -153,6 +154,7 @@ export default function AdminBorrowerDetailPage() {
       key: "amountRequested",
       header: "Amount",
       render: (row) => formatCurrency(row.amountRequested),
+      className: "tabular-nums",
     },
     {
       key: "status",
@@ -172,7 +174,7 @@ export default function AdminBorrowerDetailPage() {
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/borrowers"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -186,7 +188,7 @@ export default function AdminBorrowerDetailPage() {
                   <button
                     type="button"
                     onClick={() => setEditing(false)}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <X className="size-4" aria-hidden="true" />
                     Cancel
@@ -195,7 +197,7 @@ export default function AdminBorrowerDetailPage() {
                     type="button"
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1"
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -210,14 +212,14 @@ export default function AdminBorrowerDetailPage() {
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <Pencil className="size-4" aria-hidden="true" />
                     Edit
                   </button>
                   <Link
                     href={`/dashboard/admin/messages?partnerId=${id}`}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <MessageSquare className="size-4" aria-hidden="true" />
                     Message
@@ -231,7 +233,7 @@ export default function AdminBorrowerDetailPage() {
 
       <Suspense
         fallback={
-          <div className="rounded-2xl bg-muted/70 p-1 shadow-[inset_0_0_0_1px_var(--border)]">
+          <div className="rounded-lg bg-muted/70 p-1 shadow-[inset_0_0_0_1px_var(--border)]">
             <div className="skeleton h-10 w-full" />
           </div>
         }
@@ -242,12 +244,12 @@ export default function AdminBorrowerDetailPage() {
             <div className="space-y-6">
               <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-profile-heading">
                 <div className="mb-5 flex items-center justify-between gap-3">
-                  <h2 id="borrower-profile-heading" className="text-sm font-semibold">Profile</h2>
+                  <h2 id="borrower-profile-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground">Profile</h2>
                   <button
                     type="button"
                     onClick={handleToggleActive}
                     disabled={toggling}
-                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] ${
+                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-[background-color,color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] ${
                       profile.isActive
                         ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                         : "bg-primary/20 text-foreground hover:bg-primary/30"
@@ -333,7 +335,7 @@ export default function AdminBorrowerDetailPage() {
               </section>
 
               <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-properties-heading">
-                <h2 id="borrower-properties-heading" className="mb-4 text-sm font-semibold">
+                <h2 id="borrower-properties-heading" className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
                   Properties <span className="text-muted-foreground tabular-nums">({loans.length})</span>
                 </h2>
                 {loans.length > 0 ? (
@@ -350,7 +352,7 @@ export default function AdminBorrowerDetailPage() {
               </section>
 
               <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-draws-heading">
-                <h2 id="borrower-draws-heading" className="mb-4 text-sm font-semibold">
+                <h2 id="borrower-draws-heading" className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
                   Draw requests <span className="text-muted-foreground tabular-nums">({draws.length})</span>
                 </h2>
                 {draws.length > 0 ? (
@@ -367,7 +369,7 @@ export default function AdminBorrowerDetailPage() {
               </section>
 
               <section className="card-premium p-5 sm:p-6" aria-labelledby="borrower-documents-heading">
-                <h2 id="borrower-documents-heading" className="mb-4 text-sm font-semibold">
+                <h2 id="borrower-documents-heading" className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
                   Documents <span className="text-muted-foreground tabular-nums">({documents.length})</span>
                 </h2>
                 {documents.length > 0 ? (

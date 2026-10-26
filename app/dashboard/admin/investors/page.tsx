@@ -70,7 +70,7 @@ export default function AdminInvestorsPage() {
       header: "Investments",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.investmentCount}</span>
+        <span className="font-medium tabular-nums">{row.investmentCount}</span>
       ),
     },
     {
@@ -78,7 +78,7 @@ export default function AdminInvestorsPage() {
       header: "Total Invested",
       sortable: true,
       render: (row) => formatCurrency(row.totalInvested),
-      className: "hidden lg:table-cell",
+      className: "hidden lg:table-cell tabular-nums",
     },
     {
       key: "isActive",
@@ -151,7 +151,7 @@ export default function AdminInvestorsPage() {
             />
             <Link
               href="/dashboard/admin/investors/new"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Investor
@@ -188,7 +188,7 @@ export default function AdminInvestorsPage() {
             !search ? (
               <Link
                 href="/dashboard/admin/investors/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 <Plus className="size-4" />
                 Add Investor

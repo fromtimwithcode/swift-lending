@@ -49,7 +49,7 @@ export function LoanOverviewCharts({
     <div className="grid gap-6 lg:grid-cols-2">
       {barData.length > 0 && (
         <div className="card-premium p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Loan Volume by Month
           </h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -61,7 +61,7 @@ export function LoanOverviewCharts({
                 contentStyle={{
                   backgroundColor: "var(--card)",
                   border: "1px solid var(--border)",
-                  borderRadius: "12px",
+                  borderRadius: "8px",
                 }}
               />
               <Bar
@@ -83,7 +83,7 @@ export function LoanOverviewCharts({
 
       {pieData.length > 0 && (
         <div className="card-premium p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Loan Status Distribution
           </h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -109,7 +109,7 @@ export function LoanOverviewCharts({
                 contentStyle={{
                   backgroundColor: "var(--card)",
                   border: "1px solid var(--border)",
-                  borderRadius: "12px",
+                  borderRadius: "8px",
                 }}
               />
             </PieChart>
@@ -144,7 +144,7 @@ export function RevenueByMonthChart({ data }: { data: RevenueDatum[] }) {
 
   return (
     <div className="card-premium p-6">
-      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+      <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
         Revenue by Month
       </h3>
       <ResponsiveContainer width="100%" height={250}>
@@ -161,7 +161,7 @@ export function RevenueByMonthChart({ data }: { data: RevenueDatum[] }) {
             contentStyle={{
               backgroundColor: "var(--card)",
               border: "1px solid var(--border)",
-              borderRadius: "12px",
+              borderRadius: "8px",
             }}
             formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
           />

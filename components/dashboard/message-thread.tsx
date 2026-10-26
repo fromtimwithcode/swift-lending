@@ -77,7 +77,7 @@ export function MessageThread({
     <div className="flex h-full min-w-0 flex-col">
       {/* Header */}
       <div className="min-w-0 border-b border-border px-4 py-3">
-        <h3 className="truncate font-semibold">{partnerName}</h3>
+        <h3 className="truncate font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">{partnerName}</h3>
       </div>
 
       {/* Messages */}
@@ -129,14 +129,14 @@ export function MessageThread({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
             placeholder="Type a message..."
-            className="min-h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="min-h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 admin:rounded-md"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={!text.trim() || sending}
             aria-label="Send message"
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-[background-color,scale] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 admin:rounded-md"
           >
             {sending ? (
               <Loader2 className="size-4 animate-spin" />

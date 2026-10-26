@@ -137,11 +137,11 @@ export function DataTable<T extends Record<string, unknown>>({
 
   if (data.length === 0) {
     return (
-      <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/60 px-6 py-16 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
+      <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/60 px-6 py-16 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] admin:rounded-xl admin:border-border admin:bg-card admin:shadow-none">
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground admin:rounded-lg">
           <Inbox className="size-5" />
         </div>
-        <p className="mt-4 text-sm font-semibold text-foreground">{emptyMessage}</p>
+        <p className="mt-4 text-sm font-semibold text-foreground admin:font-bold">{emptyMessage}</p>
         <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground text-pretty">
           Try adjusting your search or filters if you expected to see records here.
         </p>
@@ -152,14 +152,14 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div
       className={cn(
-        "min-w-0 max-w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)]",
+        "min-w-0 max-w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)] admin:rounded-xl admin:border-border admin:shadow-none",
         className
       )}
     >
       <div className="max-w-full overflow-x-auto overscroll-x-contain touch-pan-x">
         <table className="w-full min-w-max text-sm">
           <thead>
-            <tr className="border-b border-border/50 bg-muted/35">
+            <tr className="border-b border-border/50 bg-muted/35 admin:border-border admin:bg-muted/25">
               {selectable && (
                 <th className="w-11 px-4 py-3">
                   <input
@@ -189,7 +189,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         : undefined
                     }
                     className={cn(
-                      "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                      "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground admin:font-bold admin:tracking-wide",
                       col.className
                     )}
                   >
@@ -197,7 +197,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       <button
                         type="button"
                         onClick={() => handleSort(col.key)}
-                        className="inline-flex min-h-8 items-center gap-1 rounded-lg px-1.5 -ml-1.5 text-left transition-[background-color,color] hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                        className="inline-flex min-h-8 items-center gap-1 rounded-lg admin:rounded-md px-1.5 -ml-1.5 text-left transition-[background-color,color] hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                       >
                         {col.header}
                         <span className="text-muted-foreground/50">
@@ -230,7 +230,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   onKeyDown={(event) => handleRowKeyDown(event, row)}
                   tabIndex={onRowClick ? 0 : undefined}
                   className={cn(
-                    "border-b border-border/40 last:border-0 transition-[background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30",
+                    "border-b border-border/40 last:border-0 admin:border-border transition-[background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30",
                     onRowClick && "cursor-pointer hover:bg-muted/35 active:bg-muted/55",
                     isSelected && "bg-primary/5"
                   )}

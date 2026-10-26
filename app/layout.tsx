@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "sonner";
@@ -12,6 +12,14 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-jakarta",
   display: "swap",
+});
+
+// Only the admin dashboard uses DM Sans, so other routes skip the preload.
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -33,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <html lang="en" className={`h-full antialiased ${jakarta.variable}`} suppressHydrationWarning>
+      <html lang="en" className={`h-full antialiased ${jakarta.variable} ${dmSans.variable}`} suppressHydrationWarning>
         <body className="relative min-h-full flex flex-col">
           <NextTopLoader
             color="oklch(0.76 0.14 80)"

@@ -96,7 +96,7 @@ export default function NewAdminDrawRequestPage() {
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/draws"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -123,7 +123,7 @@ export default function NewAdminDrawRequestPage() {
                 <select
                   value={loanId}
                   onChange={(event) => setLoanId(event.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 >
                   <option value="">Choose a loan...</option>
                   {drawEligibleLoans.map((loan) => (
@@ -202,7 +202,7 @@ export default function NewAdminDrawRequestPage() {
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
               </div>
 
@@ -215,7 +215,7 @@ export default function NewAdminDrawRequestPage() {
                   onChange={(event) => setDescription(event.target.value)}
                   rows={4}
                   placeholder="Describe the work completed or draw purpose..."
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
               </div>
             </div>
@@ -224,14 +224,14 @@ export default function NewAdminDrawRequestPage() {
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Link
               href="/dashboard/admin/draws"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+              className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={saving || !fundingLedgerStatus?.isReconciled}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               Create Draw Request

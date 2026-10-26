@@ -190,7 +190,7 @@ export default function AdminUsersPage() {
             />
             <Link
               href="/dashboard/admin/users/new"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add User
@@ -212,7 +212,7 @@ export default function AdminUsersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 sm:w-auto"
+          className="min-h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 sm:w-auto"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -238,7 +238,7 @@ export default function AdminUsersPage() {
             !search && roleTab === "all" && statusFilter === "all" ? (
               <Link
                 href="/dashboard/admin/users/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 <Plus className="size-4" />
                 Add User

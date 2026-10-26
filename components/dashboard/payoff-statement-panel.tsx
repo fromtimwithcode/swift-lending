@@ -43,7 +43,7 @@ function PayoffSkeleton() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="skeleton h-20 rounded-xl motion-reduce:animate-none"
+          className="skeleton h-20 rounded-xl motion-reduce:animate-none admin:rounded-lg"
         />
       ))}
     </div>
@@ -127,14 +127,14 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
   };
 
   return (
-    <section className="rounded-2xl bg-card p-5 shadow-[inset_0_0_0_1px_var(--border),0_1px_3px_rgba(0,0,0,0.04),0_12px_36px_rgba(0,0,0,0.035)] sm:p-6">
+    <section className="rounded-2xl bg-card p-5 shadow-[inset_0_0_0_1px_var(--border),0_1px_3px_rgba(0,0,0,0.04),0_12px_36px_rgba(0,0,0,0.035)] sm:p-6 admin:rounded-xl admin:shadow-[inset_0_0_0_1px_var(--border)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_24%,transparent)]">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_24%,transparent)] admin:rounded-lg admin:shadow-none">
             <FileText className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0 pt-0.5">
-            <h3 className="text-balance text-base font-semibold tracking-[-0.02em]">
+            <h3 className="text-balance text-base font-semibold tracking-[-0.02em] admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">
               Payoff statement
             </h3>
             <p className="mt-1 max-w-xl text-pretty text-sm leading-5 text-muted-foreground">
@@ -163,7 +163,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
         {!readiness ? (
           <PayoffSkeleton />
         ) : readiness.state === "completed" ? (
-          <div className="flex items-start gap-3 rounded-xl bg-emerald-500/8 p-4 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16)]">
+          <div className="flex items-start gap-3 rounded-xl bg-emerald-500/8 p-4 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.16)] admin:rounded-lg">
             <BadgeCheck className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
@@ -179,7 +179,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
             </div>
           </div>
         ) : readiness.state === "blocked" ? (
-          <div className="rounded-xl bg-amber-500/8 p-4 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.18)] sm:p-5">
+          <div className="rounded-xl bg-amber-500/8 p-4 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.18)] sm:p-5 admin:rounded-lg">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
               <div className="min-w-0 flex-1">
@@ -219,25 +219,25 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4">
+              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4 admin:rounded-lg">
                 <p className="text-xs font-medium text-muted-foreground">Principal</p>
                 <p className="mt-1.5 text-sm font-semibold tabular-nums sm:text-base">
                   {formatCurrency(ready.statement.principal)}
                 </p>
               </div>
-              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4">
+              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4 admin:rounded-lg">
                 <p className="text-xs font-medium text-muted-foreground">Unpaid interest</p>
                 <p className="mt-1.5 text-sm font-semibold tabular-nums sm:text-base">
                   {formatCurrency(ready.statement.unpaidInterest)}
                 </p>
               </div>
-              <div className="rounded-xl bg-primary/10 p-3.5 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent)] sm:p-4">
+              <div className="rounded-xl bg-primary/10 p-3.5 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_22%,transparent)] sm:p-4 admin:rounded-lg">
                 <p className="text-xs font-medium text-muted-foreground">Total payoff</p>
                 <p className="mt-1.5 text-base font-bold tabular-nums text-foreground sm:text-lg">
                   {formatCurrency(ready.statement.totalPayoff)}
                 </p>
               </div>
-              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4">
+              <div className="rounded-xl bg-muted/55 p-3.5 shadow-[inset_0_0_0_1px_var(--border)] sm:p-4 admin:rounded-lg">
                 <p className="text-xs font-medium text-muted-foreground">Per diem</p>
                 <p className="mt-1.5 text-sm font-semibold tabular-nums sm:text-base">
                   {formatCurrency(ready.statement.perDiemInterest)}
@@ -251,12 +251,12 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
 
       <Dialog.Root open={open && ready !== null} onOpenChange={handleOpenChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/45 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/45 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none admin:bg-black/40 admin:backdrop-blur-sm" />
           <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-6">
-            <Dialog.Popup className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-3xl bg-card p-5 text-card-foreground shadow-[0_-8px_40px_rgba(0,0,0,0.14)] transition-[opacity,transform] duration-150 data-[ending-style]:translate-y-2 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:max-w-lg sm:rounded-2xl sm:p-6 sm:shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+            <Dialog.Popup className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-3xl bg-card p-5 text-card-foreground shadow-[0_-8px_40px_rgba(0,0,0,0.14)] transition-[opacity,transform] duration-150 data-[ending-style]:translate-y-2 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:max-w-lg sm:rounded-2xl sm:p-6 sm:shadow-[0_24px_80px_rgba(0,0,0,0.22)] admin:rounded-t-xl admin:border admin:border-border admin:shadow-lg admin:sm:rounded-xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <Dialog.Title className="text-balance text-lg font-semibold tracking-[-0.025em]">
+                  <Dialog.Title className="text-balance text-lg font-semibold tracking-[-0.025em] admin:font-bold">
                     Generate payoff statement
                   </Dialog.Title>
                   <Dialog.Description className="mt-1 text-pretty text-sm leading-6 text-muted-foreground">
@@ -266,7 +266,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
                 <Dialog.Close
                   disabled={downloading}
                   aria-label="Close payoff statement dialog"
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
                 >
                   <X className="size-4" aria-hidden="true" />
                 </Dialog.Close>
@@ -299,7 +299,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
                   {selected.isLoading ? (
                     <PayoffSkeleton />
                   ) : selected.error ? (
-                    <div role="alert" className="rounded-xl bg-destructive/6 p-4 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--destructive)_18%,transparent)]">
+                    <div role="alert" className="rounded-xl bg-destructive/6 p-4 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--destructive)_18%,transparent)] admin:rounded-lg">
                       <p className="text-sm font-semibold text-destructive">
                         Couldn&apos;t calculate that date
                       </p>
@@ -318,7 +318,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
                       </Button>
                     </div>
                   ) : selected.data ? (
-                    <div className="rounded-xl bg-muted/35 p-4 shadow-[inset_0_0_0_1px_var(--border)]">
+                    <div className="rounded-xl bg-muted/35 p-4 shadow-[inset_0_0_0_1px_var(--border)] admin:rounded-lg">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <p className="text-xs font-medium text-muted-foreground">Total payoff</p>
@@ -354,7 +354,7 @@ export function PayoffStatementPanel({ loanId }: PayoffStatementPanelProps) {
                 <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                   <Dialog.Close
                     disabled={downloading}
-                    className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50 admin:rounded-md"
                   >
                     Cancel
                   </Dialog.Close>

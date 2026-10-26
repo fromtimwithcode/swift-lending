@@ -98,25 +98,25 @@ export function KpiCard({
       )}
     >
       {/* Hover gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] admin:hidden bg-gradient-to-br from-primary/0 to-primary/0 transition-[--tw-gradient-from,--tw-gradient-to] duration-300 group-hover:from-primary/[0.02] group-hover:to-primary/[0.04]" />
 
       <div className="relative flex items-start justify-between gap-3">
-        <p className="min-w-0 flex flex-1 items-center text-xs font-semibold uppercase leading-5 tracking-[0.14em] text-muted-foreground [overflow-wrap:anywhere]">
+        <p className="min-w-0 flex flex-1 items-center text-xs font-semibold uppercase leading-5 tracking-[0.14em] text-muted-foreground [overflow-wrap:anywhere] admin:text-[11px] admin:font-bold admin:tracking-wide admin:text-foreground">
           <span>{label}</span>
           {tooltip && <ContextTooltip label={label} content={tooltip} />}
         </p>
         {Icon && (
-          <div className="shrink-0 rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12">
-            <Icon className="size-4 text-primary" />
+          <div className="shrink-0 rounded-lg bg-primary/8 p-2 transition-colors duration-200 group-hover:bg-primary/12 admin:flex admin:size-12 admin:items-center admin:justify-center admin:rounded-full admin:p-0 admin:group-hover:bg-primary/8">
+            <Icon className="size-4 text-primary admin:size-5" />
           </div>
         )}
       </div>
       <div className="relative mt-auto pt-4">
-        <p className="text-[28px] font-bold leading-none tracking-tight [overflow-wrap:anywhere]">
+        <p className="text-[28px] font-bold leading-none tracking-tight admin:tabular-nums [overflow-wrap:anywhere]">
           <AnimatedValue value={value} />
         </p>
         {subtitle && (
-          <p className="mt-1.5 text-sm leading-5 text-muted-foreground text-pretty [overflow-wrap:anywhere]">
+          <p className="mt-1.5 text-sm leading-5 text-muted-foreground text-pretty [overflow-wrap:anywhere] admin:text-xs">
             {subtitle}
           </p>
         )}

@@ -85,6 +85,7 @@ export default function AdminDrawsPage() {
       header: "Amount",
       sortable: true,
       render: (row) => formatCurrency(row.amountRequested),
+      className: "tabular-nums",
     },
     { key: "workDescription", header: "Description", className: "hidden lg:table-cell" },
     {
@@ -172,7 +173,7 @@ export default function AdminDrawsPage() {
             />
             <Link
               href="/dashboard/admin/draws/new"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Draw Request
@@ -215,7 +216,7 @@ export default function AdminDrawsPage() {
             !search && activeTab === "all" ? (
               <Link
                 href="/dashboard/admin/draws/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 <Plus className="size-4" />
                 Add Draw Request

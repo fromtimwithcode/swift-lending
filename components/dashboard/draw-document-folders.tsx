@@ -69,10 +69,10 @@ export function DrawDocumentFolders({
   }
 
   return (
-    <div className={cn("rounded-2xl border border-border bg-card", className)}>
+    <div className={cn("rounded-2xl border border-border bg-card admin:rounded-xl", className)}>
       <div className="flex min-w-0 flex-col gap-2 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-balance">{title}</h3>
+          <h3 className="text-sm font-semibold text-balance admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">{title}</h3>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground text-pretty">
             {description}
           </p>
@@ -100,9 +100,9 @@ export function DrawDocumentFolders({
                   <button
                     type="button"
                     onClick={() => toggleDraw(draw._id)}
-                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.995]"
+                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.995] admin:rounded-lg"
                   >
-                    <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary admin:rounded-lg">
                       {isExpanded ? <FolderOpen className="size-5" /> : <Folder className="size-5" />}
                     </span>
                     <span className="min-w-0 flex-1 py-0.5">
@@ -135,7 +135,7 @@ export function DrawDocumentFolders({
                     <button
                       type="button"
                       onClick={() => onUploadToDraw(draw)}
-                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-[background-color,transform] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] sm:self-auto"
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-[background-color,transform] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] sm:self-auto admin:rounded-md"
                     >
                       <Upload className="size-3.5" />
                       Upload
@@ -144,9 +144,9 @@ export function DrawDocumentFolders({
                 </div>
 
                 {isExpanded && (
-                  <div className="ml-0 mt-3 rounded-2xl border border-border/70 bg-muted/20 px-3 py-2 sm:ml-[3.25rem]">
+                  <div className="ml-0 mt-3 rounded-2xl border border-border/70 bg-muted/20 px-3 py-2 sm:ml-[3.25rem] admin:rounded-lg admin:border-border">
                     {drawDocs.length > 0 ? (
-                      <div className="divide-y divide-border/70">
+                      <div className="divide-y divide-border/70 admin:divide-border">
                         {drawDocs.map((doc) => (
                           <DocumentPreviewRow
                             key={doc._id}
@@ -157,7 +157,7 @@ export function DrawDocumentFolders({
                         ))}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/50 px-4 py-8 text-center">
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/50 px-4 py-8 text-center admin:rounded-lg admin:border-border">
                         <FolderOpen className="size-6 text-muted-foreground/50" />
                         <p className="mt-2 text-sm font-medium">No files in this draw folder</p>
                         <p className="mt-1 max-w-sm text-xs text-muted-foreground text-pretty">
@@ -167,7 +167,7 @@ export function DrawDocumentFolders({
                           <button
                             type="button"
                             onClick={() => onUploadToDraw(draw)}
-                            className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground transition-[background-color,transform] hover:bg-primary/85 active:scale-[0.96]"
+                            className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground transition-[background-color,transform] hover:bg-primary/85 active:scale-[0.96] admin:rounded-md"
                           >
                             <Upload className="size-3.5" />
                             Upload to Folder
@@ -183,10 +183,10 @@ export function DrawDocumentFolders({
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground/60">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground/60 admin:rounded-lg">
             <Folder className="size-7" />
           </div>
-          <p className="mt-4 text-sm font-semibold">No draw folders yet</p>
+          <p className="mt-4 text-sm font-semibold admin:font-bold">No draw folders yet</p>
           <p className="mt-1 max-w-md text-sm text-muted-foreground text-pretty">
             Draw folders are created automatically as draw requests are submitted.
           </p>

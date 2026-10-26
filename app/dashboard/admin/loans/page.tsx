@@ -272,7 +272,7 @@ export default function AdminLoansPage() {
             />
             <Link
               href="/dashboard/admin/loans/new"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Loan
@@ -319,7 +319,7 @@ export default function AdminLoansPage() {
             !search && activeTab === "all" ? (
               <Link
                 href="/dashboard/admin/loans/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 <Plus className="size-4" />
                 Add Loan
@@ -330,10 +330,10 @@ export default function AdminLoansPage() {
       )}
 
       {bulkFailures.length > 0 && (
-        <div role="alert" className="space-y-3 rounded-2xl border border-amber-500/25 bg-amber-50/50 p-5 dark:bg-amber-950/20">
+        <div role="alert" className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-50/50 p-5 dark:bg-amber-950/20">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">{bulkFailures.length} {bulkFailures.length === 1 ? "loan" : "loans"} could not be updated</h2>
-            <button type="button" onClick={() => setBulkFailures([])} className="min-h-11 rounded-lg px-3 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Dismiss</button>
+            <button type="button" onClick={() => setBulkFailures([])} className="min-h-11 rounded-md px-3 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Dismiss</button>
           </div>
           <ul className="space-y-3 text-sm">
             {bulkFailures.map((failure) => <li key={failure.loanId} className="break-words [overflow-wrap:anywhere]">

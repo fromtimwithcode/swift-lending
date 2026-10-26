@@ -158,7 +158,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.displayName}
                 onChange={(e) => updateField("displayName", e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring admin:rounded-md"
               />
             </div>
             <div>
@@ -167,7 +167,7 @@ export default function SettingsPage() {
                 type="email"
                 value={me.email}
                 disabled
-                className="w-full rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
+                className="w-full rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed admin:rounded-md"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Managed by your Google account.
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                 value={form.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
                 placeholder="(555) 123-4567"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring admin:rounded-md"
               />
             </div>
             <div>
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                 value={form.company}
                 onChange={(e) => updateField("company", e.target.value)}
                 placeholder="Company name"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring admin:rounded-md"
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function SettingsPage() {
             <button
               onClick={handleSave}
               disabled={isClean || saving}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 admin:rounded-md"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
@@ -210,7 +210,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Appearance Card */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold mb-3">Appearance</h2>
+            <h2 className="text-sm font-semibold mb-3 admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">Appearance</h2>
             <div className="space-y-2">
               {THEME_OPTIONS.map((opt) => {
                 const isActive = mounted && theme === opt.value;
@@ -219,7 +219,7 @@ export default function SettingsPage() {
                   <button
                     key={opt.value}
                     onClick={() => setTheme(opt.value)}
-                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors admin:rounded-md ${
                       isActive
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
@@ -237,7 +237,7 @@ export default function SettingsPage() {
           {/* Quick Links Card */}
           {quickLinks.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-sm font-semibold mb-3">Quick Links</h2>
+              <h2 className="text-sm font-semibold mb-3 admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">Quick Links</h2>
               <div className="space-y-1">
                 {quickLinks.map((link) => {
                   const Icon = link.icon;
@@ -245,7 +245,7 @@ export default function SettingsPage() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted"
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted admin:rounded-md"
                     >
                       <Icon className="size-4 text-muted-foreground" />
                       <span className="flex-1">{link.label}</span>
