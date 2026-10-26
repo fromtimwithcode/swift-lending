@@ -45,7 +45,7 @@ export default function AdminMessagesPage() {
         {/* Left - Conversations */}
         <div className="hidden w-72 shrink-0 overflow-y-auto border-r border-border sm:block">
           <div className="border-b border-border px-4 py-3">
-            <span className="text-sm font-medium">Conversations</span>
+            <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Conversations</span>
           </div>
           <ConversationList
             conversations={conversations ?? []}
@@ -59,7 +59,7 @@ export default function AdminMessagesPage() {
           {!selectedPartnerId ? (
             <div className="h-full overflow-y-auto">
               <div className="border-b border-border px-4 py-3">
-                <span className="text-sm font-medium">Conversations</span>
+                <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Conversations</span>
               </div>
               <ConversationList
                 conversations={conversations ?? []}

@@ -102,12 +102,12 @@ export function LoanStatusDialog({
       disablePointerDismissal
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/45" />
+        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" />
         <Dialog.Viewport className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto p-4 sm:p-6">
           <Dialog.Popup
             finalFocus={finalFocus}
             initialFocus={isBulk ? true : field}
-            className="my-auto max-h-[calc(100dvh_-_2rem)] w-full max-w-lg overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_24px_80px_rgba(0,0,0,0.2),0_4px_16px_rgba(0,0,0,0.08),inset_0_0_0_1px_var(--border)] outline-none"
+            className="my-auto max-h-[calc(100dvh_-_2rem)] w-full max-w-lg overflow-hidden rounded-xl bg-card text-card-foreground shadow-[0_10px_15px_-3px_rgb(0_0_0/0.1),0_4px_6px_-4px_rgb(0_0_0/0.1),inset_0_0_0_1px_var(--border)] outline-none"
           >
             <form
               onSubmit={submit}
@@ -117,7 +117,7 @@ export function LoanStatusDialog({
             >
               <div className="min-h-0 space-y-5 overflow-y-auto p-5 sm:p-7">
                 <div>
-                  <Dialog.Title className="text-balance text-xl font-semibold tracking-tight">
+                  <Dialog.Title className="text-balance text-lg font-bold tracking-tight">
                     {isBulk
                       ? `Update ${change.count} ${change.count === 1 ? "loan" : "loans"}`
                       : "Update loan status"}
@@ -150,7 +150,7 @@ export function LoanStatusDialog({
                         setError(null);
                         setInvalidField(null);
                       }}
-                      className="min-h-11 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 sm:text-sm"
+                      className="min-h-11 w-full rounded-md border border-input bg-background px-3.5 py-2.5 text-base focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 sm:text-sm"
                     >
                       <option value="" disabled>
                         Choose a status
@@ -164,7 +164,7 @@ export function LoanStatusDialog({
                   </div>
                 ) : (
                   <div
-                    className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-3.5"
+                    className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/60 p-3.5"
                     aria-label="Status change"
                   >
                     {change.currentStatus && (
@@ -223,7 +223,7 @@ export function LoanStatusDialog({
                           ? "Explain why this loan cannot move forward…"
                           : "Add context or next steps…"
                     }
-                    className="block min-h-32 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-base leading-6 transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/80 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm"
+                    className="block min-h-32 w-full resize-y rounded-md border border-input bg-background px-3.5 py-3 text-base leading-6 transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/80 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm"
                   />
                   <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-muted-foreground">
                     <p
@@ -253,17 +253,17 @@ export function LoanStatusDialog({
                   )}
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-muted/30 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
                 <Dialog.Close
                   disabled={saving}
-                  className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary disabled:opacity-50"
+                  className="min-h-11 rounded-md px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary disabled:opacity-50"
                 >
                   Cancel
                 </Dialog.Close>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.96] motion-reduce:active:scale-100 disabled:opacity-60 disabled:active:scale-100"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.96] motion-reduce:active:scale-100 disabled:opacity-60 disabled:active:scale-100"
                 >
                   {saving && (
                     <Loader2

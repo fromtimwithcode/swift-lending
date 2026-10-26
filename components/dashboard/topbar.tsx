@@ -61,22 +61,22 @@ export function Topbar({
   const { eyebrow, title } = getPageContext(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 min-w-0 items-center gap-4 border-b border-border/50 bg-background/80 px-4 shadow-[0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 min-w-0 items-center gap-4 border-b border-border/50 bg-background/80 px-4 shadow-[0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8 admin:border-border admin:bg-card/95 admin:shadow-none admin:backdrop-blur-md admin:backdrop-saturate-100">
       {/* Mobile menu button */}
       <button
         type="button"
         onClick={onMenuClick}
         aria-label="Open navigation menu"
-        className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] lg:hidden"
+        className="inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] lg:hidden"
       >
         <Menu className="size-5" />
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 sm:block">
+        <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 sm:block admin:font-bold admin:tracking-wide admin:text-muted-foreground">
           {eyebrow}
         </p>
-        <p className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
+        <p className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base admin:font-bold">
           {title}
         </p>
       </div>
@@ -88,7 +88,7 @@ export function Topbar({
         />
         <Link
           href="/dashboard/settings"
-          className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+          className="inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
           aria-label="Settings"
         >
           <Settings className="size-5" />

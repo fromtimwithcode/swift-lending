@@ -80,18 +80,18 @@ export function PropertyComps({ loanId }: PropertyCompsProps) {
   ];
 
   return (
-    <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] sm:p-6">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <MapPin className="size-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-muted-foreground text-balance">
+          <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground text-balance">
             Property Comps
           </h3>
         </div>
         <button
           onClick={handleFetch}
           disabled={fetching}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
         >
           {fetching ? (
             <Loader2 className="size-3 animate-spin" />

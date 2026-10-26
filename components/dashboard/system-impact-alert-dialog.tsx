@@ -71,15 +71,15 @@ export function SystemImpactAlertDialog({
       }}
     >
       <AlertDialog.Portal>
-        <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-foreground/45 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
+        <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <AlertDialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-6">
-          <AlertDialog.Popup className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-2xl bg-card p-5 text-card-foreground shadow-xl transition-[opacity,transform] duration-150 data-[ending-style]:translate-y-2 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:max-w-2xl sm:rounded-2xl sm:p-6">
+          <AlertDialog.Popup className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-xl border border-border bg-card p-5 text-card-foreground shadow-lg transition-[opacity,transform] duration-150 data-[ending-style]:translate-y-2 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:max-w-2xl sm:rounded-xl sm:p-6">
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="size-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <AlertDialog.Title className="text-balance text-lg font-semibold">
+                <AlertDialog.Title className="text-balance text-lg font-bold">
                   Apply these settings app-wide?
                 </AlertDialog.Title>
                 <AlertDialog.Description className="mt-1 text-pretty text-sm leading-6 text-muted-foreground">
@@ -91,16 +91,16 @@ export function SystemImpactAlertDialog({
 
             {loadingPreview ? (
               <div className="mt-6 space-y-3" aria-label="Preparing change impact">
-                <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-                <div className="h-24 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+                <div className="h-16 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+                <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
               </div>
             ) : preview ? (
               <div className="mt-6 space-y-5">
                 <section aria-labelledby="configuration-changes-heading">
-                  <h3 id="configuration-changes-heading" className="text-sm font-semibold">
+                  <h3 id="configuration-changes-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                     Changes
                   </h3>
-                  <div className="mt-2 divide-y divide-border overflow-hidden rounded-xl border border-border">
+                  <div className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border">
                     {preview.changes.map((change) => (
                       <div
                         key={change.key}
@@ -125,8 +125,8 @@ export function SystemImpactAlertDialog({
                 </section>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <section className="rounded-xl bg-amber-500/8 p-4" aria-labelledby="affected-heading">
-                    <h3 id="affected-heading" className="text-sm font-semibold">
+                  <section className="rounded-lg bg-amber-500/8 p-4" aria-labelledby="affected-heading">
+                    <h3 id="affected-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                       What changes
                     </h3>
                     <ul className="mt-2 space-y-1.5 text-xs leading-5 text-muted-foreground">
@@ -138,8 +138,8 @@ export function SystemImpactAlertDialog({
                       ))}
                     </ul>
                   </section>
-                  <section className="rounded-xl bg-emerald-500/8 p-4" aria-labelledby="protected-heading">
-                    <h3 id="protected-heading" className="text-sm font-semibold">
+                  <section className="rounded-lg bg-emerald-500/8 p-4" aria-labelledby="protected-heading">
+                    <h3 id="protected-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                       What stays unchanged
                     </h3>
                     <ul className="mt-2 space-y-1.5 text-xs leading-5 text-muted-foreground">
@@ -154,7 +154,7 @@ export function SystemImpactAlertDialog({
                 </div>
 
                 {preview.rebuildsComparables && (
-                  <p className="rounded-xl bg-muted px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  <p className="rounded-lg bg-muted px-4 py-3 text-xs leading-5 text-muted-foreground">
                     Existing comparable-property rankings will rebuild in the
                     background. Stored rankings remain visible and are replaced as
                     each loan is rebuilt with the new rules.
@@ -172,13 +172,13 @@ export function SystemImpactAlertDialog({
                     maxLength={500}
                     rows={2}
                     disabled={applying}
-                    className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     placeholder="Example: Updated Q3 lending policy"
                   />
                 </div>
 
                 {preview.requiresAcknowledgement && (
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm">
                     <input
                       type="checkbox"
                       checked={acknowledged}
@@ -195,7 +195,7 @@ export function SystemImpactAlertDialog({
             ) : null}
 
             {error && (
-              <div role="alert" className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div role="alert" className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -203,7 +203,7 @@ export function SystemImpactAlertDialog({
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <AlertDialog.Close
                 disabled={applying}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
               >
                 Cancel
               </AlertDialog.Close>
@@ -213,7 +213,7 @@ export function SystemImpactAlertDialog({
                 disabled={!canApply}
                 aria-busy={applying}
                 className={cn(
-                  "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,opacity,scale] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,opacity,scale] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
                 )}
               >
                 {applying ? (

@@ -85,7 +85,7 @@ function DatePickerField({
           aria-describedby={ariaDescribedBy}
           aria-invalid={ariaInvalid || undefined}
           className={cn(
-            "aria-invalid:border-destructive group/date-picker flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.03)] outline-none transition-[border-color,box-shadow,background-color,scale] duration-200 ease-out hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[popup-open]:border-ring data-[popup-open]:ring-2 data-[popup-open]:ring-ring/20",
+            "aria-invalid:border-destructive group/date-picker flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.03)] outline-none transition-[border-color,box-shadow,background-color,scale] duration-200 ease-out hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[popup-open]:border-ring data-[popup-open]:ring-2 data-[popup-open]:ring-ring/20 admin:rounded-md admin:shadow-none",
             !value && "text-muted-foreground",
             !disabled && "active:scale-[0.96]",
             buttonClassName
@@ -122,7 +122,7 @@ function DatePickerField({
                 (minDate !== undefined && today < minDate) ||
                 (maxDate !== undefined && today > maxDate)
               }
-              className="flex min-h-10 flex-1 items-center justify-center rounded-lg text-sm font-medium text-foreground transition-[background-color,color,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              className="flex min-h-10 flex-1 items-center justify-center rounded-lg text-sm font-medium text-foreground transition-[background-color,color,scale] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 admin:rounded-md"
             >
               Today
             </button>
@@ -133,7 +133,7 @@ function DatePickerField({
                   onChange("");
                   setOpen(false);
                 }}
-                className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+                className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] admin:rounded-md"
               >
                 <X className="size-4" />
                 Clear date

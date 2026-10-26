@@ -30,7 +30,7 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="break-words text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-[2rem]">
+        <h1 className="break-words text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-[2rem] admin:text-xl admin:font-bold admin:sm:text-2xl">
           {title}
         </h1>
         {description && (

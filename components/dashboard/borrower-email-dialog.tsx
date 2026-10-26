@@ -98,8 +98,8 @@ export function BorrowerEmailDialog({
       loading={sending}
     >
       <div className="space-y-4">
-        <div className="rounded-xl border border-border bg-muted/35 p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="rounded-lg border border-border bg-muted/35 p-3">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             Context
           </p>
           <p className="mt-1 break-words text-sm font-medium [overflow-wrap:anywhere]">
@@ -133,7 +133,7 @@ export function BorrowerEmailDialog({
             aria-invalid={error ? "true" : undefined}
             aria-describedby={error ? errorId : helperId}
             placeholder="Write the update you want to send..."
-            className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm leading-6 placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm leading-6 placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
           {error ? (
             <p id={errorId} className="mt-2 text-xs text-destructive">

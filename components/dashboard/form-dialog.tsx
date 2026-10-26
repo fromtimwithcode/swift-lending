@@ -58,12 +58,12 @@ export function FormDialog({
       disablePointerDismissal
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/45" />
+        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/45 admin:bg-black/40 admin:backdrop-blur-sm" />
         <Dialog.Viewport className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto p-4 sm:p-6">
           <Dialog.Popup
             finalFocus={finalFocus}
             initialFocus={initialFocus}
-            className="my-auto max-h-[calc(100dvh_-_2rem)] w-full max-w-lg overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_24px_80px_rgba(0,0,0,0.2),0_4px_16px_rgba(0,0,0,0.08),inset_0_0_0_1px_var(--border)] outline-none"
+            className="my-auto max-h-[calc(100dvh_-_2rem)] w-full max-w-lg overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_24px_80px_rgba(0,0,0,0.2),0_4px_16px_rgba(0,0,0,0.08),inset_0_0_0_1px_var(--border)] outline-none admin:rounded-xl admin:border admin:border-border admin:shadow-lg"
           >
             <form
               onSubmit={submit}
@@ -73,7 +73,7 @@ export function FormDialog({
             >
               <div className="min-h-0 space-y-5 overflow-y-auto p-5 sm:p-7">
                 <div>
-                  <Dialog.Title className="text-balance text-xl font-semibold tracking-tight">
+                  <Dialog.Title className="text-balance text-xl font-semibold tracking-tight admin:text-lg admin:font-bold">
                     {title}
                   </Dialog.Title>
                   <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
@@ -84,10 +84,10 @@ export function FormDialog({
                   {children}
                 </fieldset>
               </div>
-              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-7 admin:bg-muted/30">
                 <Dialog.Close
                   disabled={saving}
-                  className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary disabled:opacity-50"
+                  className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary disabled:opacity-50 admin:rounded-md"
                 >
                   {cancelLabel}
                 </Dialog.Close>
@@ -95,7 +95,7 @@ export function FormDialog({
                   type="submit"
                   disabled={saving}
                   className={cn(
-                    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-primary active:scale-[0.96] motion-reduce:active:scale-100 disabled:opacity-60 disabled:active:scale-100",
+                    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-[background-color,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-primary active:scale-[0.96] motion-reduce:active:scale-100 disabled:opacity-60 disabled:active:scale-100 admin:rounded-md",
                     destructive
                       ? "bg-destructive text-white hover:bg-destructive/90"
                       : "bg-primary text-primary-foreground hover:bg-primary/85"
@@ -116,7 +116,7 @@ export function FormDialog({
 }
 
 export const formFieldClassName =
-  "block min-h-11 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base leading-6 transition-[border-color,box-shadow] duration-150 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm";
+  "block min-h-11 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base leading-6 transition-[border-color,box-shadow] duration-150 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/15 dark:focus:border-primary/70 dark:focus:ring-primary/20 disabled:opacity-60 aria-invalid:border-destructive sm:text-sm admin:rounded-md";
 
 export function FormError({ id, message }: { id: string; message: string | null }) {
   if (!message) return null;

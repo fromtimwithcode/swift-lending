@@ -70,7 +70,7 @@ export default function NewUserPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
   const labelClass = "block text-sm font-medium text-muted-foreground mb-1.5";
 
   return (
@@ -78,7 +78,7 @@ export default function NewUserPage() {
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/users"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -157,14 +157,14 @@ export default function NewUserPage() {
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Link
             href="/dashboard/admin/users"
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
           >
             {submitting && <Loader2 className="size-4 animate-spin" />}
             Create User

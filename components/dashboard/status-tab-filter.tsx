@@ -24,7 +24,7 @@ export function StatusTabFilter({
     <div
       role="tablist"
       aria-label="Status filter"
-      className="flex w-full min-w-0 items-center gap-1 overflow-x-auto overscroll-x-contain rounded-2xl border border-border/60 bg-card/70 p-1 shadow-[0_1px_3px_oklch(0_0_0_/_3%)] touch-pan-x"
+      className="flex w-full min-w-0 items-center gap-1 overflow-x-auto overscroll-x-contain rounded-lg border border-border bg-card/70 p-1 touch-pan-x"
     >
       {tabs.map((tab) => (
         <button
@@ -34,7 +34,7 @@ export function StatusTabFilter({
           onClick={() => onChange(tab.value)}
           aria-selected={activeTab === tab.value}
           className={cn(
-            "relative min-h-10 shrink-0 rounded-xl px-3.5 text-sm font-semibold transition-[color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.98]",
+            "relative min-h-10 shrink-0 rounded-md px-3.5 text-sm font-semibold transition-[color,scale] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.98]",
             activeTab === tab.value
               ? "text-foreground"
               : "text-muted-foreground hover:text-foreground"
@@ -43,7 +43,7 @@ export function StatusTabFilter({
           {activeTab === tab.value && (
             <motion.span
               layoutId="tab-indicator"
-              className="absolute inset-0 rounded-xl bg-background shadow-sm"
+              className="absolute inset-0 rounded-md border border-border bg-background"
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
           )}

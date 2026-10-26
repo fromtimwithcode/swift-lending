@@ -70,7 +70,7 @@ export default function AdminBorrowersPage() {
       header: "Active",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.activeLoanCount}</span>
+        <span className="font-medium tabular-nums">{row.activeLoanCount}</span>
       ),
     },
     {
@@ -78,7 +78,7 @@ export default function AdminBorrowersPage() {
       header: "In Progress",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.inProgressLoanCount}</span>
+        <span className="font-medium tabular-nums">{row.inProgressLoanCount}</span>
       ),
       className: "hidden lg:table-cell",
     },
@@ -87,7 +87,7 @@ export default function AdminBorrowersPage() {
       header: "Funded",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.fundedLoanCount}</span>
+        <span className="font-medium tabular-nums">{row.fundedLoanCount}</span>
       ),
     },
     {
@@ -95,7 +95,7 @@ export default function AdminBorrowersPage() {
       header: "Total Loans",
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.loanCount}</span>
+        <span className="font-medium tabular-nums">{row.loanCount}</span>
       ),
       className: "hidden xl:table-cell",
     },
@@ -104,7 +104,7 @@ export default function AdminBorrowersPage() {
       header: "Total Capital",
       sortable: true,
       render: (row) => formatCurrency(row.totalCapital),
-      className: "hidden lg:table-cell",
+      className: "hidden lg:table-cell tabular-nums",
     },
     {
       key: "isActive",
@@ -180,7 +180,7 @@ export default function AdminBorrowersPage() {
             />
             <Link
               href="/dashboard/admin/borrowers/new"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 max-sm:flex-1"
             >
               <Plus className="size-4" />
               Add Borrower
@@ -217,7 +217,7 @@ export default function AdminBorrowersPage() {
             !search ? (
               <Link
                 href="/dashboard/admin/borrowers/new"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 <Plus className="size-4" />
                 Add Borrower

@@ -774,7 +774,7 @@ export default function LoanDetailPage() {
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setEditData((prev) => ({ ...prev, [key]: e.target.value })),
     className:
-      "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30",
+      "w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30",
   });
 
   const paymentColumns: Column<Record<string, unknown>>[] = [
@@ -784,6 +784,7 @@ export default function LoanDetailPage() {
       key: "amount",
       header: "Amount",
       render: (row) => formatCurrency(row.amount as number),
+      className: "tabular-nums",
     },
     {
       key: "method",
@@ -810,7 +811,7 @@ export default function LoanDetailPage() {
             e.stopPropagation();
             setConfirmDeletePayment(row._id as string);
           }}
-          className="rounded p-1 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+          className="rounded-md p-1 text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
         >
           <Trash2 className="size-3.5" />
         </button>
@@ -828,6 +829,7 @@ export default function LoanDetailPage() {
       key: "amount",
       header: "Amount",
       render: (row) => formatCurrency(row.amount as number),
+      className: "tabular-nums",
     },
     {
       key: "periodStart",
@@ -863,7 +865,7 @@ export default function LoanDetailPage() {
                   e.stopPropagation();
                   openPaymentFormForCharge(chargeGroup);
                 }}
-                className="min-h-10 rounded-lg border border-border px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-10 rounded-md border border-border px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {chargeGroup.scheduledChargeCount > 1 ? "Record combined" : "Record"}
               </button>
@@ -888,7 +890,7 @@ export default function LoanDetailPage() {
                     : "Delete charge"
               }
               aria-label={`Delete ${getPaymentReminderTypeLabel(row.type as string).toLowerCase()} charge due ${dueDate}`}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground dark:hover:bg-red-900/30"
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground dark:hover:bg-red-900/30"
             >
               <Trash2 className="size-3.5" />
             </button>
@@ -903,7 +905,7 @@ export default function LoanDetailPage() {
       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
         <Link
           href="/dashboard/admin/loans"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" />
         </Link>
@@ -916,7 +918,7 @@ export default function LoanDetailPage() {
                 <>
                   <button
                     onClick={() => setEditing(false)}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                   >
                     <X className="size-4" />
                     Cancel
@@ -924,7 +926,7 @@ export default function LoanDetailPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 max-sm:flex-1"
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -940,7 +942,7 @@ export default function LoanDetailPage() {
                     <button
                       type="button"
                       onClick={openReturnForm}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                     >
                       <RotateCcw className="size-4" />
                       Record Funds Returned
@@ -950,14 +952,14 @@ export default function LoanDetailPage() {
                     type="button"
                     onClick={() => setEmailOpen(true)}
                     aria-haspopup="dialog"
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                   >
                     <Mail className="size-4" aria-hidden="true" />
                     Email Investor
                   </button>
                   <button
                     onClick={startEditing}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] max-sm:flex-1"
                   >
                     <Pencil className="size-4" />
                     Edit
@@ -999,7 +1001,7 @@ export default function LoanDetailPage() {
       )}
 
       {loan.returnedDate && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.04)] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-balance">Funds Returned</p>
@@ -1037,7 +1039,7 @@ export default function LoanDetailPage() {
       {/* Loan Details */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Borrower Info
           </h3>
           <div className="space-y-3">
@@ -1062,7 +1064,7 @@ export default function LoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Property Details
           </h3>
           <div className="space-y-3">
@@ -1114,7 +1116,7 @@ export default function LoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Loan Terms
           </h3>
           <div className="space-y-3">
@@ -1142,7 +1144,7 @@ export default function LoanDetailPage() {
                     {...field("loanAmount")}
                     type="number"
                     onChange={(e) => updateLoanTermFields({ loanAmount: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                   <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                     <span>Adjust if borrower brings cash to close.</span>
@@ -1183,7 +1185,7 @@ export default function LoanDetailPage() {
                     id="loan-monthly-payment"
                     type="number"
                     readOnly
-                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
                 <div>
@@ -1204,7 +1206,7 @@ export default function LoanDetailPage() {
                     value={editPointsEarned ? String(editPointsEarned) : ""}
                     type="number"
                     readOnly
-                    className="w-full rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
                 <div>
@@ -1228,7 +1230,7 @@ export default function LoanDetailPage() {
                     onChange={(e) =>
                       updateLoanTermFields({ paymentType: e.target.value })
                     }
-                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
                     {Object.entries(PAYMENT_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
@@ -1273,7 +1275,7 @@ export default function LoanDetailPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+          <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
             Dates & Title
           </h3>
           <div className="space-y-3">
@@ -1304,7 +1306,7 @@ export default function LoanDetailPage() {
                   </p>
                 </div>
                 {titleContacts.length > 0 && (
-                  <div className="rounded-xl border border-border bg-muted/25 p-3">
+                  <div className="rounded-lg border border-border bg-muted/25 p-3">
                     <label className="text-sm text-muted-foreground">Saved Title Contacts</label>
                     <select
                       className={field("titleCompany").className}
@@ -1364,7 +1366,7 @@ export default function LoanDetailPage() {
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground">
+              <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                 Construction Holdback
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -1377,7 +1379,7 @@ export default function LoanDetailPage() {
                 onClick={() => setDrawFormOpen((open) => !open)}
                 aria-expanded={drawFormOpen}
                 aria-controls="admin-inline-draw-form"
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-transform hover:bg-primary/80 active:scale-[0.96]"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-transform hover:bg-primary/80 active:scale-[0.96]"
               >
                 <Plus className="size-3" />
                 New Draw
@@ -1470,7 +1472,7 @@ export default function LoanDetailPage() {
                   </p>
                 </div>
                 {drawRequestAvailable !== undefined && (
-                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs">
                     <p className="text-muted-foreground">Available</p>
                     <p className="font-semibold tabular-nums text-primary">
                       {formatCurrency(Math.max(0, drawRequestAvailable))}
@@ -1478,7 +1480,7 @@ export default function LoanDetailPage() {
                   </div>
                 )}
                 {drawAvailabilityLoading && (
-                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                  <div className="rounded-lg bg-background px-3 py-2 text-right text-xs">
                     <p className="text-muted-foreground">Available</p>
                     <p className="font-semibold text-muted-foreground">Loading...</p>
                   </div>
@@ -1505,7 +1507,7 @@ export default function LoanDetailPage() {
                     value={drawAmount}
                     onChange={(event) => setDrawAmount(event.target.value)}
                     placeholder="0.00"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
                 <div>
@@ -1519,7 +1521,7 @@ export default function LoanDetailPage() {
                     required
                     disabled={drawSaving}
                     placeholder="Describe the completed work or draw purpose..."
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
               </div>
@@ -1528,14 +1530,14 @@ export default function LoanDetailPage() {
                   type="button"
                   onClick={() => setDrawFormOpen(false)}
                   disabled={drawSaving}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={drawSaving || drawAvailabilityLoading || (drawRequestAvailable !== undefined && drawRequestAvailable <= 0)}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
                 >
                   {drawSaving && <Loader2 className="size-4 animate-spin" />}
                   Create Draw
@@ -1548,7 +1550,7 @@ export default function LoanDetailPage() {
 
       {/* Closing Statement */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+        <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
           Closing Statement
         </h3>
         {closingStatementUrl ? (
@@ -1557,12 +1559,12 @@ export default function LoanDetailPage() {
               href={closingStatementUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-lg text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-md text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <FileText className="size-4" />
               View Closing Statement
             </a>
-            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring/30">
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 text-xs font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring/30">
               {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
               Replace
               <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
@@ -1571,14 +1573,14 @@ export default function LoanDetailPage() {
               onClick={() => {
                 setConfirmRemoveClosing(true);
               }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 dark:hover:bg-red-900/20"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 dark:hover:bg-red-900/20"
             >
               <Trash2 className="size-3" />
               Remove
             </button>
           </div>
         ) : (
-          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-within:ring-2 focus-within:ring-ring/30">
+          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-within:ring-2 focus-within:ring-ring/30">
             {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
             Attach Closing Statement
             <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
@@ -1588,7 +1590,7 @@ export default function LoanDetailPage() {
 
       {/* Notes */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+        <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
           Notes
         </h3>
         {editing ? (
@@ -1597,7 +1599,7 @@ export default function LoanDetailPage() {
               {...field("notes")}
               aria-label="Notes"
               rows={4}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
             />
             <div>
               <label htmlFor="loan-missing-documents" className="mb-1.5 block text-sm text-muted-foreground">
@@ -1609,7 +1611,7 @@ export default function LoanDetailPage() {
                 rows={2}
                 maxLength={MAX_MISSING_DOCUMENTS_NOTE_LENGTH}
                 placeholder="e.g. Missing purchase contract"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
               />
               <p className="mt-1 text-xs text-muted-foreground text-pretty">
                 The borrower sees this on their loan page. Clear it once the documents arrive.
@@ -1633,7 +1635,7 @@ export default function LoanDetailPage() {
       <div ref={chargesSectionRef} tabIndex={-1} className="rounded-xl border border-border bg-card p-6 outline-none">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="flex items-center text-sm font-medium text-muted-foreground">
+            <h3 className="flex items-center text-[13px] font-bold uppercase tracking-wide text-foreground">
               <span>Charges / Interest Schedule</span>
               <ContextTooltip
                 label="Charges and Interest Schedule"
@@ -1675,7 +1677,7 @@ export default function LoanDetailPage() {
       {/* Payment History */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
             Payment History
           </h3>
           {["funded", "closed", "sent_to_title"].includes(loan.status) && (
@@ -1684,7 +1686,7 @@ export default function LoanDetailPage() {
                 if (paymentFormOpen) setPaymentFormOpen(false);
                 else openPaymentFormForCharge(nextScheduledCharge);
               }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               {paymentFormOpen ? <ChevronUp className="size-3" /> : <Plus className="size-3" />}
               Record Payment
@@ -1697,29 +1699,29 @@ export default function LoanDetailPage() {
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Total Received</p>
-              <p className="text-sm font-semibold">{formatCurrency(paymentStats.totalReceived)}</p>
+              <p className="text-sm font-semibold tabular-nums">{formatCurrency(paymentStats.totalReceived)}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Payments</p>
-              <p className="text-sm font-semibold">{paymentStats.paymentCount}</p>
+              <p className="text-sm font-semibold tabular-nums">{paymentStats.paymentCount}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">On Time</p>
-              <p className="text-sm font-semibold text-green-600">
+              <p className="text-sm font-semibold tabular-nums text-green-600">
                 {Math.round((paymentStats.onTimeCount / paymentStats.paymentCount) * 100)}%
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Late</p>
-              <p className="text-sm font-semibold text-amber-600">{paymentStats.lateCount}</p>
+              <p className="text-sm font-semibold tabular-nums text-amber-600">{paymentStats.lateCount}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Partial</p>
-              <p className="text-sm font-semibold text-orange-600">{paymentStats.partialCount}</p>
+              <p className="text-sm font-semibold tabular-nums text-orange-600">{paymentStats.partialCount}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground">Missed</p>
-              <p className="text-sm font-semibold text-red-600">{paymentStats.missedCount}</p>
+              <p className="text-sm font-semibold tabular-nums text-red-600">{paymentStats.missedCount}</p>
             </div>
           </div>
         )}
@@ -1734,7 +1736,7 @@ export default function LoanDetailPage() {
                   <select
                     value={paymentData.chargeGroupKey}
                     onChange={(e) => handleScheduledChargeSelect(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
                     <option value="">No scheduled charge</option>
                     {scheduledChargeGroups.map((chargeGroup) => (
@@ -1751,7 +1753,7 @@ export default function LoanDetailPage() {
                   type="number"
                   value={paymentData.amount}
                   onChange={(e) => setPaymentData((p) => ({ ...p, amount: e.target.value }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
               </div>
               <div>
@@ -1779,7 +1781,7 @@ export default function LoanDetailPage() {
                 <select
                   value={paymentData.method}
                   onChange={(e) => setPaymentData((p) => ({ ...p, method: e.target.value as typeof p.method }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 >
                   <option value="ach">ACH</option>
                   <option value="wire">Wire</option>
@@ -1792,7 +1794,7 @@ export default function LoanDetailPage() {
                 <select
                   value={paymentData.status}
                   onChange={(e) => setPaymentData((p) => ({ ...p, status: e.target.value as typeof p.status }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 >
                   <option value="on_time">On Time</option>
                   <option value="late">Late</option>
@@ -1805,21 +1807,21 @@ export default function LoanDetailPage() {
                 <input
                   value={paymentData.notes}
                   onChange={(e) => setPaymentData((p) => ({ ...p, notes: e.target.value }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
               </div>
             </div>
             <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setPaymentFormOpen(false)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRecordPayment}
                 disabled={paymentSaving}
-                className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               >
                 {paymentSaving && <Loader2 className="size-3 animate-spin" />}
                 Save Payment
@@ -1842,12 +1844,12 @@ export default function LoanDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground">
+            <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
               Documents
             </h3>
             <button
               onClick={() => setUploadOpen(true)}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <Upload className="size-3" />
               Upload
@@ -1870,13 +1872,13 @@ export default function LoanDetailPage() {
 
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground">
+            <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
               Draw Requests ({loanDraws.length})
             </h3>
             {canAddDrawRequest && (
               <Link
                 href={`/dashboard/admin/draws/new?loanId=${id}`}
-                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
                 <Plus className="size-3" />
                 Add
@@ -1889,10 +1891,10 @@ export default function LoanDetailPage() {
                 <button
                   key={draw._id}
                   onClick={() => router.push(`/dashboard/admin/draws/${draw._id}`)}
-                  className="flex w-full min-w-0 items-center justify-between gap-3 rounded px-1 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  className="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium tabular-nums">
                       {formatCurrency(draw.amountRequested)}
                     </p>
                     <p className="max-w-[200px] truncate text-xs text-muted-foreground">
@@ -1944,13 +1946,13 @@ export default function LoanDetailPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="return-funds-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !returnSaving) setReturnFormOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-[0_8px_48px_rgba(0,0,0,0.18)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
-            <h3 id="return-funds-title" className="text-lg font-semibold text-balance">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-150">
+            <h3 id="return-funds-title" className="text-lg font-bold text-balance">
               Record Funds Returned
             </h3>
             <p className="mt-2 text-sm text-muted-foreground text-pretty">
@@ -1979,7 +1981,7 @@ export default function LoanDetailPage() {
                     setReturnAmountManuallyEdited(true);
                     setReturnData((prev) => ({ ...prev, returnedAmount: event.target.value }));
                   }}
-                  className="min-h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="min-h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm tabular-nums focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   placeholder="0.00"
                   autoComplete="off"
                   required
@@ -1995,7 +1997,7 @@ export default function LoanDetailPage() {
                     <button
                       type="button"
                       onClick={returnPayoff.retry}
-                      className="min-h-10 rounded-lg px-2 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="min-h-10 rounded-md px-2 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Try again
                     </button>
@@ -2036,7 +2038,7 @@ export default function LoanDetailPage() {
                   value={returnData.notes}
                   onChange={(event) => setReturnData((prev) => ({ ...prev, notes: event.target.value }))}
                   rows={3}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                   placeholder="Optional notes about the return"
                 />
               </div>
@@ -2046,7 +2048,7 @@ export default function LoanDetailPage() {
                 type="button"
                 onClick={() => setReturnFormOpen(false)}
                 disabled={returnSaving}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                className="inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-[background-color,scale] duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 Cancel
               </button>
@@ -2054,7 +2056,7 @@ export default function LoanDetailPage() {
                 type="button"
                 onClick={handleRecordLoanReturned}
                 disabled={returnSaving || !canSaveReturn}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-[background-color,scale] duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100"
               >
                 {returnSaving && <Loader2 className="size-4 animate-spin" />}
                 Save Return

@@ -10,7 +10,7 @@ export function MissingDocumentsNote({ note }: { note?: string }) {
         strokeWidth={1.5}
       />
       <div className="min-w-0 space-y-1.5">
-        <h3 className="text-sm font-semibold">Missing documents</h3>
+        <h3 className="text-sm font-semibold admin:text-[13px] admin:font-bold admin:uppercase admin:tracking-wide admin:text-foreground">Missing documents</h3>
         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
           {note}
         </p>

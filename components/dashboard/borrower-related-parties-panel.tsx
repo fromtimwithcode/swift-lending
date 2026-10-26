@@ -46,7 +46,7 @@ const partyTypeLabels = Object.fromEntries(
 ) as Record<PartyType, string>;
 
 const inputClass =
-  "min-h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
+  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
 const labelClass = "text-sm font-medium text-foreground";
 
 const emptyPartyForm = {
@@ -155,11 +155,11 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
     <section className="card-premium overflow-hidden" aria-labelledby="related-parties-heading">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div className="flex min-w-0 gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-foreground">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-foreground">
             <UsersRound className="size-5" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h2 id="related-parties-heading" className="text-base font-semibold text-balance">
+            <h2 id="related-parties-heading" className="text-[13px] font-bold uppercase tracking-wide text-foreground text-balance">
               Related parties
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground text-pretty">
@@ -178,7 +178,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
       {partyForm && (
         <form
           onSubmit={submitParty}
-          className="border-y border-border/70 bg-muted/25 p-5 sm:p-6"
+          className="border-y border-border bg-muted/25 p-5 sm:p-6"
           aria-busy={saving}
         >
           <fieldset className="space-y-5">
@@ -302,7 +302,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
 
       <div className="p-5 sm:p-6">
         {parties.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <div className="rounded-lg border border-dashed border-border p-10 text-center">
             <UserRound className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
             <p className="mt-3 text-sm font-semibold">No related parties yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -312,7 +312,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {parties.map((party) => (
-              <article key={party._id} className="rounded-2xl bg-muted/45 p-4 shadow-[inset_0_0_0_1px_var(--border)] sm:p-5">
+              <article key={party._id} className="rounded-lg bg-muted/45 p-4 shadow-[inset_0_0_0_1px_var(--border)] sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className="inline-flex rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold">
@@ -328,7 +328,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
                       type="button"
                       onClick={() => openEdit(party)}
                       aria-label={`Edit ${party.fullName}`}
-                      className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+                      className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
                     >
                       <Pencil className="size-4" aria-hidden="true" />
                     </button>
@@ -336,7 +336,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
                       type="button"
                       onClick={() => setRemovingParty(party)}
                       aria-label={`Remove ${party.fullName}`}
-                      className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+                      className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
                     >
                       <Trash2 className="size-4" aria-hidden="true" />
                     </button>
@@ -366,7 +366,7 @@ export function BorrowerRelatedPartiesPanel({ borrowerId }: BorrowerRelatedParti
                     </p>
                   )}
                   {party.notes && (
-                    <p className="border-t border-border/70 pt-3 text-sm leading-6 text-pretty">{party.notes}</p>
+                    <p className="border-t border-border pt-3 text-sm leading-6 text-pretty">{party.notes}</p>
                   )}
                 </div>
               </article>

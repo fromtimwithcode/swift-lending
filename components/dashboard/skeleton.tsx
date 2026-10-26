@@ -9,7 +9,7 @@ export function KpiCardSkeleton() {
     <div className="card-premium p-6">
       <div className="flex items-center justify-between">
         <Skeleton className="h-3 w-20" />
-        <Skeleton className="size-8 rounded-lg" />
+        <Skeleton className="size-8 rounded-lg admin:size-12 admin:rounded-full" />
       </div>
       <div className="mt-4">
         <Skeleton className="h-7 w-28" />
@@ -21,9 +21,9 @@ export function KpiCardSkeleton() {
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)]">
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_3px_oklch(0_0_0_/_4%),0_8px_24px_oklch(0_0_0_/_2%)] admin:rounded-xl admin:border-border admin:shadow-none">
       {/* Header */}
-      <div className="flex gap-4 border-b border-border/40 bg-muted/35 px-4 py-3">
+      <div className="flex gap-4 border-b border-border/40 bg-muted/35 px-4 py-3 admin:border-border admin:bg-muted/25">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-3 w-20" />
@@ -34,7 +34,7 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="flex gap-4 border-b border-border/40 px-4 py-4 last:border-0"
+          className="flex gap-4 border-b border-border/40 px-4 py-4 last:border-0 admin:border-border"
         >
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-4 w-32" />

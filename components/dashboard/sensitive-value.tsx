@@ -76,7 +76,7 @@ export function SensitiveValue({
           disabled={loading}
           aria-label={`${revealedValue ? "Hide" : "Show"} ${label.toLowerCase()}`}
           aria-pressed={Boolean(revealedValue)}
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />

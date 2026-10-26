@@ -39,11 +39,11 @@ export function DeletedCharges({ loanId }: { loanId: Id<"loans"> }) {
 
   return (
     <>
-      <details className="mt-4 rounded-lg border border-border/60">
+      <details className="mt-4 rounded-lg border border-border">
         <summary className="min-h-11 cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:focus-visible:ring-primary">
           Deleted charges <span className="tabular-nums text-muted-foreground">({items.length})</span>
         </summary>
-        <ul className="divide-y divide-border border-t border-border/60">
+        <ul className="divide-y divide-border border-t border-border">
           {items.map((item) => {
             const label = getPaymentReminderTypeLabel(item.type);
             return (
@@ -70,7 +70,7 @@ export function DeletedCharges({ loanId }: { loanId: Id<"loans"> }) {
                   type="button"
                   onClick={() => setRestoring(item)}
                   aria-label={`Restore ${label.toLowerCase()} due ${item.dueDate}`}
-                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-border px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 self-start rounded-md border border-border px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <RotateCcw className="size-3.5" aria-hidden="true" />
                   Restore

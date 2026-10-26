@@ -132,7 +132,7 @@ export function DocumentPreviewRow({
               type="button"
               onClick={openPreview}
               aria-label={`Preview ${document.fileName}`}
-              className={`${thumbnailSize} group relative shrink-0 overflow-hidden rounded-xl border border-border bg-muted shadow-sm ring-offset-background transition hover:-translate-y-0.5 hover:shadow-md hover:ring-2 hover:ring-ring/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+              className={`${thumbnailSize} group relative shrink-0 overflow-hidden rounded-xl border border-border bg-muted shadow-sm ring-offset-background transition hover:-translate-y-0.5 hover:shadow-md hover:ring-2 hover:ring-ring/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring admin:rounded-lg admin:shadow-none admin:hover:shadow-none`}
             >
               <img
                 src={document.url ?? undefined}
@@ -147,7 +147,7 @@ export function DocumentPreviewRow({
               </span>
             </button>
           ) : (
-            <div className={`${thumbnailSize} flex shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground`}>
+            <div className={`${thumbnailSize} flex shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground admin:rounded-lg`}>
               <FileText className={compact ? "size-4" : "size-6"} />
             </div>
           )}
@@ -160,7 +160,7 @@ export function DocumentPreviewRow({
                 <button
                   type="button"
                   onClick={openPreview}
-                  className="inline-flex min-h-10 items-center gap-1 rounded-full bg-primary/10 px-3 text-[11px] font-medium text-primary transition-[background-color,transform] hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-full bg-primary/10 px-3 text-[11px] font-medium text-primary transition-[background-color,transform] hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] admin:rounded-md"
                 >
                   <ImageIcon className="size-3" />
                   Preview
@@ -185,7 +185,7 @@ export function DocumentPreviewRow({
             <button
               type="button"
               onClick={openPreview}
-              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
               aria-label={`Preview ${document.fileName}`}
             >
               <Eye className="size-4" />
@@ -197,7 +197,7 @@ export function DocumentPreviewRow({
               target="_blank"
               rel="noopener noreferrer"
               download={document.fileName}
-              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
               aria-label={isImage ? `Download ${document.fileName}` : `Open ${document.fileName}`}
             >
               {isImage ? <Download className="size-4" /> : <ExternalLink className="size-4" />}
@@ -219,11 +219,11 @@ export function DocumentPreviewRow({
         >
           <div
             ref={dialogRef}
-            className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl"
+            className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl admin:rounded-xl admin:border-border admin:bg-card admin:shadow-lg"
           >
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:items-center sm:px-5">
               <div className="min-w-0 flex-1">
-                <h2 id={titleId} className="truncate text-sm font-semibold sm:text-base">
+                <h2 id={titleId} className="truncate text-sm font-semibold sm:text-base admin:text-lg admin:font-bold">
                   {activeDocument.fileName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -251,7 +251,7 @@ export function DocumentPreviewRow({
                   target="_blank"
                   rel="noopener noreferrer"
                   download={activeDocument.fileName}
-                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
                   aria-label={`Download ${activeDocument.fileName}`}
                 >
                   <Download className="size-4" />
@@ -260,7 +260,7 @@ export function DocumentPreviewRow({
                   ref={closeButtonRef}
                   type="button"
                   onClick={closePreview}
-                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 admin:rounded-md"
                   aria-label="Close preview"
                 >
                   <X className="size-4" />

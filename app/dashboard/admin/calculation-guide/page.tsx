@@ -44,7 +44,7 @@ export default function CalculationGuidePage() {
         title="Calculation Guide"
         description="See how Swift Capital calculates loan balances, interest, payments, payoff estimates, dashboard totals, and comparable-property rankings."
         actions={
-          <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 text-xs font-semibold text-muted-foreground">
+          <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border bg-muted/50 px-3 text-xs font-semibold text-muted-foreground">
             <LockKeyhole className="size-3.5" aria-hidden="true" />
             Reference only
           </span>
@@ -55,15 +55,15 @@ export default function CalculationGuidePage() {
         className="card-premium overflow-hidden"
         aria-labelledby="calculation-guide-defaults-heading"
       >
-        <div className="flex flex-col gap-4 border-b border-border/50 bg-primary/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex flex-col gap-4 border-b border-border bg-primary/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <WalletCards className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <h2
                 id="calculation-guide-defaults-heading"
-                className="text-base font-semibold tracking-tight"
+                className="text-[13px] font-bold uppercase tracking-wide text-foreground"
               >
                 Current lending defaults
               </h2>
@@ -81,9 +81,9 @@ export default function CalculationGuidePage() {
           {guide.defaults.map((item) => (
             <div
               key={item.label}
-              className="border-border/50 p-5 [&:not(:first-child)]:border-t sm:p-6 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:border-l sm:[&:nth-child(n+3)]:border-t xl:[&:not(:first-child)]:border-l xl:[&:nth-child(n+3)]:border-t-0"
+              className="border-border p-5 [&:not(:first-child)]:border-t sm:p-6 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:border-l sm:[&:nth-child(n+3)]:border-t xl:[&:not(:first-child)]:border-l xl:[&:nth-child(n+3)]:border-t-0"
             >
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 {item.label}
               </dt>
               <dd className="mt-2 text-2xl font-bold tracking-tight tabular-nums">
@@ -106,14 +106,14 @@ export default function CalculationGuidePage() {
               className="card-premium min-w-0 overflow-hidden"
               aria-labelledby={`${section.id}-heading`}
             >
-              <div className="flex items-start gap-3 border-b border-border/50 p-5 sm:p-6">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="flex items-start gap-3 border-b border-border p-5 sm:p-6">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="size-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <h2
                     id={`${section.id}-heading`}
-                    className="text-base font-semibold tracking-tight"
+                    className="text-[13px] font-bold uppercase tracking-wide text-foreground"
                   >
                     {section.title}
                   </h2>
@@ -123,7 +123,7 @@ export default function CalculationGuidePage() {
                 </div>
               </div>
 
-              <dl className="divide-y divide-border/50 px-5 sm:px-6">
+              <dl className="divide-y divide-border px-5 sm:px-6">
                 {section.rules.map((rule) => (
                   <div key={rule.name} className="py-5">
                     <dt className="text-sm font-semibold text-foreground">

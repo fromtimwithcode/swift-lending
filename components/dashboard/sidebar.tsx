@@ -162,7 +162,7 @@ export function Sidebar({
         {/* Logo */}
         <div
           className={cn(
-            "flex h-16 items-center border-b border-sidebar-border/50 transition-[padding] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
+            "flex h-16 items-center border-b border-sidebar-border/50 transition-[padding] admin:border-sidebar-border duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
             collapsed ? "justify-center px-2" : "justify-between px-4"
           )}
         >
@@ -172,19 +172,19 @@ export function Sidebar({
             onPointerEnter={() => prewarmHref(homeHref)}
             onTouchStart={() => prewarmHref(homeHref)}
             className={cn(
-              "flex min-h-10 min-w-0 items-center rounded-xl transition-[gap,width] duration-300 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 motion-reduce:transition-none",
+              "flex min-h-10 min-w-0 items-center rounded-xl transition-[gap,width] admin:rounded-md duration-300 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 motion-reduce:transition-none",
               collapsed ? "size-10 justify-center gap-0" : "flex-1 justify-start gap-2"
             )}
             aria-label={collapsed ? "Swift Capital dashboard" : undefined}
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.30_0.10_250_/_25%)]">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary shadow-[0_2px_8px_oklch(0.30_0.10_250_/_25%)] admin:bg-none admin:bg-primary admin:shadow-none">
               <Landmark className="size-4 text-primary-foreground" />
             </div>
             <span
               aria-hidden={collapsed}
               className={cn(
                 revealTextClass(collapsed, "max-w-40"),
-                "text-lg font-bold tracking-tight"
+                "text-lg font-bold tracking-tight admin:text-[15px]"
               )}
             >
               Swift Capital
@@ -195,7 +195,7 @@ export function Sidebar({
               type="button"
               onClick={onToggleCollapse}
               aria-label="Collapse sidebar"
-              className="hidden size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.96] lg:inline-flex"
+              className="hidden size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.96] lg:inline-flex"
             >
               <ChevronsLeft className="size-4" />
             </button>
@@ -205,7 +205,7 @@ export function Sidebar({
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] lg:hidden"
+            className="inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96] lg:hidden"
           >
             <X className="size-5" />
           </button>
@@ -213,7 +213,7 @@ export function Sidebar({
 
         <div
           className={cn(
-            "hidden overflow-hidden border-b border-sidebar-border/50 transition-[height,opacity,padding] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none lg:block",
+            "hidden overflow-hidden border-b border-sidebar-border/50 admin:border-sidebar-border transition-[height,opacity,padding] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none lg:block",
             collapsed ? "h-14 px-3 py-2 opacity-100" : "h-0 px-3 py-0 opacity-0"
           )}
           aria-hidden={!collapsed}
@@ -224,7 +224,7 @@ export function Sidebar({
             aria-label="Expand sidebar"
             disabled={!collapsed}
             tabIndex={collapsed ? 0 : -1}
-            className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.96] disabled:pointer-events-none"
+            className="inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.96] disabled:pointer-events-none"
           >
             <ChevronsRight className="size-4" />
           </button>
@@ -247,10 +247,10 @@ export function Sidebar({
                   aria-label={collapsed ? item.label : undefined}
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className={cn(
-                    "relative flex min-h-11 items-center overflow-hidden rounded-xl py-2.5 text-sm font-medium transition-[background-color,color,box-shadow,scale,padding,gap] duration-200 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.98] motion-reduce:transition-none",
+                    "relative flex min-h-11 items-center overflow-hidden rounded-xl py-2.5 text-sm font-medium admin:rounded-md admin:font-semibold transition-[background-color,color,box-shadow,scale,padding,gap] duration-200 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 active:scale-[0.98] motion-reduce:transition-none",
                     isActive(item.href)
-                      ? "bg-primary/8 text-primary shadow-[inset_0_1px_2px_oklch(0_0_0_/_3%)]"
-                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      ? "bg-primary/8 text-primary shadow-[inset_0_1px_2px_oklch(0_0_0_/_3%)] admin:bg-primary admin:text-primary-foreground admin:shadow-none"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground admin:text-sidebar-foreground",
                     collapsed ? "justify-center gap-0 px-2" : "gap-3 px-3"
                   )}
                   title={collapsed ? item.label : undefined}
@@ -268,6 +268,7 @@ export function Sidebar({
                     <span
                       className={cn(
                         "flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground",
+                        isActive(item.href) && "admin:bg-primary-foreground/15",
                         collapsed ? "absolute right-1.5 top-1.5 size-2.5 text-transparent" : "ml-auto"
                       )}
                     >
@@ -291,14 +292,14 @@ export function Sidebar({
         </nav>
 
         {/* User info + sign out */}
-        <div className="border-t border-sidebar-border/50 p-3">
+        <div className="border-t border-sidebar-border/50 p-3 admin:border-sidebar-border">
           <div
             className={cn(
               "flex items-center gap-3 transition-[gap] duration-300 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
               collapsed && "flex-col justify-center gap-2"
             )}
           >
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 text-sm font-semibold text-primary ring-1 ring-primary/15">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 text-sm font-semibold text-primary ring-1 ring-primary/15 admin:bg-none admin:bg-accent admin:ring-0">
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div
@@ -318,7 +319,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => signOut()}
-              className="inline-flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
+              className="inline-flex size-10 items-center justify-center rounded-xl admin:rounded-md text-muted-foreground transition-[background-color,color,scale] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.96]"
               aria-label="Sign out"
             >
               <LogOut className="size-4" />

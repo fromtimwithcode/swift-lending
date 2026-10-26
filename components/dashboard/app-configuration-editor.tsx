@@ -176,11 +176,11 @@ export function AppConfigurationEditor() {
 
   if (!settings || !editor) {
     return (
-      <div className="space-y-4 rounded-2xl bg-card p-6 shadow-sm" aria-label="Loading app configuration">
+      <div className="space-y-4 rounded-xl border border-border bg-card p-6" aria-label="Loading app configuration">
         <div className="h-6 w-48 animate-pulse rounded bg-muted motion-reduce:animate-none" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+            <div key={index} className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
           ))}
         </div>
       </div>
@@ -269,7 +269,7 @@ export function AppConfigurationEditor() {
     <section className="space-y-5" aria-labelledby="app-configuration-heading">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="app-configuration-heading" className="text-balance text-lg font-semibold">
+          <h2 id="app-configuration-heading" className="text-balance text-[13px] font-bold uppercase tracking-wide text-foreground">
             App configuration
           </h2>
           <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">
@@ -283,12 +283,12 @@ export function AppConfigurationEditor() {
       </div>
 
       {stale && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl bg-amber-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div role="alert" className="flex flex-col gap-3 rounded-lg bg-amber-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>Another admin published a newer configuration. Reload it before continuing.</p>
           <button
             type="button"
             onClick={() => resetTo(settings.configuration, settings.version)}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-3 font-medium hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md px-3 font-medium hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <RotateCcw className="size-4" aria-hidden="true" />
             Load latest
@@ -297,7 +297,7 @@ export function AppConfigurationEditor() {
       )}
 
       {settings.comparableRebuild?.status === "failed" && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div role="alert" className="flex flex-col gap-3 rounded-lg bg-destructive/10 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-medium">Comparable ranking update failed.</p>
             <p className="mt-1 text-pretty text-muted-foreground">
@@ -308,7 +308,7 @@ export function AppConfigurationEditor() {
             type="button"
             onClick={retryRebuild}
             disabled={retryingRebuild}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-3 font-medium hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md px-3 font-medium hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
             {retryingRebuild ? (
               <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -321,7 +321,7 @@ export function AppConfigurationEditor() {
       )}
 
       {settings.comparableRebuild && ["queued", "running"].includes(settings.comparableRebuild.status) && (
-        <div className="flex items-center gap-3 rounded-xl bg-primary/8 px-4 py-3 text-sm">
+        <div className="flex items-center gap-3 rounded-lg bg-primary/8 px-4 py-3 text-sm">
           <Loader2 className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
           <p className="text-pretty">
             Comparable rankings are updating to version {settings.comparableRebuild.configurationVersion}.
@@ -338,14 +338,14 @@ export function AppConfigurationEditor() {
       {FIELD_GROUPS.map((group) => {
         const Icon = group.icon;
         return (
-          <fieldset key={group.id} className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
+          <fieldset key={group.id} className="rounded-xl border border-border bg-card p-5 sm:p-6">
             <legend className="sr-only">{group.title}</legend>
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Icon className="size-5" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="font-semibold">{group.title}</h3>
+                <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">{group.title}</h3>
                 <p className="mt-1 text-pretty text-sm text-muted-foreground">{group.description}</p>
               </div>
             </div>
@@ -372,7 +372,7 @@ export function AppConfigurationEditor() {
                         }}
                         aria-invalid={error ? "true" : undefined}
                         aria-describedby={error ? errorId : hintId}
-                        className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-14 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+                        className="h-10 w-full rounded-md border border-border bg-background px-3 pr-14 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20"
                       />
                       {field.suffix && (
                         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
@@ -393,13 +393,13 @@ export function AppConfigurationEditor() {
         );
       })}
 
-      <div className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
+      <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <ShieldCheck className="size-5" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="font-semibold">Locked accounting controls</h3>
+            <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">Locked accounting controls</h3>
             <p className="mt-1 text-pretty text-sm text-muted-foreground">
               Cents rounding, payment matching tolerance, the 30/360 payoff convention,
               and posted financial history require a controlled code release to change.
@@ -408,7 +408,7 @@ export function AppConfigurationEditor() {
         </div>
       </div>
 
-      <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="px-1 text-xs text-muted-foreground">
           {dirty ? "Unpublished changes" : "Configuration is up to date"}
         </p>
@@ -417,7 +417,7 @@ export function AppConfigurationEditor() {
             type="button"
             onClick={() => resetTo(editor.baseConfiguration, editor.baseVersion)}
             disabled={!dirty || applying}
-            className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:flex-none"
+            className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:flex-none"
           >
             Discard
           </button>
@@ -425,26 +425,26 @@ export function AppConfigurationEditor() {
             type="button"
             onClick={reviewChanges}
             disabled={!dirty || stale || applying}
-            className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-[background-color,opacity,scale] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:flex-none"
+            className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-[background-color,opacity,scale] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:flex-none"
           >
             Review changes
           </button>
         </div>
       </div>
 
-      <details className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
-        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <details className="rounded-xl border border-border bg-card p-5 sm:p-6">
+        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <History className="size-4" aria-hidden="true" />
           Configuration history
         </summary>
         <div className="mt-4 space-y-3">
           {history === undefined ? (
-            <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+            <div className="h-16 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
           ) : history.length === 0 ? (
             <p className="text-sm text-muted-foreground">No configuration changes have been published yet.</p>
           ) : (
             history.map((entry) => (
-              <div key={entry._id} className="flex flex-col gap-1 rounded-xl bg-muted/50 p-3 text-sm sm:flex-row sm:items-start sm:justify-between">
+              <div key={entry._id} className="flex flex-col gap-1 rounded-lg bg-muted/50 p-3 text-sm sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-medium tabular-nums">Version {entry.version}</p>
                   <p className="text-xs text-muted-foreground">{entry.changedKeys.length} setting{entry.changedKeys.length === 1 ? "" : "s"} changed by {entry.changedByName}</p>

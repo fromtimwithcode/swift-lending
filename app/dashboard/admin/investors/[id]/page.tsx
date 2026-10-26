@@ -107,7 +107,7 @@ export default function AdminInvestorDetailPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30";
 
   return (
     <div className="space-y-6">
@@ -115,7 +115,7 @@ export default function AdminInvestorDetailPage() {
         <Link
           href="/dashboard/admin/investors"
           aria-label="Back to investors"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
           <ArrowLeft className="size-5" aria-hidden="true" />
         </Link>
@@ -128,7 +128,7 @@ export default function AdminInvestorDetailPage() {
                 <>
                   <button
                     onClick={() => setEditing(false)}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <X className="size-4" />
                     Cancel
@@ -136,7 +136,7 @@ export default function AdminInvestorDetailPage() {
                   <button
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:flex-1"
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -150,14 +150,14 @@ export default function AdminInvestorDetailPage() {
                 <>
                   <button
                     onClick={startEditing}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <Pencil className="size-4" />
                     Edit
                   </button>
                   <Link
                     href={`/dashboard/admin/messages?partnerId=${id}`}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:flex-1"
                   >
                     <MessageSquare className="size-4" />
                     Message
@@ -172,11 +172,11 @@ export default function AdminInvestorDetailPage() {
       {/* Profile Card */}
       <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-muted-foreground">Profile</h3>
+          <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">Profile</h3>
           <button
             onClick={handleToggleActive}
             disabled={toggling}
-            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
+            className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium ${
               profile.isActive
                 ? "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
                 : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"

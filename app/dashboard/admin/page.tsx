@@ -61,7 +61,7 @@ function ChartCardSkeleton() {
   return (
     <div className="card-premium p-6" aria-label="Loading chart">
       <div className="mb-4 h-4 w-36 animate-pulse rounded bg-muted" />
-      <div className="h-[250px] animate-pulse rounded-xl bg-muted/60" />
+      <div className="h-[250px] animate-pulse rounded-lg bg-muted/60" />
     </div>
   );
 }
@@ -208,13 +208,14 @@ export default function AdminOverviewPage() {
       header: "Loan Amount",
       sortable: true,
       render: (row) => formatCurrencyShort(row.loanAmount),
+      className: "tabular-nums",
     },
     {
       key: "rehabBudgetTotal",
       header: "Rehab",
       sortable: true,
       render: (row) => row.rehabBudgetTotal ? formatCurrency(row.rehabBudgetTotal) : "—",
-      className: "hidden lg:table-cell",
+      className: "hidden lg:table-cell tabular-nums",
     },
     {
       key: "drawFundsTotal",
@@ -223,13 +224,14 @@ export default function AdminOverviewPage() {
       render: (row) => row.drawFundsTotal !== undefined
         ? formatCurrency(Math.max(0, row.drawFundsTotal - (row.drawFundsUsed ?? 0)))
         : "—",
-      className: "hidden xl:table-cell",
+      className: "hidden xl:table-cell tabular-nums",
     },
     {
       key: "monthlyPayment",
       header: "Monthly Payment",
       sortable: true,
       render: (row) => formatCurrency(row.monthlyPayment),
+      className: "tabular-nums",
     },
     {
       key: "status",
@@ -328,7 +330,7 @@ export default function AdminOverviewPage() {
         <div className="card-premium p-6">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground">
+              <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                 Loan KPIs by Period
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -338,7 +340,7 @@ export default function AdminOverviewPage() {
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               Year
               <select
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
                 value={loanPeriodKpis.selectedYear}
                 onChange={(event) => setSelectedKpiYear(Number(event.target.value))}
               >
@@ -366,7 +368,7 @@ export default function AdminOverviewPage() {
               </thead>
               <tbody>
                 {loanPeriodKpis.periods.map((period) => (
-                  <tr key={period.key} className="border-b border-border/50 last:border-0">
+                  <tr key={period.key} className="border-b border-border last:border-0">
                     <td className="py-3 pr-3 font-medium">{period.label}</td>
                     <td className="py-3 pr-3 tabular-nums">{period.totalLoans}</td>
                     <td className="py-3 pr-3 tabular-nums">{period.activeLoans}</td>
@@ -420,7 +422,7 @@ export default function AdminOverviewPage() {
           <div className="card-premium p-6">
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">
+                <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
                   Borrower Performance
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -428,17 +430,17 @@ export default function AdminOverviewPage() {
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-2 text-center min-[420px]:grid-cols-3 sm:min-w-72">
-                <div className="rounded-xl bg-muted/50 px-3 py-2">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-[11px] text-muted-foreground">Closed</p>
-                  <p className="text-sm font-semibold">{borrowerClosedLoans}</p>
+                  <p className="text-sm font-semibold tabular-nums">{borrowerClosedLoans}</p>
                 </div>
-                <div className="rounded-xl bg-muted/50 px-3 py-2">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-[11px] text-muted-foreground">In Progress</p>
-                  <p className="text-sm font-semibold">{borrowerInProgressLoans}</p>
+                  <p className="text-sm font-semibold tabular-nums">{borrowerInProgressLoans}</p>
                 </div>
-                <div className="rounded-xl bg-muted/50 px-3 py-2">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-[11px] text-muted-foreground">Closed Capital</p>
-                  <p className="text-sm font-semibold">{formatCurrencyShort(borrowerClosedCapital)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatCurrencyShort(borrowerClosedCapital)}</p>
                 </div>
               </div>
             </div>
@@ -457,17 +459,17 @@ export default function AdminOverviewPage() {
                 </thead>
                 <tbody>
                   {borrowerPerformance.map((b) => (
-                    <tr key={b._id} className="border-b border-border/50">
+                    <tr key={b._id} className="border-b border-border">
                       <td className="py-2 pr-3 font-medium">{b.displayName}</td>
-                      <td className="py-2 pr-3">{b.totalLoans}</td>
-                      <td className="py-2 pr-3">{b.inProgressLoans}</td>
-                      <td className="py-2 pr-3">{formatCurrencyShort(b.totalCapital)}</td>
-                      <td className="py-2 pr-3">{b.totalPayments}</td>
-                      <td className="py-2 pr-3 text-amber-600">{b.latePayments}</td>
+                      <td className="py-2 pr-3 tabular-nums">{b.totalLoans}</td>
+                      <td className="py-2 pr-3 tabular-nums">{b.inProgressLoans}</td>
+                      <td className="py-2 pr-3 tabular-nums">{formatCurrencyShort(b.totalCapital)}</td>
+                      <td className="py-2 pr-3 tabular-nums">{b.totalPayments}</td>
+                      <td className="py-2 pr-3 tabular-nums text-amber-600">{b.latePayments}</td>
                       <td className="py-2">
                         {b.onTimeRate !== null ? (
                           <span
-                            className={`font-medium ${
+                            className={`font-medium tabular-nums ${
                               b.onTimeRate >= 90
                                 ? "text-green-600"
                                 : b.onTimeRate >= 70
@@ -492,7 +494,7 @@ export default function AdminOverviewPage() {
 
       {/* Recent Loans Table */}
       <div>
-        <h3 className="mb-4 text-lg font-semibold">Recent Loans</h3>
+        <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">Recent Loans</h3>
         {recentLoans.length > 0 ? (
           <DataTable
             data={recentLoans as unknown as Record<string, unknown>[]}
@@ -511,7 +513,7 @@ export default function AdminOverviewPage() {
             action={
               <button
                 onClick={() => router.push("/dashboard/admin/loans/new")}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
               >
                 Add First Loan
               </button>
@@ -525,15 +527,15 @@ export default function AdminOverviewPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="chart-drilldown-title"
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setDrilldownRequest(null);
           }}
         >
-          <div className="flex max-h-[88dvh] w-full max-w-5xl min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+          <div className="flex max-h-[88dvh] w-full max-w-5xl min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg">
             <div className="flex min-w-0 items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-5">
               <div className="min-w-0">
-                <h2 id="chart-drilldown-title" className="break-words text-lg font-semibold [overflow-wrap:anywhere]">
+                <h2 id="chart-drilldown-title" className="break-words text-lg font-bold [overflow-wrap:anywhere]">
                   {drilldownRequest.title}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -543,7 +545,7 @@ export default function AdminOverviewPage() {
               <button
                 type="button"
                 onClick={() => setDrilldownRequest(null)}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 aria-label="Close loan list"
               >
                 <X className="size-5" />
