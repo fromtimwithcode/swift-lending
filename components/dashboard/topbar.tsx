@@ -24,6 +24,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   applications: "Applications",
   borrowers: "Borrowers",
   investors: "Investors",
+  "title-companies": "Title Companies",
   users: "Users",
   activity: "Activity Log",
   "calculation-guide": "Calculation Guide",

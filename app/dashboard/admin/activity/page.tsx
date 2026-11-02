@@ -28,6 +28,7 @@ const ENTITY_TABS = [
   { label: "Investment", value: "investment" },
   { label: "Payment", value: "payment" },
   { label: "Document", value: "document" },
+  { label: "Title Company", value: "title_company" },
 ];
 
 export default function ActivityLogPage() {

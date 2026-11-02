@@ -113,6 +113,29 @@ const investorProfile = {
   role: "investor",
   isActive: true,
 };
+type MockTitleContact = { _id: string; name: string; role?: string; phone?: string; email?: string };
+const titleCompany = {
+  _id: "title-1",
+  name: "Lakeshore Title & Escrow of Southeastern Wisconsin",
+  phone: "(414) 555-0100",
+  email: "closings@lakeshoretitleandescrow.example",
+  address: "777 East Wisconsin Avenue, Suite 1200, Milwaukee, WI 53202",
+  notes: "Orders received before 2 PM can usually close the same week.",
+  updatedAt: 1789603200000,
+  contacts: [
+    { _id: "contact-1", name: "Dana Whitfield", role: "Escrow officer", phone: "(414) 555-0142", email: "dana.whitfield@lakeshoretitleandescrow.example" },
+    { _id: "contact-2", name: "Luis Ortega", role: "Closer", phone: "(414) 555-0177" },
+  ] as MockTitleContact[],
+  wireInstructions: {
+    bankName: "First Lakes Bank",
+    accountName: "Lakeshore Title & Escrow Trust Account",
+    routingLast4: "0021",
+    accountLast4: "9012",
+    notes: "For further credit to the closing file number.",
+    updatedAt: 1789603200000,
+    updatedByName: "Reviewer",
+  },
+};
 let version = 0;
 const subscribers = new Set<() => void>();
 function notify() {
@@ -228,6 +251,20 @@ export function useQuery(
       return [{ _id: "borrower-1", displayName: "Jordan Morgan", company: "Morgan Property Group LLC", email: "jordan@example.com", titleContacts: [] }];
     case "payoffs:getPayoffReadiness":
       return undefined;
+    case "titleCompanies:list":
+      return [
+        {
+          _id: titleCompany._id,
+          name: titleCompany.name,
+          phone: titleCompany.phone,
+          email: titleCompany.email,
+          contactCount: titleCompany.contacts.length,
+          hasWireInstructions: true,
+        },
+        { _id: "title-2", name: "Prairie Abstract Co.", phone: "608-555-0199", contactCount: 0, hasWireInstructions: false },
+      ];
+    case "titleCompanies:get":
+      return titleCompany;
     default:
       return empty;
   }
@@ -264,6 +301,23 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     if (name === "borrower:submitApplication" || name === "admin:createLoan") return "loan-new";
     if (name === "admin:updateLoan") return args.id;
     if (name.startsWith("investments:")) return mutateInvestments(name, args);
+    if (name === "titleCompanies:upsertContact") {
+      const { contactId, name: contactName, role, phone, email } = args as Omit<MockTitleContact, "_id"> & {
+        contactId?: string;
+      };
+      const contact = {
+        _id: contactId ?? `contact-${titleCompany.contacts.length + 1}`,
+        name: contactName,
+        role,
+        phone,
+        email,
+      };
+      titleCompany.contacts = contactId
+        ? titleCompany.contacts.map((item) => (item._id === contactId ? contact : item))
+        : [...titleCompany.contacts, contact];
+      notify();
+      return contact._id;
+    }
     if (name === "loanCharges:deletePaymentReminder" || name === "loanCharges:removeCharge") {
       const error = getDeleteReasonError(args.reason as string);
       if (error) throw new ConvexError({ publicMessage: error });
@@ -378,8 +432,18 @@ function mutateInvestments(name: string, args: Record<string, unknown>) {
   notify();
   return null;
 }
-export const useAction = () => async () => {
-  throw new Error("Actions are disabled in UI tests");
+const titleCompanyActions: Record<string, (args: Record<string, unknown>) => unknown> = {
+  "titleCompanyActions:revealWireValue": (args) => ({
+    value: args.field === "routing_number" ? "021000021" : "123456789012",
+    expiresAt: Date.now() + 30_000,
+  }),
+  "titleCompanyActions:saveWireInstructions": () => null,
+};
+export const useAction = (reference: FunctionReference<"action">) => async (args: Record<string, unknown>) => {
+  const handler = titleCompanyActions[getFunctionName(reference)];
+  if (!handler) throw new Error("Actions are disabled in UI tests");
+  controls.calls.push({ name: getFunctionName(reference), args });
+  return handler(args);
 };
 const client = {
   watchQuery: () => ({
