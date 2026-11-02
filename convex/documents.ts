@@ -45,7 +45,7 @@ const documentInputValidator = v.union(
   v.object({
     ...documentFileFields,
     type: v.literal("other"),
-    otherTypeName: v.string(),
+    otherTypeName: v.optional(v.string()),
   })
 );
 
@@ -67,7 +67,7 @@ function normalizeDocumentInput(doc: DocumentInput) {
     if (doc.fileSize < 0) throw new ConvexError("Document file size cannot be negative");
     if (doc.fileSize > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
   }
-  if (doc.type !== "other") return { ...doc, fileName };
+  if (doc.type !== "other" || doc.otherTypeName === undefined) return { ...doc, fileName };
 
   const otherTypeName = doc.otherTypeName.trim();
   if (!otherTypeName) {
@@ -239,7 +239,7 @@ async function notifyDocumentUpload(
   });
 }
 
-async function saveDocumentBatch(
+export async function saveDocumentBatch(
   ctx: MutationCtx,
   profile: Doc<"userProfiles">,
   args: {

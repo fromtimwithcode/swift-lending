@@ -95,12 +95,6 @@ describe("Other documents", () => {
     await expect(
       admin.mutation(api.documents.saveDocuments, {
         loanId,
-        documents: [{ ...pdf(fileIds[0]), type: "other" } as never],
-      })
-    ).rejects.toThrow(/Validator error/);
-    await expect(
-      admin.mutation(api.documents.saveDocuments, {
-        loanId,
         documents: [{ ...pdf(fileIds[0]), type: "receipt", otherTypeName: "Receipt" } as never],
       })
     ).rejects.toThrow(/Validator error/);
@@ -113,7 +107,40 @@ describe("Other documents", () => {
   });
 });
 
+test("accept unnamed Other documents from the previous website build", async () => {
+  const { admin, loanId, fileIds } = await setup();
+
+  await admin.mutation(api.documents.saveDocuments, {
+    loanId,
+    documents: [{ ...pdf(fileIds[0]), type: "other" }],
+  });
+
+  const [document] = await admin.query(api.documents.getDocumentsForLoan, { loanId });
+  expect(document).toMatchObject({ type: "other" });
+  expect(document.otherTypeName).toBeUndefined();
+});
+
 describe("closing statements", () => {
+  test("the previous website build attaches, views, and removes the newest statement", async () => {
+    const { admin, loanId, fileIds } = await setup();
+    for (const fileId of fileIds) {
+      await admin.mutation(api.admin.attachClosingStatement, { loanId, fileId });
+    }
+
+    const statements = await admin.query(api.documents.getDocumentsForLoan, { loanId });
+    expect(statements).toMatchObject([
+      { type: "closing_statement", fileId: fileIds[0], fileName: "Closing statement.pdf" },
+      { type: "closing_statement", fileId: fileIds[1], fileName: "Closing statement.pdf" },
+    ]);
+    expect(await admin.query(api.admin.getClosingStatementUrl, { loanId })).toBe(statements[1].url);
+
+    await admin.mutation(api.admin.removeClosingStatement, { loanId });
+    expect(await admin.query(api.documents.getDocumentsForLoan, { loanId })).toMatchObject([
+      { fileId: fileIds[0] },
+    ]);
+    expect(await admin.query(api.admin.getClosingStatementUrl, { loanId })).toBe(statements[0].url);
+  });
+
   test("a loan keeps every closing statement until one is removed", async () => {
     const { admin, borrower, loanId, fileIds } = await setup();
     const closingStatementNames = async (viewer: typeof admin) =>

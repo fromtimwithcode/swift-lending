@@ -367,7 +367,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Other Document Names (Completed)
 
 - [x] Choosing **Other** as the document type asks what the document is (for example "Insurance binder"). The upload dialog and the borrower checklist's Other row both require it before uploading
-- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` accepts the name only with type `other` and requires it there; older Other documents have no name and still show "Other"
+- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` rejects the name on every other type; older Other documents have no name and still show "Other". Until the new website is live, `saveDocuments` still accepts unnamed Other uploads from the previous build
 - [x] Removed the unused `documents.saveDocument` and `documents.getAllDocuments` endpoints
 
 ## Multiple Closing Statements (Completed)
@@ -375,7 +375,9 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] A loan can hold any number of closing statements. They are `closing_statement` documents; the admin loan page's Closing Statements card lists them with open/preview, per-file Remove (confirmation, logged as `document.delete`), and Upload/Add Statement, which opens the upload dialog preset to Closing Statement and accepts several files
 - [x] Borrowers see them in their loan page checklist (Closing Statements row, which also accepts several files) and on their Documents page. Uploads send the usual document notifications to the borrower and team
 - [x] Removed `admin.attachClosingStatement`, `admin.removeClosingStatement`, and `admin.getClosingStatementUrl`
-- [ ] Production: run `pnpm exec convex run migrations:moveClosingStatementsToDocuments --prod` right after deploying (without `--prod` it runs against the dev deployment in `.env.local`). It moves each loan's legacy `closingStatementFileId` into a `closing_statement` document owned by the admin who attached it (from the Activity Log, else the first admin), named "Closing statement.pdf" (or the image extension), then clears the field. Safe to rerun. Afterwards, drop `loans.closingStatementFileId` from the schema, its cleanup in `deleteLoanAndRelatedRecords` (`convex/admin.ts`), and the migration
+- [ ] Production: run `pnpm exec convex run migrations:moveClosingStatementsToDocuments --prod` right after deploying (without `--prod` it runs against the dev deployment in `.env.local`). It moves each loan's legacy `closingStatementFileId` into a `closing_statement` document owned by the admin who attached it (from the Activity Log, else the first admin), named "Closing statement.pdf" (or the image extension), then clears the field. Safe to rerun
+- [x] The backend was deployed before the website, so it keeps the previous website build working: `admin.getClosingStatementUrl`, `admin.attachClosingStatement`, and `admin.removeClosingStatement` act on the loan's newest closing statement document, and unnamed Other uploads are accepted
+- [ ] Cleanup once the new website is live: drop `loans.closingStatementFileId` from the schema, its cleanup in `deleteLoanAndRelatedRecords` (`convex/admin.ts`), the migration, the three `admin.*ClosingStatement*` stand-ins, and make `otherTypeName` required for Other in `saveDocuments`
 
 ## Investor Payment Schedule (Completed)
 
@@ -543,4 +545,4 @@ Used in `FileUploadDialog` (including closing statement uploads) and the borrowe
 3. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
 4. Check `result.ok` before parsing response
 5. Extract `storageId` from response JSON
-6. Call `documents.saveDocuments` mutation with `{ documents: [{ fileId: storageId, fileName, fileSize, type }], loanId?, drawRequestId? }`; type `other` also requires `otherTypeName`
+6. Call `documents.saveDocuments` mutation with `{ documents: [{ fileId: storageId, fileName, fileSize, type }], loanId?, drawRequestId? }`; type `other` also takes `otherTypeName`, which the upload UI requires

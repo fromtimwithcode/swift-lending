@@ -21,6 +21,7 @@ import { getFundingLedgerStatus } from "./lib/fundingLedger";
 import { validateDrawWireDateForLoan } from "./lib/drawDates";
 import { parseUsDate } from "./lib/dates";
 import { isAdminLike } from "./lib/auth";
+import { getUnnamedClosingStatementFileName } from "./lib/loanDocuments";
 
 const BATCH_SIZE = 100;
 const MAX_RECONCILIATION_ENTRIES = 50;
@@ -784,13 +785,6 @@ export const backfillMonthlyInterestChargesAndPaymentLinks = internalMutation({
   },
 });
 
-const CLOSING_STATEMENT_EXTENSIONS: Record<string, string> = {
-  "application/pdf": "pdf",
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-};
-
 async function getClosingStatementUploaderId(ctx: MutationCtx, loanId: Id<"loans">) {
   const attachments = ctx.db
     .query("activityLog")
@@ -833,13 +827,12 @@ export const moveClosingStatementsToDocuments = internalMutation({
         .first();
       const metadata = await ctx.db.system.get("_storage", fileId);
       if (!existing && metadata) {
-        const extension = CLOSING_STATEMENT_EXTENSIONS[metadata.contentType ?? ""] ?? "pdf";
         await ctx.db.insert("documents", {
           ownerId: await getClosingStatementUploaderId(ctx, loan._id),
           loanId: loan._id,
           type: "closing_statement",
           fileId,
-          fileName: `Closing statement.${extension}`,
+          fileName: getUnnamedClosingStatementFileName(metadata.contentType),
           fileSize: metadata.size,
         });
         moved++;
