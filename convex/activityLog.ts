@@ -10,7 +10,8 @@ const entityTypeValidator = v.union(
   v.literal("payment"),
   v.literal("document"),
   v.literal("message"),
-  v.literal("system")
+  v.literal("system"),
+  v.literal("title_company")
 );
 
 export const log = internalMutation({

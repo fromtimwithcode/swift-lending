@@ -94,6 +94,9 @@ export function Sidebar({
       case "/dashboard/admin/investors":
         convex.prewarmQuery({ query: api.users.getAllInvestors, args: {}, extendSubscriptionFor });
         break;
+      case "/dashboard/admin/title-companies":
+        convex.prewarmQuery({ query: api.titleCompanies.list, args: {}, extendSubscriptionFor });
+        break;
       case "/dashboard/admin/notifications":
       case "/dashboard/borrower/notifications":
       case "/dashboard/investor/notifications":

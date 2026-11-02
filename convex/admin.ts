@@ -34,10 +34,13 @@ import { saveLoanStatusChange } from "./lib/loanStatusChanges";
 import { getAppConfigurationState } from "./lib/settings";
 import { getPropertyDetailsError } from "./lib/propertyDetails";
 import {
+  getNewestClosingStatement,
+  getUnnamedClosingStatementFileName,
   insertPurchaseContracts,
   normalizeMissingDocumentsNote,
   purchaseContractFilesValidator,
 } from "./lib/loanDocuments";
+import { saveDocumentBatch } from "./documents";
 import {
   propertyTypeValidator,
   propertyUnitDetailsValidator,
@@ -205,7 +208,7 @@ export const getOverviewStats = query({
     const allLoans = await ctx.db.query("loans").collect();
 
     const totalLoans = allLoans.length;
-    const pendingLoans = allLoans.filter((l) => isPreFundingLoanStatus(l.status)).length;
+    const pendingLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status));
     const moneyOutLoans = allLoans.filter((l) => isFundedLoanStatus(l.status) && !l.returnedDate);
     const returnedLoans = allLoans.filter((l) => l.returnedDate).length;
     const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
@@ -258,8 +261,7 @@ export const getOverviewStats = query({
         )
       : 0;
 
-    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
-    const pipelineValue = pipelineLoans.reduce(
+    const pipelineValue = pendingLoans.reduce(
       (sum, l) => sum + l.loanAmount,
       0
     );
@@ -290,7 +292,7 @@ export const getOverviewStats = query({
 
     return {
       totalLoans,
-      pendingLoans,
+      pendingLoans: pendingLoans.length,
       activeLoans: moneyOutLoans.length,
       returnedLoans,
       deniedLoans,
@@ -1324,56 +1326,32 @@ export const recordLoanReturned = mutation({
   },
 });
 
-// --- Closing Statement ---
+// The website build from before multiple closing statements still calls these three
+// until it is redeployed. They act on the loan's newest closing_statement document.
+
+export const getClosingStatementUrl = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const statement = await getNewestClosingStatement(ctx, args.loanId);
+    return statement ? await ctx.storage.getUrl(statement.fileId) : null;
+  },
+});
 
 export const attachClosingStatement = mutation({
-  args: {
-    loanId: v.id("loans"),
-    fileId: v.id("_storage"),
-  },
+  args: { loanId: v.id("loans"), fileId: v.id("_storage") },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
-    const loan = await ctx.db.get(args.loanId);
-    if (!loan) throw new ConvexError("Loan not found");
-    // Delete old file from storage to prevent orphans
-    if (loan.closingStatementFileId) {
-      await ctx.storage.delete(loan.closingStatementFileId);
-    }
-    await ctx.db.patch(args.loanId, { closingStatementFileId: args.fileId });
-
-    await ctx.runMutation(internal.notifications.createNotification, {
-      recipientId: loan.borrowerId,
-      type: "document_uploaded",
-      title: "Closing Statement Uploaded",
-      body: `A closing statement was uploaded for ${loan.propertyAddress}.`,
+    const metadata = await ctx.db.system.get("_storage", args.fileId);
+    if (!metadata) throw new ConvexError("Uploaded file not found");
+    await saveDocumentBatch(ctx, admin, {
       loanId: args.loanId,
-      sendSms: true,
+      documents: [{
+        fileId: args.fileId,
+        fileName: getUnnamedClosingStatementFileName(metadata.contentType),
+        type: "closing_statement",
+      }],
     });
-
-    await notifyTeam(ctx, {
-      type: "document_uploaded",
-      title: "Closing Statement Uploaded",
-      body: `${admin.displayName} uploaded a closing statement for ${loan.borrowerName}'s loan on ${loan.propertyAddress}.`,
-      loanId: args.loanId,
-      details: [
-        { label: "Borrower", value: loan.borrowerName },
-        { label: "Property address", value: loan.propertyAddress },
-        { label: "Uploaded by", value: admin.displayName },
-      ],
-      actionPath: `/dashboard/admin/loans/${args.loanId}`,
-      actionLabel: "View Loan",
-      sendSms: true,
-    });
-
-    await ctx.runMutation(internal.activityLog.log, {
-      userId: admin._id,
-      userName: admin.displayName,
-      action: "loan.attachClosing",
-      entityType: "loan",
-      entityId: args.loanId,
-      details: `Attached closing statement to ${loan.propertyAddress}`,
-    });
-
     return args.loanId;
   },
 });
@@ -1384,31 +1362,20 @@ export const removeClosingStatement = mutation({
     const admin = await requireAdmin(ctx);
     const loan = await ctx.db.get(args.loanId);
     if (!loan) throw new ConvexError("Loan not found");
-    if (loan.closingStatementFileId) {
-      await ctx.storage.delete(loan.closingStatementFileId);
-      await ctx.db.patch(args.loanId, { closingStatementFileId: undefined });
-    }
+    const statement = await getNewestClosingStatement(ctx, args.loanId);
+    if (!statement) return args.loanId;
 
+    await ctx.storage.delete(statement.fileId);
+    await ctx.db.delete(statement._id);
     await ctx.runMutation(internal.activityLog.log, {
       userId: admin._id,
       userName: admin.displayName,
       action: "loan.removeClosing",
       entityType: "loan",
       entityId: args.loanId,
-      details: `Removed closing statement from ${loan.propertyAddress}`,
+      details: `Removed closing statement "${statement.fileName}" from ${loan.propertyAddress}`,
     });
-
     return args.loanId;
-  },
-});
-
-export const getClosingStatementUrl = query({
-  args: { loanId: v.id("loans") },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const loan = await ctx.db.get(args.loanId);
-    if (!loan || !loan.closingStatementFileId) return null;
-    return await ctx.storage.getUrl(loan.closingStatementFileId);
   },
 });
 

@@ -1,5 +1,5 @@
 import { v, ConvexError, type Infer } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 export const MAX_PURCHASE_CONTRACT_FILES = 20;
@@ -52,4 +52,23 @@ export async function insertPurchaseContracts(
       fileSize: file.fileSize,
     });
   }
+}
+
+const CLOSING_STATEMENT_EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export function getUnnamedClosingStatementFileName(contentType: string | undefined) {
+  return `Closing statement.${CLOSING_STATEMENT_EXTENSIONS[contentType ?? ""] ?? "pdf"}`;
+}
+
+export function getNewestClosingStatement(ctx: QueryCtx, loanId: Id<"loans">) {
+  return ctx.db
+    .query("documents")
+    .withIndex("by_loanId_and_type", (q) => q.eq("loanId", loanId).eq("type", "closing_statement"))
+    .order("desc")
+    .first();
 }

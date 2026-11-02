@@ -175,10 +175,11 @@ const statusConfig: Record<string, { label: string; className: string; dot: stri
 
 interface StatusBadgeProps {
   status: string;
+  label?: string;
   className?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, label, className }: StatusBadgeProps) {
   const config = statusConfig[status] ?? {
     label: status,
     className: "bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10",
@@ -196,7 +197,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", config.dot)} />
       <span className="min-w-0 truncate whitespace-nowrap [overflow-wrap:normal]">
-        {config.label}
+        {label ?? config.label}
       </span>
     </span>
   );

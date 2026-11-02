@@ -12,7 +12,7 @@ function unavailableError() {
 
 function unreadableError() {
   return new ConvexError({
-    publicMessage: "Secure borrower data could not be read. Try again or contact the developer.",
+    publicMessage: "Secure data could not be read. Try again or contact the developer.",
   });
 }
 

@@ -600,7 +600,7 @@ describe("canceling loan applications", () => {
 });
 
 describe("overview loan counts", () => {
-  test("pending loans have no money out; active loans are the ones with money out", async () => {
+  test("pending loans have not closed yet; active loans are the ones with money out", async () => {
     const { t, admin, loanId } = await fixture("under_review");
     await t.run(async (ctx) => {
       const { _id, _creationTime, ...fields } = (await ctx.db.get(loanId))!;
@@ -613,7 +613,7 @@ describe("overview loan counts", () => {
     });
     expect(await admin.query(api.admin.getOverviewStats, {})).toMatchObject({
       totalLoans: 9,
-      pendingLoans: 3,
+      pendingLoans: 5,
       activeLoans: 3,
       returnedLoans: 1,
     });

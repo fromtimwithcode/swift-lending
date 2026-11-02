@@ -6,12 +6,13 @@ import { internal } from "./_generated/api";
 import { requireAdmin } from "./lib/auth";
 import {
   accountTypeValidator,
+  optionalEmail,
+  optionalText,
   requiredText,
 } from "./lib/borrowerPrivateValidation";
 
 const MAX_BANK_ACCOUNTS = 10;
 const MAX_RELATED_PARTIES = 50;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const partyTypeValidator = v.union(
   v.literal("co_borrower"),
@@ -25,14 +26,6 @@ const sensitiveFieldValidator = v.union(
   v.literal("routing_number"),
   v.literal("account_number")
 );
-
-function optionalText(value: string | undefined, label: string, maxLength = 240) {
-  const normalized = value?.trim() || undefined;
-  if (normalized && normalized.length > maxLength) {
-    throw new ConvexError(`${label} must be ${maxLength} characters or fewer`);
-  }
-  return normalized;
-}
 
 async function requireBorrower(
   ctx: QueryCtx | MutationCtx,
@@ -367,12 +360,10 @@ export const upsertRelatedParty = mutation({
       }
     }
 
-    const email = optionalText(args.email, "Email", 254)?.toLowerCase();
-    if (email && !EMAIL_REGEX.test(email)) throw new ConvexError("Enter a valid email address");
     const values = {
       type: args.type,
       fullName: requiredText(args.fullName, "Full name"),
-      email,
+      email: optionalEmail(args.email),
       phone: optionalText(args.phone, "Phone", 40),
       company: optionalText(args.company, "Company", 120),
       relationship: optionalText(args.relationship, "Relationship", 120),

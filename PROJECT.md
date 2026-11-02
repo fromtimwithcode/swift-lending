@@ -64,7 +64,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = Submitted through Approved (no money out). Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out); Closed is a subset of Active
+- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = every loan that has not closed yet (Submitted through Sent to Title), including funded loans. Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out). Funded and Sent to Title loans appear in both Pending and Active; Closed is a subset of Active
 - [x] Loan detail page with inline editing
 - [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
@@ -194,8 +194,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Payment recorded → notify borrower
 
 ### Closing Statement
-- [x] Admin loan detail: attach/view/replace/remove closing statement file
-- [x] Uses existing `closingStatementFileId` field on loans schema
+- [x] Admin loan detail: Closing Statements card lists every `closing_statement` document on the loan, with upload (several files at once) and per-file remove (superseded the single `closingStatementFileId` file; see Multiple Closing Statements)
 - [x] Direct upload to loan record (not documents table)
 
 ### Advanced Reporting
@@ -271,7 +270,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Activity Log nav item in admin sidebar (visible to admins and developers)
 
 ### Instrumented Mutations
-- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
+- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
 - `convex/draws.ts` — reviewDrawRequest, bulkReviewDrawRequests
 - `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile, createUser, updateUserRole
 - `convex/loanPayments.ts` — recordPayment, deletePayment, bulkDeletePayments
@@ -361,9 +360,24 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Loans List Active Tab (Completed)
 
 - [x] Active tab restored for loans with money out: Funded, Sent to Title, and Closed loans whose funds have not been returned (the same loans as the Capital Out KPI)
-- [x] Pending narrowed to unfunded loans (Submitted through Approved); Funded and Sent to Title rows now show their own status badge instead of Pending
-- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`)
-- [x] Borrower home uses the same definitions: Active Loans (money out), Pending Applications (unfunded), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
+- [x] Pending covers every loan that has not closed yet (Submitted through Sent to Title), so funded loans stay under Pending until they close. Their row shows a Pending badge with the workflow status (Funded, Sent to Title) underneath
+- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`), using the same Pending definition as the loans list
+- [x] Borrower home: Active Loans (money out), Pending Applications (unfunded only, Submitted through Approved), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
+
+## Other Document Names (Completed)
+
+- [x] Choosing **Other** as the document type asks what the document is (for example "Insurance binder"). The upload dialog and the borrower checklist's Other row both require it before uploading
+- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` rejects the name on every other type; older Other documents have no name and still show "Other". Until the new website is live, `saveDocuments` still accepts unnamed Other uploads from the previous build
+- [x] Removed the unused `documents.saveDocument` and `documents.getAllDocuments` endpoints
+
+## Multiple Closing Statements (Completed)
+
+- [x] A loan can hold any number of closing statements. They are `closing_statement` documents; the admin loan page's Closing Statements card lists them with open/preview, per-file Remove (confirmation, logged as `document.delete`), and Upload/Add Statement, which opens the upload dialog preset to Closing Statement and accepts several files
+- [x] Borrowers see them in their loan page checklist (Closing Statements row, which also accepts several files) and on their Documents page. Uploads send the usual document notifications to the borrower and team
+- [x] Removed `admin.attachClosingStatement`, `admin.removeClosingStatement`, and `admin.getClosingStatementUrl`
+- [ ] Production: run `pnpm exec convex run migrations:moveClosingStatementsToDocuments --prod` right after deploying (without `--prod` it runs against the dev deployment in `.env.local`). It moves each loan's legacy `closingStatementFileId` into a `closing_statement` document owned by the admin who attached it (from the Activity Log, else the first admin), named "Closing statement.pdf" (or the image extension), then clears the field. Safe to rerun
+- [x] The backend was deployed before the website, so it keeps the previous website build working: `admin.getClosingStatementUrl`, `admin.attachClosingStatement`, and `admin.removeClosingStatement` act on the loan's newest closing statement document, and unnamed Other uploads are accepted
+- [ ] Cleanup once the new website is live: drop `loans.closingStatementFileId` from the schema, its cleanup in `deleteLoanAndRelatedRecords` (`convex/admin.ts`), the migration, the three `admin.*ClosingStatement*` stand-ins, and make `otherTypeName` required for Other in `saveDocuments`
 
 ## Investor Payment Schedule (Completed)
 
@@ -377,6 +391,16 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Schedule math: `convex/lib/investmentSchedule.ts`; loading and portfolio totals: `convex/lib/investorPortfolio.ts`; functions: `convex/investments.ts`
 - [x] Legacy `nextPaymentDate`/`totalPaymentsReceived` migrated to `firstPaymentDate`/`priorPaymentsReceived` in production (2026-10-08); both new fields are now required and the legacy fields are dropped
 
+## Title Companies Directory (Completed)
+
+- [x] Admin-only **Title Companies** page (sidebar, after Investors): searchable list (name, phone, email) with contact count and whether wire instructions are on file
+- [x] Company page: main phone, email, address, and internal notes with edit and delete (deleting also removes its contacts and wire instructions)
+- [x] Contacts: name, role, phone (tap to call), and email (tap to email); up to 25 per company
+- [x] Wire instructions: bank name, account name, routing and account numbers, and notes. Numbers are encrypted with the borrower data key, shown as `•••• 1234`, and revealed for 30 seconds with an activity log entry. Edits keep the saved numbers unless both are re-entered. The card shows who last changed them and reminds admins to confirm by phone before sending funds
+- [x] Company names are unique ignoring case and spacing; up to 200 companies
+- [x] Activity Log: new Title Company tab; entries `title_company.create`, `.update`, `.delete`, `.contact.create`, `.contact.update`, `.contact.remove`, `.wire.create`, `.wire.update` (records whether numbers were kept or replaced), `.wire.remove`, `.wire.reveal`
+- [x] Standalone for now: loan forms still store title company details as text on the loan
+
 ---
 
 ## File Structure
@@ -389,11 +413,13 @@ convex/
   http.ts                 HTTP routes
   lib/auth.ts             getCurrentUser, requireAdmin, requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers
   lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
-  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
+  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
-  documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
+  titleCompanies.ts       Title company directory (list, get, create, update, remove, upsertContact, removeContact, removeWireInstructions; internal wire write and reveal helpers)
+  titleCompanyActions.ts  Encrypted wire instructions (saveWireInstructions, revealWireValue)
+  documents.ts            Document management (generateUploadUrl, saveDocuments, discardUnsavedUploads, getDocumentsForLoan, getMyDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
   messages.ts             Messaging (getConversations, getDirectMessages, sendMessage, markMessagesRead, getUnreadCount)
@@ -425,6 +451,8 @@ app/
       investors/page.tsx       Investors list (stats, active/inactive badge)
       investors/[id]/page.tsx  Investor detail (profile editing, toggle active, investment CRUD)
       investors/new/page.tsx   Add investor
+      title-companies/page.tsx       Title company list (search, wire instructions status)
+      title-companies/[id]/page.tsx  Title company detail (company info, contacts, wire instructions)
       applications/page.tsx    Pending loan applications
       draws/page.tsx           All draw requests (tab filters)
       draws/[id]/page.tsx      Draw detail + review actions
@@ -476,6 +504,7 @@ components/
     message-thread.tsx        Chat bubbles with auto-scroll + mark-read
     conversation-list.tsx     Conversation list with unread badges
     rehab-budget-editor.tsx   Inline CRUD for rehab budget line items (used in loan detail)
+    title-company-dialogs.tsx Add/edit dialogs for title companies, contacts, and wire instructions
 ```
 
 ---
@@ -500,7 +529,6 @@ components/
 - Payments only allowed on funded/sent_to_title/closed loans; Record Payment button hidden on other statuses
 - Missed payments allow $0 amount; missed payments excluded from totalReceived/totalRevenue
 - Payment stats include partial payment count; on-time % consistently uses explicit on_time count / total across all reports
-- Closing statement replace deletes old file from storage (no orphans)
 - Email notifications skip deactivated users
 - markAllRead loops in batches (handles 200+ unread)
 - Payment stats computed client-side from payments data (eliminates duplicate getPaymentStats query)
@@ -511,11 +539,10 @@ components/
 
 ## Convex File Upload Pattern
 
-Used in `FileUploadDialog` component and closing statement upload:
+Used in `FileUploadDialog` (including closing statement uploads) and the borrower document checklist:
 1. Client-side validation: file type (`accept` attribute) + 10MB size limit
 2. Call `documents.generateUploadUrl` mutation → get signed URL
 3. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
 4. Check `result.ok` before parsing response
 5. Extract `storageId` from response JSON
-6. Call `documents.saveDocument` mutation with `{ fileId: storageId, fileName, fileSize, type, loanId? }`
-   — OR for closing statements: `admin.attachClosingStatement` with `{ loanId, fileId: storageId }`
+6. Call `documents.saveDocuments` mutation with `{ documents: [{ fileId: storageId, fileName, fileSize, type }], loanId?, drawRequestId? }`; type `other` also takes `otherTypeName`, which the upload UI requires

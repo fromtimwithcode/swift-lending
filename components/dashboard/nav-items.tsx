@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   BookOpenCheck,
+  Building2,
   FileText,
   HandCoins,
   Landmark,
@@ -54,6 +55,11 @@ const adminNav: NavItem[] = [
     label: "Investors",
     href: "/dashboard/admin/investors",
     icon: <PiggyBank className="size-5" />,
+  },
+  {
+    label: "Title Companies",
+    href: "/dashboard/admin/title-companies",
+    icon: <Building2 className="size-5" />,
   },
   {
     label: "Notifications",

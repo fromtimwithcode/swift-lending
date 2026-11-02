@@ -12,6 +12,8 @@ import AdminInvestor from "../../app/dashboard/admin/investors/[id]/page";
 import InvestorPortfolio from "../../app/dashboard/investor/page";
 import InvestorPayments from "../../app/dashboard/investor/payments/page";
 import InvestorStatements from "../../app/dashboard/investor/statements/page";
+import TitleCompanies from "../../app/dashboard/admin/title-companies/page";
+import TitleCompany from "../../app/dashboard/admin/title-companies/[id]/page";
 import "../../app/globals.css";
 
 const page = new URLSearchParams(window.location.search).get("page");
@@ -23,6 +25,8 @@ const investorPages: Record<string, () => React.ReactNode> = {
   apply: () => <LoanApplication />,
   "new-loan": () => <NewLoan />,
   "borrower-home": () => <BorrowerHome />,
+  "title-companies": () => <TitleCompanies />,
+  "title-company": () => <TitleCompany />,
 };
 createRoot(document.getElementById("root")!).render(
   <main className="mx-auto min-w-0 max-w-7xl p-4 pb-64 sm:p-6 sm:pb-40 lg:p-8">

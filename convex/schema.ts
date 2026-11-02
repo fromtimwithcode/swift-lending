@@ -170,6 +170,41 @@ const schema = defineSchema({
     updatedBy: v.id("userProfiles"),
   }).index("by_borrowerId", ["borrowerId"]),
 
+  titleCompanies: defineTable({
+    name: v.string(),
+    normalizedName: v.string(),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    wireInstructions: v.optional(
+      v.object({
+        bankName: v.string(),
+        accountName: v.string(),
+        encryptedRoutingNumber: v.string(),
+        routingLast4: v.string(),
+        encryptedAccountNumber: v.string(),
+        accountLast4: v.string(),
+        keyVersion: v.number(),
+        notes: v.optional(v.string()),
+        updatedAt: v.number(),
+        updatedBy: v.id("userProfiles"),
+      })
+    ),
+    updatedAt: v.number(),
+    updatedBy: v.id("userProfiles"),
+  }).index("by_normalizedName", ["normalizedName"]),
+
+  titleCompanyContacts: defineTable({
+    titleCompanyId: v.id("titleCompanies"),
+    name: v.string(),
+    role: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    updatedAt: v.number(),
+    updatedBy: v.id("userProfiles"),
+  }).index("by_titleCompanyId", ["titleCompanyId"]),
+
   appSettings: defineTable({
     key: v.literal("defaultInterestRate"),
     value: v.number(),
@@ -257,6 +292,7 @@ const schema = defineSchema({
       v.literal("rehab_budget"),
       v.literal("other")
     ),
+    otherTypeName: v.optional(v.string()),
     fileId: v.id("_storage"),
     fileName: v.string(),
     fileSize: v.optional(v.number()),
@@ -470,7 +506,8 @@ const schema = defineSchema({
       v.literal("payment"),
       v.literal("document"),
       v.literal("message"),
-      v.literal("system")
+      v.literal("system"),
+      v.literal("title_company")
     ),
     entityId: v.optional(v.string()),
     details: v.optional(v.string()),

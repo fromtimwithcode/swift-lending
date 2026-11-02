@@ -2,9 +2,14 @@
 
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { type FunctionArgs } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { DOC_TYPE_LABELS, MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import {
+  DOC_TYPE_LABELS,
+  MAX_FILE_SIZE_BYTES,
+  OTHER_DOCUMENT_TYPE_MAX_LENGTH,
+} from "@/convex/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize } from "@/lib/format";
 import { toast } from "sonner";
@@ -64,6 +69,7 @@ export function DocumentChecklist({
   const [uploadingRow, setUploadingRow] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [articleSubType, setArticleSubType] = useState<"articles" | "operating_agreement">("articles");
+  const [otherTypeName, setOtherTypeName] = useState("");
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const requiredRows: DocRow[] = [
@@ -110,7 +116,7 @@ export function DocumentChecklist({
           },
         ]
       : []),
-    { label: "Closing Statement", types: ["closing_statement"] as DocType[], multi: false, required: false },
+    { label: "Closing Statements", types: ["closing_statement"] as DocType[], multi: true, required: false },
     { label: "Wire Instructions", types: ["wire_instructions"] as DocType[], multi: false, required: false },
     { label: "Receipts", types: ["receipt"] as DocType[], multi: true, required: false },
     { label: "Lien Waivers", types: ["lien_waiver"] as DocType[], multi: true, required: false },
@@ -146,19 +152,13 @@ export function DocumentChecklist({
     let skippedCount = 0;
     const uploadedFileIds: Id<"_storage">[] = [];
     let metadataSaved = false;
-    const documentsToSave: Array<{
-      fileId: Id<"_storage">;
-      fileName: string;
-      fileSize: number;
-      type: DocType;
-    }> = [];
+    const documentsToSave: FunctionArgs<typeof api.documents.saveDocuments>["documents"] = [];
     setUploadProgress({ current: 0, total: fileArray.length });
 
     try {
-      let docType: DocType = row.types[0];
-      if (row.types.length > 1 && row.types.includes("articles")) {
-        docType = articleSubType;
-      }
+      const docType = row.types.includes("articles") ? articleSubType : row.types[0];
+      const documentType =
+        docType === "other" ? { type: docType, otherTypeName } : { type: docType };
 
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
@@ -182,7 +182,7 @@ export function DocumentChecklist({
           fileId: storageId,
           fileName: file.name,
           fileSize: file.size,
-          type: docType,
+          ...documentType,
         });
 
         setUploadProgress({ current: i + 1, total: fileArray.length });
@@ -191,6 +191,7 @@ export function DocumentChecklist({
       if (documentsToSave.length > 0) {
         await saveDocuments({ documents: documentsToSave, loanId });
         metadataSaved = true;
+        if (docType === "other") setOtherTypeName("");
       }
 
       if (skippedCount > 0) {
@@ -227,6 +228,8 @@ export function DocumentChecklist({
     const isUploading = uploadingRow !== null;
     const isThisRowUploading = uploadingRow === row.label;
     const isArticlesRow = row.types.includes("articles");
+    const isOtherRow = row.types.includes("other");
+    const needsOtherTypeName = isOtherRow && !otherTypeName.trim();
 
     return (
       <div key={row.label} className="border-b border-border last:border-b-0">
@@ -289,6 +292,18 @@ export function DocumentChecklist({
             </select>
           )}
 
+          {isOtherRow && (
+            <input
+              value={otherTypeName}
+              onChange={(e) => setOtherTypeName(e.target.value)}
+              disabled={isUploading}
+              maxLength={OTHER_DOCUMENT_TYPE_MAX_LENGTH}
+              placeholder="What kind of document?"
+              aria-label="Other document type"
+              className="min-h-10 w-full rounded-lg border border-border bg-background px-3 text-xs placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50 sm:w-52"
+            />
+          )}
+
           {/* Upload button */}
           <input
             ref={(el) => {
@@ -307,7 +322,7 @@ export function DocumentChecklist({
           <button
             type="button"
             onClick={() => fileInputRefs.current[row.label]?.click()}
-            disabled={isUploading}
+            disabled={isUploading || needsOtherTypeName}
             className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 sm:self-auto"
           >
             {isThisRowUploading ? (
