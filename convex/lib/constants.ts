@@ -168,6 +168,16 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   "user.changeRole": "Changed User Role",
   "application.submit": "Submitted Loan Application",
   "user.updateOwnProfile": "Updated Own Profile",
+  "title_company.create": "Added Title Company",
+  "title_company.update": "Updated Title Company",
+  "title_company.delete": "Deleted Title Company",
+  "title_company.contact.create": "Added Title Company Contact",
+  "title_company.contact.update": "Updated Title Company Contact",
+  "title_company.contact.remove": "Removed Title Company Contact",
+  "title_company.wire.create": "Added Wire Instructions",
+  "title_company.wire.update": "Updated Wire Instructions",
+  "title_company.wire.remove": "Removed Wire Instructions",
+  "title_company.wire.reveal": "Revealed Wire Instructions",
 };
 
 /** Entity type labels for display */
@@ -180,6 +190,7 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   document: "Document",
   message: "Message",
   system: "System",
+  title_company: "Title Company",
 };
 
 export const OTHER_DOCUMENT_TYPE_MAX_LENGTH = 100;

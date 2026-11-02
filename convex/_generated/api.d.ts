@@ -47,6 +47,7 @@ import type * as lib_propertyDetails from "../lib/propertyDetails.js";
 import type * as lib_propertyValidators from "../lib/propertyValidators.js";
 import type * as lib_sensitiveData from "../lib/sensitiveData.js";
 import type * as lib_settings from "../lib/settings.js";
+import type * as lib_titleCompanies from "../lib/titleCompanies.js";
 import type * as loanCharges from "../loanCharges.js";
 import type * as loanPayments from "../loanPayments.js";
 import type * as messages from "../messages.js";
@@ -54,6 +55,8 @@ import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as payoffs from "../payoffs.js";
 import type * as settings from "../settings.js";
+import type * as titleCompanies from "../titleCompanies.js";
+import type * as titleCompanyActions from "../titleCompanyActions.js";
 import type * as users from "../users.js";
 
 import type {
@@ -102,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   "lib/propertyValidators": typeof lib_propertyValidators;
   "lib/sensitiveData": typeof lib_sensitiveData;
   "lib/settings": typeof lib_settings;
+  "lib/titleCompanies": typeof lib_titleCompanies;
   loanCharges: typeof loanCharges;
   loanPayments: typeof loanPayments;
   messages: typeof messages;
@@ -109,6 +113,8 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   payoffs: typeof payoffs;
   settings: typeof settings;
+  titleCompanies: typeof titleCompanies;
+  titleCompanyActions: typeof titleCompanyActions;
   users: typeof users;
 }>;
 

@@ -18,6 +18,28 @@ export function requiredText(
   return normalized;
 }
 
+export function optionalText(
+  value: string | undefined,
+  label: string,
+  maxLength = 240
+): string | undefined {
+  const normalized = value?.trim() || undefined;
+  if (normalized && normalized.length > maxLength) {
+    throw new ConvexError(`${label} must be ${maxLength} characters or fewer`);
+  }
+  return normalized;
+}
+
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function optionalEmail(value: string | undefined): string | undefined {
+  const email = optionalText(value, "Email", 254)?.toLowerCase();
+  if (email && !EMAIL_REGEX.test(email)) {
+    throw new ConvexError("Enter a valid email address");
+  }
+  return email;
+}
+
 function digitsOnly(value: string): string {
   return value.replace(/\D/g, "");
 }
