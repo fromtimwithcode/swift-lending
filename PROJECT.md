@@ -194,8 +194,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Payment recorded → notify borrower
 
 ### Closing Statement
-- [x] Admin loan detail: attach/view/replace/remove closing statement file
-- [x] Uses existing `closingStatementFileId` field on loans schema
+- [x] Admin loan detail: Closing Statements card lists every `closing_statement` document on the loan, with upload (several files at once) and per-file remove (superseded the single `closingStatementFileId` file; see Multiple Closing Statements)
 - [x] Direct upload to loan record (not documents table)
 
 ### Advanced Reporting
@@ -271,7 +270,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Activity Log nav item in admin sidebar (visible to admins and developers)
 
 ### Instrumented Mutations
-- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, attachClosingStatement, removeClosingStatement, bulkUpdateLoanStatus, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
+- `convex/admin.ts` — createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem
 - `convex/draws.ts` — reviewDrawRequest, bulkReviewDrawRequests
 - `convex/users.ts` — createBorrower, createInvestor, toggleUserActive, bulkToggleActive, updateUserProfile, createUser, updateUserRole
 - `convex/loanPayments.ts` — recordPayment, deletePayment, bulkDeletePayments
@@ -371,6 +370,13 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` accepts the name only with type `other` and requires it there; older Other documents have no name and still show "Other"
 - [x] Removed the unused `documents.saveDocument` and `documents.getAllDocuments` endpoints
 
+## Multiple Closing Statements (Completed)
+
+- [x] A loan can hold any number of closing statements. They are `closing_statement` documents; the admin loan page's Closing Statements card lists them with open/preview, per-file Remove (confirmation, logged as `document.delete`), and Upload/Add Statement, which opens the upload dialog preset to Closing Statement and accepts several files
+- [x] Borrowers see them in their loan page checklist (Closing Statements row, which also accepts several files) and on their Documents page. Uploads send the usual document notifications to the borrower and team
+- [x] Removed `admin.attachClosingStatement`, `admin.removeClosingStatement`, and `admin.getClosingStatementUrl`
+- [ ] Production: run `pnpm exec convex run migrations:moveClosingStatementsToDocuments` right after deploying. It moves each loan's legacy `closingStatementFileId` into a `closing_statement` document owned by the admin who attached it (from the Activity Log, else the first admin), named "Closing statement.pdf" (or the image extension), then clears the field. Safe to rerun. Afterwards, drop `loans.closingStatementFileId` from the schema, its cleanup in `deleteLoanAndRelatedRecords` (`convex/admin.ts`), and the migration
+
 ## Investor Payment Schedule (Completed)
 
 - [x] Payments are calculated, not typed in: interest is paid monthly at amount × annual rate ÷ 12 on the first payment date's day of the month (clamped in short months)
@@ -395,7 +401,7 @@ convex/
   http.ts                 HTTP routes
   lib/auth.ts             getCurrentUser, requireAdmin, requireRole, requireAnyRole, isAdminLike, getAdminLikeUsers
   lib/constants.ts        Shared constants (MAX_BULK_OPERATION_SIZE, LOAN_STATUS_LABELS, DRAW_STATUS_LABELS, REHAB_CATEGORIES, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, ROLE_LABELS, ACTIVITY_ACTION_LABELS, ENTITY_TYPE_LABELS, formatCurrencyPlain)
-  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, attachClosingStatement, removeClosingStatement, getClosingStatementUrl, getBorrowerPerformance)
+  admin.ts                Admin queries + mutations (getOverviewStats, getLoans, getLoan, createLoan, updateLoan, updateLoanStatus, bulkUpdateLoanStatus, getApplications, getBorrowerDetail, getRehabBudgetItems, addRehabBudgetItem, updateRehabBudgetItem, deleteRehabBudgetItem, getBorrowerPerformance)
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
@@ -506,7 +512,6 @@ components/
 - Payments only allowed on funded/sent_to_title/closed loans; Record Payment button hidden on other statuses
 - Missed payments allow $0 amount; missed payments excluded from totalReceived/totalRevenue
 - Payment stats include partial payment count; on-time % consistently uses explicit on_time count / total across all reports
-- Closing statement replace deletes old file from storage (no orphans)
 - Email notifications skip deactivated users
 - markAllRead loops in batches (handles 200+ unread)
 - Payment stats computed client-side from payments data (eliminates duplicate getPaymentStats query)
@@ -517,11 +522,10 @@ components/
 
 ## Convex File Upload Pattern
 
-Used in `FileUploadDialog` component and closing statement upload:
+Used in `FileUploadDialog` (including closing statement uploads) and the borrower document checklist:
 1. Client-side validation: file type (`accept` attribute) + 10MB size limit
 2. Call `documents.generateUploadUrl` mutation → get signed URL
 3. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
 4. Check `result.ok` before parsing response
 5. Extract `storageId` from response JSON
 6. Call `documents.saveDocuments` mutation with `{ documents: [{ fileId: storageId, fileName, fileSize, type }], loanId?, drawRequestId? }`; type `other` also requires `otherTypeName`
-   — OR for closing statements: `admin.attachClosingStatement` with `{ loanId, fileId: storageId }`

@@ -116,7 +116,7 @@ export function DocumentChecklist({
           },
         ]
       : []),
-    { label: "Closing Statement", types: ["closing_statement"] as DocType[], multi: false, required: false },
+    { label: "Closing Statements", types: ["closing_statement"] as DocType[], multi: true, required: false },
     { label: "Wire Instructions", types: ["wire_instructions"] as DocType[], multi: false, required: false },
     { label: "Receipts", types: ["receipt"] as DocType[], multi: true, required: false },
     { label: "Lien Waivers", types: ["lien_waiver"] as DocType[], multi: true, required: false },

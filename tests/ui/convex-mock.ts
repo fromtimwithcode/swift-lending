@@ -49,6 +49,17 @@ let loans = [
   },
 ];
 let draws: Record<string, unknown>[] = [];
+type MockDocument = {
+  _id: string;
+  _creationTime: number;
+  loanId: string;
+  type: string;
+  otherTypeName?: string;
+  fileName: string;
+  url: string;
+  drawRequestId?: string;
+};
+let documents: MockDocument[] = [];
 type MockCharge = {
   _id: string;
   type: string;
@@ -126,6 +137,10 @@ const controls = {
     draws = next;
     notify();
   },
+  setDocuments: (next: MockDocument[]) => {
+    documents = next;
+    notify();
+  },
   setInvestments: (next: MockInvestment[]) => {
     investments = next;
     notify();
@@ -182,8 +197,8 @@ export function useQuery(
     case "draws:getDrawRequestsForLoan":
     case "borrower:getDrawRequestsForLoan":
       return draws;
-    case "admin:getClosingStatementUrl":
-      return null;
+    case "documents:getDocumentsForLoan":
+      return documents;
     case "loanCharges:getChargesForLoan":
       return charges.filter((charge) => charge.status !== "waived");
     case "loanPayments:getPaymentsForLoan":
@@ -227,6 +242,25 @@ export function useMutation(reference: FunctionReference<"mutation">) {
     if (name === "draws:createManualDrawRequest" || name === "borrower:submitDrawRequest")
       return "draw-new";
     if (name === "documents:generateUploadUrl") return "/__upload";
+    if (name === "documents:saveDocuments") {
+      const saved = (args.documents as Omit<MockDocument, "_id" | "_creationTime" | "loanId" | "url">[]).map(
+        (doc, index) => ({
+          ...doc,
+          _id: `document-${documents.length + index + 1}`,
+          _creationTime: 1789603200000 + documents.length + index,
+          loanId: args.loanId as string,
+          url: `/files/${doc.fileName}`,
+        }),
+      );
+      documents = [...documents, ...saved];
+      notify();
+      return saved.map((doc) => doc._id);
+    }
+    if (name === "documents:deleteDocument") {
+      documents = documents.filter((doc) => doc._id !== args.id);
+      notify();
+      return null;
+    }
     if (name === "borrower:submitApplication" || name === "admin:createLoan") return "loan-new";
     if (name === "admin:updateLoan") return args.id;
     if (name.startsWith("investments:")) return mutateInvestments(name, args);

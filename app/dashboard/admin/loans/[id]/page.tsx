@@ -18,7 +18,6 @@ import {
   Save,
   X,
   Upload,
-  FileText,
   Trash2,
   ChevronUp,
   Plus,
@@ -33,7 +32,7 @@ import { useRef, useState } from "react";
 import { LoanStatusDialog } from "@/components/dashboard/loan-status-dialog";
 import { LoanStatusControls } from "@/components/dashboard/loan-status-controls";
 import type { LoanStatus } from "@/convex/lib/loanStatus";
-import { formatCurrency, formatFileSize } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { formatUsDate, getMaturityDate, parseUsDate } from "@/lib/dates";
 import { calculatePoints } from "@/lib/loan-calc";
 import {
@@ -43,7 +42,7 @@ import {
   getCurrentPrincipalOut,
   getPointsPercentageError,
 } from "@/convex/lib/loanCalculations";
-import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, MAX_FILE_SIZE_BYTES, isDrawEligibleLoan } from "@/convex/lib/constants";
+import { PAYMENT_TYPE_LABELS, STRATEGY_LABELS, isDrawEligibleLoan } from "@/convex/lib/constants";
 import { MAX_MISSING_DOCUMENTS_NOTE_LENGTH } from "@/convex/lib/loanDocuments";
 import {
   isCombinedInterestChargeType,
@@ -129,17 +128,14 @@ export default function LoanDetailPage() {
   const loan = useQuery(api.admin.getLoan, { id });
   const drawRequests = useQuery(api.draws.getDrawRequestsForLoan, { loanId: id });
   const documents = useQuery(api.documents.getDocumentsForLoan, { loanId: id });
-  const closingStatementUrl = useQuery(api.admin.getClosingStatementUrl, { loanId: id });
   const payments = useQuery(api.loanPayments.getPaymentsForLoan, { loanId: id });
   const charges = useQuery(api.loanCharges.getChargesForLoan, { loanId: id });
   const borrowers = useQuery(api.users.getAllBorrowers);
   const updateStatus = useMutation(api.admin.updateLoanStatus);
   const updateLoan = useMutation(api.admin.updateLoan);
-  const attachClosingStatement = useMutation(api.admin.attachClosingStatement);
-  const removeClosingStatement = useMutation(api.admin.removeClosingStatement);
   const recordLoanReturned = useMutation(api.admin.recordLoanReturned);
   const createManualDraw = useMutation(api.draws.createManualDrawRequest);
-  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const deleteDocument = useMutation(api.documents.deleteDocument);
   const recordPayment = useMutation(api.loanPayments.recordPayment);
   const deletePayment = useMutation(api.loanPayments.deletePayment);
   const removeCharge = useMutation(api.loanCharges.removeCharge);
@@ -153,7 +149,7 @@ export default function LoanDetailPage() {
   );
   const [uploadOpen, setUploadOpen] = useState(false);
   const [drawUploadId, setDrawUploadId] = useState<Id<"drawRequests"> | undefined>();
-  const [closingUploading, setClosingUploading] = useState(false);
+  const [closingUploadOpen, setClosingUploadOpen] = useState(false);
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
@@ -162,7 +158,10 @@ export default function LoanDetailPage() {
     trigger: HTMLButtonElement;
   } | null>(null);
   const chargesSectionRef = useRef<HTMLDivElement>(null);
-  const [confirmRemoveClosing, setConfirmRemoveClosing] = useState(false);
+  const [closingStatementToRemove, setClosingStatementToRemove] = useState<{
+    _id: Id<"documents">;
+    fileName: string;
+  } | null>(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [removingClosing, setRemovingClosing] = useState(false);
   const [returnFormOpen, setReturnFormOpen] = useState(false);
@@ -265,6 +264,7 @@ export default function LoanDetailPage() {
       })
     : undefined;
   const loanLevelDocuments = (documents ?? []).filter((doc) => !doc.drawRequestId);
+  const closingStatements = loanLevelDocuments.filter((doc) => doc.type === "closing_statement");
   const openDrawUpload = (draw: DrawFolderDraw) => setDrawUploadId(draw._id);
   const hasRelatedPaymentForCharge = (charge: {
     _id: Id<"loanCharges">;
@@ -693,41 +693,6 @@ export default function LoanDetailPage() {
         monthlyPayment: monthly ? String(monthly) : "",
       };
     });
-  };
-
-  const handleClosingStatementUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Only PDF and image files (PNG, JPEG, WebP) are allowed.");
-      e.target.value = "";
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error(`File is too large (${formatFileSize(file.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}.`);
-      e.target.value = "";
-      return;
-    }
-
-    setClosingUploading(true);
-    try {
-      const url = await generateUploadUrl();
-      const result = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!result.ok) throw new Error("Upload failed: " + result.statusText);
-      const { storageId } = await result.json();
-      await attachClosingStatement({ loanId: id, fileId: storageId });
-      toast.success("Closing statement uploaded");
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to upload closing statement"));
-    } finally {
-      setClosingUploading(false);
-    }
   };
 
   const handleRecordPayment = async () => {
@@ -1548,43 +1513,38 @@ export default function LoanDetailPage() {
         </div>
       </div>
 
-      {/* Closing Statement */}
+      {/* Closing Statements */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-[13px] font-bold uppercase tracking-wide text-foreground">
-          Closing Statement
-        </h3>
-        {closingStatementUrl ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <a
-              href={closingStatementUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-md text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              <FileText className="size-4" />
-              View Closing Statement
-            </a>
-            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 text-xs font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring/30">
-              {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
-              Replace
-              <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
-            </label>
-            <button
-              onClick={() => {
-                setConfirmRemoveClosing(true);
-              }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-3 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 dark:hover:bg-red-900/20"
-            >
-              <Trash2 className="size-3" />
-              Remove
-            </button>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-[13px] font-bold uppercase tracking-wide text-foreground">
+            Closing Statements
+          </h3>
+          <button
+            type="button"
+            onClick={() => setClosingUploadOpen(true)}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          >
+            <Upload className="size-3" />
+            {closingStatements.length > 0 ? "Add Statement" : "Upload Statement"}
+          </button>
+        </div>
+        {closingStatements.length > 0 ? (
+          <div className="divide-y divide-border">
+            {closingStatements.map((doc) => (
+              <DocumentPreviewRow key={doc._id} document={doc} previewDocuments={closingStatements}>
+                <button
+                  type="button"
+                  onClick={() => setClosingStatementToRemove({ _id: doc._id, fileName: doc.fileName })}
+                  aria-label={`Remove ${doc.fileName}`}
+                  className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </DocumentPreviewRow>
+            ))}
           </div>
         ) : (
-          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/80 focus-within:ring-2 focus-within:ring-ring/30">
-            {closingUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
-            Attach Closing Statement
-            <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleClosingStatementUpload} />
-          </label>
+          <p className="text-sm text-muted-foreground">No closing statements yet</p>
         )}
       </div>
 
@@ -1932,6 +1892,14 @@ export default function LoanDetailPage() {
         description="Upload loan-level documents or choose a draw folder before uploading."
       />
       <FileUploadDialog
+        open={closingUploadOpen}
+        onClose={() => setClosingUploadOpen(false)}
+        loanId={id}
+        defaultDocType="closing_statement"
+        title="Upload Closing Statements"
+        description="Add one or more closing statements to this loan. The borrower can see them on their loan page."
+      />
+      <FileUploadDialog
         open={drawUploadId !== undefined}
         onClose={() => setDrawUploadId(undefined)}
         loanId={id}
@@ -2104,25 +2072,30 @@ export default function LoanDetailPage() {
         />
       )}
       <ConfirmDialog
-        open={confirmRemoveClosing}
+        open={closingStatementToRemove !== null}
         title="Remove closing statement?"
-        description="This will remove the attached closing statement file."
+        description={
+          closingStatementToRemove
+            ? `This deletes "${closingStatementToRemove.fileName}" from the loan.`
+            : undefined
+        }
         confirmLabel="Remove"
         variant="destructive"
         loading={removingClosing}
         onConfirm={async () => {
+          if (!closingStatementToRemove) return;
           setRemovingClosing(true);
           try {
-            await removeClosingStatement({ loanId: id });
+            await deleteDocument({ id: closingStatementToRemove._id });
             toast.success("Closing statement removed");
-            setConfirmRemoveClosing(false);
-          } catch {
-            toast.error("Failed to remove closing statement");
+            setClosingStatementToRemove(null);
+          } catch (err) {
+            toast.error(getErrorMessage(err, "Failed to remove closing statement"));
           } finally {
             setRemovingClosing(false);
           }
         }}
-        onCancel={() => setConfirmRemoveClosing(false)}
+        onCancel={() => setClosingStatementToRemove(null)}
       />
       <BorrowerEmailDialog
         open={emailOpen}

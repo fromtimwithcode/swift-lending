@@ -48,6 +48,7 @@
 
 ## Document Types
 - Documents of type `other` carry a required `otherTypeName` (what the document is, at most 100 characters). `saveDocuments` in `convex/documents.ts` enforces this with a union validator: the name is required for `other` and rejected for every other type. Older Other documents have no name. `DocumentPreviewRow` shows the name in place of "Other".
+- Closing statements are ordinary `closing_statement` documents, so a loan can have several and borrowers can see them. The admin loan page's Closing Statements card filters the loan's documents and uploads through `FileUploadDialog`. `loans.closingStatementFileId` is legacy: only `migrations:moveClosingStatementsToDocuments` and the loan delete cleanup read it. Remove both once the migration has run in production.
 
 ## Loan Points and Terms
 - `loans.pointsPercentage` is the source of truth for points. Admins set it per loan on the new-loan form and in loan edit mode; it defaults to the configured origination points. `createLoan` and `updateLoan` accept only the percentage and recalculate `pointsEarned`. Bounds live in `getPointsPercentageError` (`convex/lib/loanCalculations.ts`).
