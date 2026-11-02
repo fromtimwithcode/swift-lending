@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { type FunctionArgs } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { MAX_FILE_SIZE_BYTES } from "@/convex/lib/constants";
+import { MAX_FILE_SIZE_BYTES, OTHER_DOCUMENT_TYPE_MAX_LENGTH } from "@/convex/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { formatCurrency, formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -76,9 +77,11 @@ export function FileUploadDialog({
   const discardUnsavedUploads = useMutation(api.documents.discardUnsavedUploads);
 
   const titleId = useId();
+  const otherTypeInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [docType, setDocType] = useState<DocType>(defaultDocType);
+  const [otherTypeName, setOtherTypeName] = useState("");
   const [selectedDrawRequestId, setSelectedDrawRequestId] = useState<Id<"drawRequests"> | "">(drawRequestId ?? "");
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -98,6 +101,7 @@ export function FileUploadDialog({
       if (event.key !== "Escape" || uploading) return;
       setFiles([]);
       setDocType(defaultDocType);
+      setOtherTypeName("");
       setSelectedDrawRequestId(drawRequestId ?? "");
       setDragActive(false);
       setUploadProgress(null);
@@ -118,7 +122,8 @@ export function FileUploadDialog({
   const targetDrawRequestId = drawRequestId ?? (selectedDrawRequestId || undefined);
   const targetDraw = drawOptions.find((draw) => draw._id === targetDrawRequestId);
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-  const canUpload = files.length > 0 && !uploading;
+  const needsOtherTypeName = docType === "other" && !otherTypeName.trim();
+  const canUpload = files.length > 0 && !uploading && !needsOtherTypeName;
   const uploadLabel = uploading && uploadProgress
     ? `Uploading ${uploadProgress.current} of ${uploadProgress.total}`
     : files.length > 1
@@ -186,6 +191,7 @@ export function FileUploadDialog({
   function resetForm() {
     setFiles([]);
     setDocType(defaultDocType);
+    setOtherTypeName("");
     setSelectedDrawRequestId(drawRequestId ?? "");
     setDragActive(false);
     setUploadProgress(null);
@@ -198,7 +204,7 @@ export function FileUploadDialog({
   }
 
   async function handleUpload() {
-    if (files.length === 0) return;
+    if (!canUpload) return;
 
     const firstInvalidFile = files.find((file) => getFileIssue(file));
     if (firstInvalidFile) {
@@ -212,12 +218,9 @@ export function FileUploadDialog({
     let metadataSaved = false;
 
     try {
-      const uploadedDocuments: Array<{
-        fileId: Id<"_storage">;
-        fileName: string;
-        fileSize: number;
-        type: DocType;
-      }> = [];
+      const documentType =
+        docType === "other" ? { type: docType, otherTypeName } : { type: docType };
+      const uploadedDocuments: FunctionArgs<typeof api.documents.saveDocuments>["documents"] = [];
 
       for (let index = 0; index < files.length; index++) {
         const file = files[index];
@@ -237,7 +240,7 @@ export function FileUploadDialog({
           fileId: storageId,
           fileName: file.name,
           fileSize: file.size,
-          type: docType,
+          ...documentType,
         });
       }
 
@@ -314,6 +317,24 @@ export function FileUploadDialog({
                 ))}
               </select>
             </div>
+
+            {docType === "other" && (
+              <div>
+                <label htmlFor={otherTypeInputId} className="mb-1.5 block text-sm font-medium">
+                  What kind of document?
+                </label>
+                <input
+                  id={otherTypeInputId}
+                  value={otherTypeName}
+                  onChange={(e) => setOtherTypeName(e.target.value)}
+                  disabled={uploading}
+                  required
+                  maxLength={OTHER_DOCUMENT_TYPE_MAX_LENGTH}
+                  placeholder="e.g. Insurance binder"
+                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-50 admin:rounded-md"
+                />
+              </div>
+            )}
 
             {(drawOptions.length > 0 || drawRequestId) && (
               <div>

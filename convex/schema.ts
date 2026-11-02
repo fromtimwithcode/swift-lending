@@ -257,6 +257,7 @@ const schema = defineSchema({
       v.literal("rehab_budget"),
       v.literal("other")
     ),
+    otherTypeName: v.optional(v.string()),
     fileId: v.id("_storage"),
     fileName: v.string(),
     fileSize: v.optional(v.number()),

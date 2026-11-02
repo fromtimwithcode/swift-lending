@@ -365,6 +365,12 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`), using the same Pending definition as the loans list
 - [x] Borrower home: Active Loans (money out), Pending Applications (unfunded only, Submitted through Approved), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
 
+## Other Document Names (Completed)
+
+- [x] Choosing **Other** as the document type asks what the document is (for example "Insurance binder"). The upload dialog and the borrower checklist's Other row both require it before uploading
+- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` accepts the name only with type `other` and requires it there; older Other documents have no name and still show "Other"
+- [x] Removed the unused `documents.saveDocument` and `documents.getAllDocuments` endpoints
+
 ## Investor Payment Schedule (Completed)
 
 - [x] Payments are calculated, not typed in: interest is paid monthly at amount × annual rate ÷ 12 on the first payment date's day of the month (clamped in short months)
@@ -393,7 +399,7 @@ convex/
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
-  documents.ts            Document management (generateUploadUrl, saveDocument, getDocumentsForLoan, getMyDocuments, getAllDocuments, deleteDocument)
+  documents.ts            Document management (generateUploadUrl, saveDocuments, discardUnsavedUploads, getDocumentsForLoan, getMyDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
   messages.ts             Messaging (getConversations, getDirectMessages, sendMessage, markMessagesRead, getUnreadCount)
@@ -517,5 +523,5 @@ Used in `FileUploadDialog` component and closing statement upload:
 3. `fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file })`
 4. Check `result.ok` before parsing response
 5. Extract `storageId` from response JSON
-6. Call `documents.saveDocument` mutation with `{ fileId: storageId, fileName, fileSize, type, loanId? }`
+6. Call `documents.saveDocuments` mutation with `{ documents: [{ fileId: storageId, fileName, fileSize, type }], loanId?, drawRequestId? }`; type `other` also requires `otherTypeName`
    — OR for closing statements: `admin.attachClosingStatement` with `{ loanId, fileId: storageId }`

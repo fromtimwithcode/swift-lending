@@ -182,6 +182,8 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   system: "System",
 };
 
+export const OTHER_DOCUMENT_TYPE_MAX_LENGTH = 100;
+
 /** Document type labels for display */
 export const DOC_TYPE_LABELS: Record<string, string> = {
   articles: "Articles of Organization",

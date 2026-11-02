@@ -46,6 +46,9 @@
 - Admin-created loans (`createLoan` in `convex/admin.ts`) need purchase contract files or a nonblank `loans.missingDocumentsNote` (maximum 2,000 characters). Admins edit or clear the note from the loan page's edit mode.
 - The note is borrower-visible: both loan pages show it with `MissingDocumentsNote`. Shared validators and helpers live in `convex/lib/loanDocuments.ts`; both forms use `PurchaseContractUpload`.
 
+## Document Types
+- Documents of type `other` carry a required `otherTypeName` (what the document is, at most 100 characters). `saveDocuments` in `convex/documents.ts` enforces this with a union validator: the name is required for `other` and rejected for every other type. Older Other documents have no name. `DocumentPreviewRow` shows the name in place of "Other".
+
 ## Loan Points and Terms
 - `loans.pointsPercentage` is the source of truth for points. Admins set it per loan on the new-loan form and in loan edit mode; it defaults to the configured origination points. `createLoan` and `updateLoan` accept only the percentage and recalculate `pointsEarned`. Bounds live in `getPointsPercentageError` (`convex/lib/loanCalculations.ts`).
 - New loans do not take a term choice. `submitApplication` and `createLoan` store `terms` as `formatLoanTerm` of the configured standard loan term (6 months by default), and both forms show it read-only. Admins can still edit `terms` on existing loans in edit mode.

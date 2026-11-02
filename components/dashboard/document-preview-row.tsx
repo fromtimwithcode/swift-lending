@@ -19,6 +19,7 @@ export type PreviewDocument = {
   _id: string;
   fileName: string;
   type: string;
+  otherTypeName?: string;
   url?: string | null;
   propertyAddress?: string;
   entityName?: string;
@@ -155,7 +156,7 @@ export function DocumentPreviewRow({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{document.fileName}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <StatusBadge status={document.type} />
+              <StatusBadge status={document.type} label={document.otherTypeName} />
               {isImage && (
                 <button
                   type="button"
@@ -227,7 +228,7 @@ export function DocumentPreviewRow({
                   {activeDocument.fileName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <StatusBadge status={activeDocument.type} />
+                  <StatusBadge status={activeDocument.type} label={activeDocument.otherTypeName} />
                   {galleryDocuments.length > 1 && (
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {previewIndex + 1} of {galleryDocuments.length} · Use arrow keys

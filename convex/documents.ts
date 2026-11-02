@@ -1,10 +1,10 @@
 import { query, mutation } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { v, ConvexError } from "convex/values";
+import { v, ConvexError, type Infer } from "convex/values";
 import { requireRole, requireAnyRole, isAdminLike } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { MAX_FILE_SIZE_BYTES } from "./lib/constants";
+import { MAX_FILE_SIZE_BYTES, OTHER_DOCUMENT_TYPE_MAX_LENGTH } from "./lib/constants";
 import { notifyTeam } from "./lib/notifications";
 
 const MAX_DOCUMENT_BATCH_SIZE = 50;
@@ -21,33 +21,35 @@ const ACCEPTED_CONTENT_TYPES_BY_EXTENSION: Record<string, string[]> = {
 };
 const ACCEPTED_FALLBACK_CONTENT_TYPES = new Set(["application/octet-stream"]);
 
-const documentTypeValidator = v.union(
-  v.literal("articles"),
-  v.literal("operating_agreement"),
-  v.literal("purchase_contract"),
-  v.literal("closing_statement"),
-  v.literal("wire_instructions"),
-  v.literal("property_photo"),
-  v.literal("receipt"),
-  v.literal("lien_waiver"),
-  v.literal("rehab_budget"),
-  v.literal("other")
-);
-
-const documentInputValidator = v.object({
+const documentFileFields = {
   fileId: v.id("_storage"),
   fileName: v.string(),
   fileSize: v.optional(v.number()),
-  type: documentTypeValidator,
-});
-
-type DocumentType = Doc<"documents">["type"];
-type DocumentInput = {
-  fileId: Id<"_storage">;
-  fileName: string;
-  fileSize?: number;
-  type: DocumentType;
 };
+
+const documentInputValidator = v.union(
+  v.object({
+    ...documentFileFields,
+    type: v.union(
+      v.literal("articles"),
+      v.literal("operating_agreement"),
+      v.literal("purchase_contract"),
+      v.literal("closing_statement"),
+      v.literal("wire_instructions"),
+      v.literal("property_photo"),
+      v.literal("receipt"),
+      v.literal("lien_waiver"),
+      v.literal("rehab_budget")
+    ),
+  }),
+  v.object({
+    ...documentFileFields,
+    type: v.literal("other"),
+    otherTypeName: v.string(),
+  })
+);
+
+type DocumentInput = Infer<typeof documentInputValidator>;
 
 function getFileExtension(fileName: string) {
   const extension = fileName.split(".").pop()?.toLowerCase();
@@ -65,8 +67,18 @@ function normalizeDocumentInput(doc: DocumentInput) {
     if (doc.fileSize < 0) throw new ConvexError("Document file size cannot be negative");
     if (doc.fileSize > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
   }
+  if (doc.type !== "other") return { ...doc, fileName };
 
-  return { ...doc, fileName };
+  const otherTypeName = doc.otherTypeName.trim();
+  if (!otherTypeName) {
+    throw new ConvexError({ publicMessage: "Enter what kind of document this is." });
+  }
+  if (otherTypeName.length > OTHER_DOCUMENT_TYPE_MAX_LENGTH) {
+    throw new ConvexError({
+      publicMessage: `Document type must be ${OTHER_DOCUMENT_TYPE_MAX_LENGTH} characters or fewer.`,
+    });
+  }
+  return { ...doc, fileName, otherTypeName };
 }
 
 async function validateStoredDocument(ctx: MutationCtx, doc: DocumentInput) {
@@ -253,6 +265,7 @@ async function saveDocumentBatch(
       loanId: access.loanId,
       drawRequestId: args.drawRequestId,
       type: doc.type,
+      otherTypeName: doc.type === "other" ? doc.otherTypeName : undefined,
       fileId: doc.fileId,
       fileName: doc.fileName,
       fileSize: doc.fileSize,
@@ -269,32 +282,6 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     await requireAnyRole(ctx, ["admin", "borrower"]);
     return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const saveDocument = mutation({
-  args: {
-    fileId: v.id("_storage"),
-    fileName: v.string(),
-    fileSize: v.optional(v.number()),
-    type: documentTypeValidator,
-    loanId: v.optional(v.id("loans")),
-    drawRequestId: v.optional(v.id("drawRequests")),
-  },
-  handler: async (ctx, args) => {
-    const profile = await requireAnyRole(ctx, ["admin", "borrower"]);
-    const ids = await saveDocumentBatch(ctx, profile, {
-      documents: [{
-        fileId: args.fileId,
-        fileName: args.fileName,
-        fileSize: args.fileSize,
-        type: args.type,
-      }],
-      loanId: args.loanId,
-      drawRequestId: args.drawRequestId,
-    });
-
-    return ids[0];
   },
 });
 
@@ -381,57 +368,6 @@ export const getMyDocuments = query({
       ...doc,
       canDelete: doc.ownerId === profile._id,
     }));
-  },
-});
-
-export const getAllDocuments = query({
-  args: {
-    loanId: v.optional(v.id("loans")),
-    type: v.optional(documentTypeValidator),
-  },
-  handler: async (ctx, args) => {
-    await requireRole(ctx, "admin");
-
-    let docs;
-    if (args.loanId && args.type) {
-      docs = await ctx.db
-        .query("documents")
-        .withIndex("by_loanId_and_type", (q) =>
-          q.eq("loanId", args.loanId).eq("type", args.type!)
-        )
-        .collect();
-    } else if (args.loanId) {
-      docs = await ctx.db
-        .query("documents")
-        .withIndex("by_loanId", (q) => q.eq("loanId", args.loanId))
-        .collect();
-    } else if (args.type) {
-      docs = await ctx.db
-        .query("documents")
-        .withIndex("by_type", (q) => q.eq("type", args.type!))
-        .take(1000);
-    } else {
-      docs = await ctx.db.query("documents").take(1000);
-    }
-
-    // Batch-load unique owners and loans instead of N+1
-    const ownerIds = [...new Set(docs.map((d) => d.ownerId))];
-    const loanIds = [...new Set(docs.filter((d) => d.loanId).map((d) => d.loanId!))];
-    const ownerMap = new Map(
-      (await Promise.all(ownerIds.map((id) => ctx.db.get(id)))).map((o, i) => [ownerIds[i], o])
-    );
-    const loanMap = new Map(
-      (await Promise.all(loanIds.map((id) => ctx.db.get(id)))).map((l, i) => [loanIds[i], l])
-    );
-
-    return await Promise.all(
-      docs.map(async (doc) => ({
-        ...doc,
-        url: await ctx.storage.getUrl(doc.fileId),
-        ownerName: ownerMap.get(doc.ownerId)?.displayName ?? "Unknown",
-        propertyAddress: doc.loanId ? loanMap.get(doc.loanId)?.propertyAddress : undefined,
-      }))
-    );
   },
 });
 
