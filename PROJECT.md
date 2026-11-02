@@ -389,6 +389,16 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Schedule math: `convex/lib/investmentSchedule.ts`; loading and portfolio totals: `convex/lib/investorPortfolio.ts`; functions: `convex/investments.ts`
 - [x] Legacy `nextPaymentDate`/`totalPaymentsReceived` migrated to `firstPaymentDate`/`priorPaymentsReceived` in production (2026-10-08); both new fields are now required and the legacy fields are dropped
 
+## Title Companies Directory (Completed)
+
+- [x] Admin-only **Title Companies** page (sidebar, after Investors): searchable list (name, phone, email) with contact count and whether wire instructions are on file
+- [x] Company page: main phone, email, address, and internal notes with edit and delete (deleting also removes its contacts and wire instructions)
+- [x] Contacts: name, role, phone (tap to call), and email (tap to email); up to 25 per company
+- [x] Wire instructions: bank name, account name, routing and account numbers, and notes. Numbers are encrypted with the borrower data key, shown as `•••• 1234`, and revealed for 30 seconds with an activity log entry. Edits keep the saved numbers unless both are re-entered. The card shows who last changed them and reminds admins to confirm by phone before sending funds
+- [x] Company names are unique ignoring case and spacing; up to 200 companies
+- [x] Activity Log: new Title Company tab; entries `title_company.create`, `.update`, `.delete`, `.contact.create`, `.contact.update`, `.contact.remove`, `.wire.create`, `.wire.update` (records whether numbers were kept or replaced), `.wire.remove`, `.wire.reveal`
+- [x] Standalone for now: loan forms still store title company details as text on the loan
+
 ---
 
 ## File Structure
@@ -405,6 +415,8 @@ convex/
   users.ts                User profile management (getMe, claimProfile, getAllBorrowers, getAdminUsers, createBorrower, createInvestor, getAllInvestors, bulkToggleActive, toggleUserActive, updateUserProfile, getAllUsers, createUser, updateUserRole)
   borrower.ts             Borrower queries + mutations (getMyLoans, getMyLoan, submitApplication, cancelApplication, getMyDrawRequests, getDrawRequestsForLoan, submitDrawRequest, getMyLoanPayments)
   investments.ts          Investments and investor payments (getInvestorDetail, getMyPortfolio, create, update, remove, recordPayout, removePayout)
+  titleCompanies.ts       Title company directory (list, get, create, update, remove, upsertContact, removeContact, removeWireInstructions; internal wire write and reveal helpers)
+  titleCompanyActions.ts  Encrypted wire instructions (saveWireInstructions, revealWireValue)
   documents.ts            Document management (generateUploadUrl, saveDocuments, discardUnsavedUploads, getDocumentsForLoan, getMyDocuments, deleteDocument)
   draws.ts                Draw request management (getAllDrawRequests, getDrawRequestsForLoan, getDrawRequest, bulkReviewDrawRequests, reviewDrawRequest)
   comps.ts                Property comps (getCompsForLoan, saveComps [internal], fetchComps)
@@ -437,6 +449,8 @@ app/
       investors/page.tsx       Investors list (stats, active/inactive badge)
       investors/[id]/page.tsx  Investor detail (profile editing, toggle active, investment CRUD)
       investors/new/page.tsx   Add investor
+      title-companies/page.tsx       Title company list (search, wire instructions status)
+      title-companies/[id]/page.tsx  Title company detail (company info, contacts, wire instructions)
       applications/page.tsx    Pending loan applications
       draws/page.tsx           All draw requests (tab filters)
       draws/[id]/page.tsx      Draw detail + review actions
@@ -488,6 +502,7 @@ components/
     message-thread.tsx        Chat bubbles with auto-scroll + mark-read
     conversation-list.tsx     Conversation list with unread badges
     rehab-budget-editor.tsx   Inline CRUD for rehab budget line items (used in loan detail)
+    title-company-dialogs.tsx Add/edit dialogs for title companies, contacts, and wire instructions
 ```
 
 ---

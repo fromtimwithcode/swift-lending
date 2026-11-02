@@ -64,3 +64,10 @@
 - Investor payment schedules are calculated on read by `summarizeInvestment` in `convex/lib/investmentSchedule.ts`; nothing stores a next payment date. Interest is paid monthly (amount × rate ÷ 12) on the first payment date's day of the month, and the first payment is prorated when it is not one month after inception.
 - `investorPayouts` is the payment ledger. Payouts plus `investments.priorPaymentsReceived` cover the oldest scheduled payment first, the same pooling idea as loan reminders.
 - Investment dates are calendar days stored as UTC-midnight timestamps. Format and parse them only with the `investmentSchedule` helpers (`formatCalendarDay`, `parseIsoCalendarDay`, `toIsoCalendarDay`); `toLocaleDateString()` shows the previous day in US timezones.
+
+## Title Companies
+- Admin-only directory at `/dashboard/admin/title-companies` (list and `[id]` detail). Backend: `convex/titleCompanies.ts` (queries, mutations, internal wire helpers) and `convex/titleCompanyActions.ts` (`saveWireInstructions`, `revealWireValue`). Limits and name normalization live in `convex/lib/titleCompanies.ts`; dialogs in `components/dashboard/title-company-dialogs.tsx`.
+- `titleCompanies.normalizedName` (trimmed, lowercased, inner spaces collapsed) must stay unique; `create` and `update` check it. Contacts live in `titleCompanyContacts` (max 25 per company); `remove` deletes them with the company.
+- Wire instructions are one optional nested object, so partial instructions cannot exist. Routing and account numbers are encrypted in the action with `encryptSensitiveValue` (context `titleCompany:<id>:routing_number` or `:account_number`). Queries return only last four digits; the full value comes only from `revealWireValue`, which logs the reveal. Saving without both numbers keeps the encrypted ones; the first save needs both.
+- Every mutation and reveal writes an `activityLog` entry with `entityType: "title_company"`; add an `ACTIVITY_ACTION_LABELS` entry for any new action.
+- Not linked to loans: loan forms still store title company fields as free text.
