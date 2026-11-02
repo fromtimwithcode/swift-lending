@@ -158,7 +158,7 @@ for (const [width, height] of [
   });
 }
 
-test("loan list separates pending and active loans and filters denied loans", async ({ page }) => {
+test("loan list keeps loans pending until they close and filters denied loans", async ({ page }) => {
   await openPage(page, "/?page=bulk");
   const tabs = page.getByRole("tablist", { name: "Status filter" });
   await expect(tabs.getByRole("tab")).toHaveText([
@@ -173,12 +173,19 @@ test("loan list separates pending and active loans and filters denied loans", as
   await expect(page.getByText("Pending", { exact: true }).last()).toBeVisible();
 
   await page.evaluate(() => window.statusTest.setLoan({ status: "funded" }));
+  await tabs.getByRole("tab", { name: "Pending1" }).click();
+  await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
+  await expect(page.getByText("4820 West North Avenue")).toHaveCount(0);
+  await expect(page.getByText("Funded", { exact: true })).toBeVisible();
+
+  await page.evaluate(() => window.statusTest.setLoan({ status: "sent_to_title" }));
+  await expect(page.getByText("Sent to Title", { exact: true })).toBeVisible();
   await tabs.getByRole("tab", { name: "Active2" }).click();
-  await expect(tabs.getByRole("tab", { name: "Pending0" })).toBeVisible();
   await expect(page.getByText("1428 North Prospect Avenue")).toBeVisible();
   await expect(page.getByText("4820 West North Avenue")).toBeVisible();
-  await expect(page.getByText("Funded", { exact: true })).toBeVisible();
-  await expect(page.getByText("Pending", { exact: true })).toHaveCount(1);
+
+  await page.evaluate(() => window.statusTest.setLoan({ status: "closed" }));
+  await expect(tabs.getByRole("tab", { name: "Pending0" })).toBeVisible();
 
   await page.evaluate(() => window.statusTest.setLoan({ status: "denied" }));
   await expect(tabs.getByRole("tab", { name: "Denied1" })).toBeVisible();

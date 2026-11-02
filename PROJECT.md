@@ -64,7 +64,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] All chart/table data served from single `getOverviewStats` query (no duplicate fetching)
 
 ### Admin Loan Management
-- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = Submitted through Approved (no money out). Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out); Closed is a subset of Active
+- [x] Loans list with tabs (All / Pending / Active / Closed / Funds Returned / Denied / Canceled), search, sort. Pending = every loan that has not closed yet (Submitted through Sent to Title), including funded loans. Active = Funded, Sent to Title, and Closed loans whose funds have not been returned (the loans behind Capital Out). Funded and Sent to Title loans appear in both Pending and Active; Closed is a subset of Active
 - [x] Loan detail page with inline editing
 - [x] Status changer: any status except Closed can move to any other status; Closed and returned loans are final
 - [x] New Loan form (multi-section: borrower, property, terms, title, draws, notes)
@@ -361,9 +361,9 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Loans List Active Tab (Completed)
 
 - [x] Active tab restored for loans with money out: Funded, Sent to Title, and Closed loans whose funds have not been returned (the same loans as the Capital Out KPI)
-- [x] Pending narrowed to unfunded loans (Submitted through Approved); Funded and Sent to Title rows now show their own status badge instead of Pending
-- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`)
-- [x] Borrower home uses the same definitions: Active Loans (money out), Pending Applications (unfunded), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
+- [x] Pending covers every loan that has not closed yet (Submitted through Sent to Title), so funded loans stay under Pending until they close. Their row shows a Pending badge with the workflow status (Funded, Sent to Title) underneath
+- [x] Overview Total Loans subtitle reads "pending / active / returned" from `getOverviewStats` (`pendingLoans`, `activeLoans`), using the same Pending definition as the loans list
+- [x] Borrower home: Active Loans (money out), Pending Applications (unfunded only, Submitted through Approved), and Total Borrowed sums only loans that were funded, including paid-off loans (`lib/loan-display.ts` helpers)
 
 ## Investor Payment Schedule (Completed)
 

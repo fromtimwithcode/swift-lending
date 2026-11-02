@@ -205,7 +205,7 @@ export const getOverviewStats = query({
     const allLoans = await ctx.db.query("loans").collect();
 
     const totalLoans = allLoans.length;
-    const pendingLoans = allLoans.filter((l) => isPreFundingLoanStatus(l.status)).length;
+    const pendingLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status));
     const moneyOutLoans = allLoans.filter((l) => isFundedLoanStatus(l.status) && !l.returnedDate);
     const returnedLoans = allLoans.filter((l) => l.returnedDate).length;
     const deniedLoans = allLoans.filter((l) => l.status === "denied").length;
@@ -258,8 +258,7 @@ export const getOverviewStats = query({
         )
       : 0;
 
-    const pipelineLoans = allLoans.filter((l) => isPipelineLoanStatus(l.status) && !l.returnedDate);
-    const pipelineValue = pipelineLoans.reduce(
+    const pipelineValue = pendingLoans.reduce(
       (sum, l) => sum + l.loanAmount,
       0
     );
@@ -290,7 +289,7 @@ export const getOverviewStats = query({
 
     return {
       totalLoans,
-      pendingLoans,
+      pendingLoans: pendingLoans.length,
       activeLoans: moneyOutLoans.length,
       returnedLoans,
       deniedLoans,

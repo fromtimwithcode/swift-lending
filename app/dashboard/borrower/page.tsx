@@ -14,8 +14,8 @@ import { formatCurrency } from "@/lib/format";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { PageSkeleton } from "@/components/dashboard/skeleton";
 import { PaymentRemindersCard } from "@/components/dashboard/payment-reminders-card";
-import { isFundedLoanStatus } from "@/convex/lib/constants";
-import { isActiveLoanDisplay, isPendingLoanDisplay } from "@/lib/loan-display";
+import { isFundedLoanStatus, isPreFundingLoanStatus } from "@/convex/lib/constants";
+import { isActiveLoanDisplay } from "@/lib/loan-display";
 
 export default function BorrowerDashboardPage() {
   const loans = useQuery(api.borrower.getMyLoans);
@@ -34,7 +34,7 @@ export default function BorrowerDashboardPage() {
 
   const kpis = [
     { label: "Active Loans", value: loans.filter(isActiveLoanDisplay).length },
-    { label: "Pending Applications", value: loans.filter(isPendingLoanDisplay).length },
+    { label: "Pending Applications", value: loans.filter((l) => isPreFundingLoanStatus(l.status)).length },
     { label: "Total Borrowed", value: formatCurrency(totalBorrowed) },
     { label: "Pending Draws", value: pendingDraws },
   ];
