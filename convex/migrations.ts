@@ -21,7 +21,6 @@ import { getFundingLedgerStatus } from "./lib/fundingLedger";
 import { validateDrawWireDateForLoan } from "./lib/drawDates";
 import { parseUsDate } from "./lib/dates";
 import { isAdminLike } from "./lib/auth";
-import { getUnnamedClosingStatementFileName } from "./lib/loanDocuments";
 
 const BATCH_SIZE = 100;
 const MAX_RECONCILIATION_ENTRIES = 50;
@@ -782,73 +781,5 @@ export const backfillMonthlyInterestChargesAndPaymentLinks = internalMutation({
     }
 
     return { loansSynced, paymentsLinked, chargesMarkedPaid, isDone: results.isDone };
-  },
-});
-
-async function getClosingStatementUploaderId(ctx: MutationCtx, loanId: Id<"loans">) {
-  const attachments = ctx.db
-    .query("activityLog")
-    .withIndex("by_action", (q) => q.eq("action", "loan.attachClosing"))
-    .order("desc");
-  for await (const entry of attachments) {
-    if (entry.entityId === loanId) return entry.userId;
-  }
-  const admin = await ctx.db
-    .query("userProfiles")
-    .withIndex("by_role", (q) => q.eq("role", "admin"))
-    .first();
-  if (!admin) throw new ConvexError("No admin profile can own migrated closing statements");
-  return admin._id;
-}
-
-/**
- * Move each loan's single closingStatementFileId into a closing_statement document,
- * then clear the field. Safe to rerun. Run via:
- * pnpm exec convex run migrations:moveClosingStatementsToDocuments
- */
-export const moveClosingStatementsToDocuments = internalMutation({
-  args: {
-    cursor: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const results = await ctx.db
-      .query("loans")
-      .paginate({ numItems: BATCH_SIZE, cursor: args.cursor ?? null });
-
-    let moved = 0;
-    let missingFiles = 0;
-    for (const loan of results.page) {
-      const fileId = loan.closingStatementFileId;
-      if (!fileId) continue;
-
-      const existing = await ctx.db
-        .query("documents")
-        .withIndex("by_fileId", (q) => q.eq("fileId", fileId))
-        .first();
-      const metadata = await ctx.db.system.get("_storage", fileId);
-      if (!existing && metadata) {
-        await ctx.db.insert("documents", {
-          ownerId: await getClosingStatementUploaderId(ctx, loan._id),
-          loanId: loan._id,
-          type: "closing_statement",
-          fileId,
-          fileName: getUnnamedClosingStatementFileName(metadata.contentType),
-          fileSize: metadata.size,
-        });
-        moved++;
-      }
-      if (!metadata) missingFiles++;
-      await ctx.db.patch(loan._id, { closingStatementFileId: undefined });
-    }
-
-    if (!results.isDone) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.migrations.moveClosingStatementsToDocuments,
-        { cursor: results.continueCursor }
-      );
-    }
-
-    return { moved, missingFiles, isDone: results.isDone };
   },
 });
