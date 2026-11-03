@@ -194,8 +194,7 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Payment recorded → notify borrower
 
 ### Closing Statement
-- [x] Admin loan detail: Closing Statements card lists every `closing_statement` document on the loan, with upload (several files at once) and per-file remove (superseded the single `closingStatementFileId` file; see Multiple Closing Statements)
-- [x] Direct upload to loan record (not documents table)
+- [x] Admin loan detail: Closing Statements card lists every `closing_statement` document on the loan, with upload (several files at once) and per-file remove (superseded the single loan-level file; see Multiple Closing Statements)
 
 ### Advanced Reporting
 - [x] Admin dashboard: "Revenue by Month" bar chart from payment data
@@ -367,17 +366,15 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 ## Other Document Names (Completed)
 
 - [x] Choosing **Other** as the document type asks what the document is (for example "Insurance binder"). The upload dialog and the borrower checklist's Other row both require it before uploading
-- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` rejects the name on every other type; older Other documents have no name and still show "Other". Until the new website is live, `saveDocuments` still accepts unnamed Other uploads from the previous build
+- [x] Saved as `documents.otherTypeName` (trimmed, up to 100 characters) and shown in place of "Other" on document badges. `saveDocuments` requires it for Other and rejects it on every other type; older Other documents have no name and still show "Other"
 - [x] Removed the unused `documents.saveDocument` and `documents.getAllDocuments` endpoints
 
 ## Multiple Closing Statements (Completed)
 
 - [x] A loan can hold any number of closing statements. They are `closing_statement` documents; the admin loan page's Closing Statements card lists them with open/preview, per-file Remove (confirmation, logged as `document.delete`), and Upload/Add Statement, which opens the upload dialog preset to Closing Statement and accepts several files
-- [x] Borrowers see them in their loan page checklist (Closing Statements row, which also accepts several files) and on their Documents page. Uploads send the usual document notifications to the borrower and team
-- [x] Removed `admin.attachClosingStatement`, `admin.removeClosingStatement`, and `admin.getClosingStatementUrl`
-- [ ] Production: run `pnpm exec convex run migrations:moveClosingStatementsToDocuments --prod` right after deploying (without `--prod` it runs against the dev deployment in `.env.local`). It moves each loan's legacy `closingStatementFileId` into a `closing_statement` document owned by the admin who attached it (from the Activity Log, else the first admin), named "Closing statement.pdf" (or the image extension), then clears the field. Safe to rerun
-- [x] The backend was deployed before the website, so it keeps the previous website build working: `admin.getClosingStatementUrl`, `admin.attachClosingStatement`, and `admin.removeClosingStatement` act on the loan's newest closing statement document, and unnamed Other uploads are accepted
-- [ ] Cleanup once the new website is live: drop `loans.closingStatementFileId` from the schema, its cleanup in `deleteLoanAndRelatedRecords` (`convex/admin.ts`), the migration, the three `admin.*ClosingStatement*` stand-ins, and make `otherTypeName` required for Other in `saveDocuments`
+- [x] Borrowers see them in their loan page checklist (Closing Statements row, which also accepts several files) and on their Documents page. Uploads send the usual document notifications to the borrower and team, and each uploaded statement adds an "Attached Closing Statement" (`loan.attachClosing`) Activity Log entry
+- [x] Removed `admin.attachClosingStatement`, `admin.removeClosingStatement`, `admin.getClosingStatementUrl`, and the single `loans.closingStatementFileId` field
+- [x] Production's 23 single-file closing statements were moved into `closing_statement` documents by a one-time migration, since removed
 
 ## Investor Payment Schedule (Completed)
 

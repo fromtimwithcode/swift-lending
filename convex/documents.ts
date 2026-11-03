@@ -45,7 +45,7 @@ const documentInputValidator = v.union(
   v.object({
     ...documentFileFields,
     type: v.literal("other"),
-    otherTypeName: v.optional(v.string()),
+    otherTypeName: v.string(),
   })
 );
 
@@ -67,7 +67,7 @@ function normalizeDocumentInput(doc: DocumentInput) {
     if (doc.fileSize < 0) throw new ConvexError("Document file size cannot be negative");
     if (doc.fileSize > MAX_FILE_SIZE_BYTES) throw new ConvexError("Document file is too large");
   }
-  if (doc.type !== "other" || doc.otherTypeName === undefined) return { ...doc, fileName };
+  if (doc.type !== "other") return { ...doc, fileName };
 
   const otherTypeName = doc.otherTypeName.trim();
   if (!otherTypeName) {
@@ -239,7 +239,7 @@ async function notifyDocumentUpload(
   });
 }
 
-export async function saveDocumentBatch(
+async function saveDocumentBatch(
   ctx: MutationCtx,
   profile: Doc<"userProfiles">,
   args: {
@@ -270,6 +270,16 @@ export async function saveDocumentBatch(
       fileName: doc.fileName,
       fileSize: doc.fileSize,
     }));
+    if (doc.type === "closing_statement" && access.loan) {
+      await ctx.runMutation(internal.activityLog.log, {
+        userId: profile._id,
+        userName: profile.displayName,
+        action: "loan.attachClosing",
+        entityType: "loan",
+        entityId: access.loan._id,
+        details: `Attached closing statement "${doc.fileName}" to ${access.loan.propertyAddress}`,
+      });
+    }
   }
 
   await notifyDocumentUpload(ctx, profile, access.loanId, args.drawRequestId, access.loan, documents);
