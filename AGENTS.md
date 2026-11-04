@@ -55,7 +55,8 @@
 - New loans do not take a term choice. `submitApplication` and `createLoan` store `terms` as `formatLoanTerm` of the configured standard loan term (6 months by default), and both forms show it read-only. Admins can still edit `terms` on existing loans in edit mode.
 
 ## Payment Reminders and Charges
-- Reminders come from `getReminderData` in `convex/loanPayments.ts`: open charge groups (same-day `monthly_interest` + `draw_proration` combine) and, for due dates with no monthly-interest charge, an estimated `monthly_payment` reminder.
+- Interest charges exist only on funded loans (`isFundedLoanStatus`: Funded, Sent to Title, Closed). `syncInitialInterestCharges` deletes the unwaived charges of any other loan that has no recorded payments, and `saveLoanStatusChange` schedules it whenever a loan moves into or out of a funded status. A close date on an unfunded loan is only an expected date.
+- Reminders cover funded loans only, matching `recordPayment`. They come from `getReminderData` in `convex/loanPayments.ts`: open charge groups (same-day `monthly_interest` + `draw_proration` combine) and, for due dates with no monthly-interest charge, an estimated `monthly_payment` reminder.
 - Deleting requires a trimmed reason (`getDeleteReasonError` in `convex/lib/paymentReminders.ts`). Charge-backed deletes waive the open charges and store `loanCharges.waiver`; estimated reminders get a `paymentReminderDismissals` row. Both are restorable from the loan page and logged to the Activity Log.
 - A waived charge forgives only its unpaid balance. Payoff (`convex/lib/payoffCalculations.ts`) pools same-day interest payments the same way reminders do; keep the two consistent.
 - Combined interest charge statuses are reconciled by `syncInterestChargeStatusesForDueDate` in `convex/lib/interestChargeStatus.ts`; call it after changing which charges in a due-date group are open.

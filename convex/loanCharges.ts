@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireRole } from "./lib/auth";
-import { formatCurrencyPlain } from "./lib/constants";
+import { formatCurrencyPlain, isFundedLoanStatus } from "./lib/constants";
 import { parseUsDate } from "./lib/dates";
 import {
   getDrawWireDateError,
@@ -119,6 +119,17 @@ async function upsertSingleLoanCharge(
   }
 
   return await ctx.db.insert("loanCharges", charge);
+}
+
+async function deleteChargesOfUnfundedLoan(ctx: MutationCtx, loanId: Id<"loans">) {
+  if ((await getLoanPayments(ctx, loanId)).length > 0) return;
+  const charges = await ctx.db
+    .query("loanCharges")
+    .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+    .collect();
+  for (const charge of charges) {
+    if (charge.status !== "waived") await ctx.db.delete(charge._id);
+  }
 }
 
 function canCreateRegularMonthlyChargeForPeriod(loan: Doc<"loans">, periodDueDate: string, periodStartDate: Date) {
@@ -245,7 +256,12 @@ export const syncInitialInterestCharges = internalMutation({
   },
   handler: async (ctx, args) => {
     const loan = await ctx.db.get(args.loanId);
-    if (!loan || !loan.closeDate) return null;
+    if (!loan) return null;
+    if (!isFundedLoanStatus(loan.status)) {
+      await deleteChargesOfUnfundedLoan(ctx, loan._id);
+      return null;
+    }
+    if (!loan.closeDate) return null;
     const configuration = await getAppConfiguration(ctx);
     const drawRequests = await getLoanDrawRequests(ctx, loan._id);
     const ledgerStatus = getFundingLedgerStatus({
@@ -398,6 +414,7 @@ export const recordDrawProration = internalMutation({
     const draw = await ctx.db.get(args.drawRequestId);
     if (!draw) throw new ConvexError("Draw request not found");
     if (draw.loanId !== loan._id) throw new ConvexError("Draw does not belong to loan");
+    if (!isFundedLoanStatus(loan.status)) return null;
 
     const drawRequests = await getLoanDrawRequests(ctx, loan._id);
     const ledgerStatus = getFundingLedgerStatus({

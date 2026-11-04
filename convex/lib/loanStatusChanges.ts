@@ -1,7 +1,7 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
-import { LOAN_STATUS_LABELS } from "./constants";
+import { isFundedLoanStatus, LOAN_STATUS_LABELS } from "./constants";
 import { getProgressStatusAfterChange, type LoanStatus } from "./loanStatus";
 
 // Validation runs before writes; callers share the same atomic status/note/audit path.
@@ -17,6 +17,12 @@ export async function saveLoanStatusChange(
     status, statusNote, statusUpdatedAt: Date.now(), statusUpdatedBy: actor._id,
     progressStatus: getProgressStatusAfterChange(loan, status),
   });
+  if (isFundedLoanStatus(loan.status) !== isFundedLoanStatus(status)) {
+    await ctx.scheduler.runAfter(0, internal.loanCharges.syncInitialInterestCharges, {
+      loanId: loan._id,
+      createdBy: actor._id,
+    });
+  }
   await ctx.runMutation(internal.notifications.createNotification, {
     recipientId: loan.borrowerId,
     type: "loan_status_changed",

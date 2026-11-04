@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
-import { api } from "./_generated/api";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { formatUsDate } from "./lib/dates";
@@ -347,5 +347,74 @@ describe("payment reminder deletion", () => {
     expect(log[0].details).toBe(
       `Monthly payment of $1,000.00 due ${latestDueDate} · 1412 N 3rd Street, Wausau, WI\nReason: Borrower is on a forbearance plan`,
     );
+  });
+});
+
+describe("unfunded loans", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function loanCharges(t: Awaited<ReturnType<typeof fixture>>["t"], loanId: Id<"loans">) {
+    return await t.run(async (ctx) =>
+      await ctx.db
+        .query("loanCharges")
+        .withIndex("by_loanId", (q) => q.eq("loanId", loanId))
+        .collect()
+    );
+  }
+
+  test("show no payment reminders even with scheduled charges", async () => {
+    const { t, admin, borrower, loanId } = await fixture();
+    await t.run(async (ctx) => await ctx.db.patch(loanId, { status: "denied" }));
+
+    expect((await admin.query(api.loanPayments.getAdminPaymentReminders, {})).reminders).toEqual([]);
+    expect((await borrower.query(api.loanPayments.getMyPaymentReminders, {})).reminders).toEqual([]);
+  });
+
+  test("lose their charges when denied and get them back when funded", async () => {
+    vi.useFakeTimers();
+    const { t, admin, adminId, loanId } = await fixture();
+
+    await admin.mutation(api.admin.updateLoanStatus, {
+      id: loanId,
+      status: "denied",
+      note: "Appraisal came in low",
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await loanCharges(t, loanId)).toEqual([]);
+
+    await t.mutation(internal.loanCharges.syncInitialInterestCharges, { loanId, createdBy: adminId });
+    expect(await loanCharges(t, loanId)).toEqual([]);
+
+    await admin.mutation(api.admin.updateLoanStatus, { id: loanId, status: "funded" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const charges = await loanCharges(t, loanId);
+    expect(charges).toContainEqual(expect.objectContaining({ type: "prepaid_interest", status: "paid" }));
+    expect(charges).toContainEqual(
+      expect.objectContaining({ type: "monthly_interest", dueDate: latestDueDate, status: "scheduled" })
+    );
+  });
+
+  test("keep charges that have recorded payments", async () => {
+    const { t, adminId, loanId, chargeIds } = await fixture();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("loanPayments", {
+        loanId,
+        chargeId: chargeIds[olderDueDate],
+        amount: 1_000,
+        paymentDate: olderDueDate,
+        dueDate: olderDueDate,
+        method: "ach",
+        status: "on_time",
+        recordedBy: adminId,
+      });
+      await ctx.db.patch(loanId, { status: "denied" });
+    });
+
+    await t.mutation(internal.loanCharges.syncInitialInterestCharges, { loanId, createdBy: adminId });
+
+    expect((await loanCharges(t, loanId)).map((charge) => charge._id).sort())
+      .toEqual(Object.values(chargeIds).sort());
   });
 });
