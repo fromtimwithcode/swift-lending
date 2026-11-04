@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireAdmin, requireRole } from "./lib/auth";
 import { internal } from "./_generated/api";
-import { DEFAULT_PAYMENT_DUE_DAY, MAX_BULK_OPERATION_SIZE, formatCurrencyPlain } from "./lib/constants";
+import { DEFAULT_PAYMENT_DUE_DAY, MAX_BULK_OPERATION_SIZE, formatCurrencyPlain, isFundedLoanStatus } from "./lib/constants";
 import { roundCents } from "./lib/loanCalculations";
 import {
   isCombinedInterestChargeType,
@@ -247,7 +247,7 @@ async function getReminderData(
   const dismissalsByLoan = preloaded?.dismissals ? groupByLoan(preloaded.dismissals) : null;
 
   for (const loan of loans) {
-    if (loan.returnedDate) continue;
+    if (loan.returnedDate || !isFundedLoanStatus(loan.status)) continue;
 
     const payments = paymentsByLoan
       ? paymentsByLoan.get(loan._id) ?? []

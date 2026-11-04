@@ -1628,7 +1628,7 @@ export default function LoanDetailPage() {
           />
         ) : (
           <p className="text-sm text-muted-foreground">
-            No interest charges scheduled yet. Set a close date to create prepaid and first monthly interest charges.
+            No interest charges scheduled yet. They start once the loan is funded and has a close date.
           </p>
         )}
         <DeletedCharges loanId={id} />

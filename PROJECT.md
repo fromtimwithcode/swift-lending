@@ -344,6 +344,12 @@ The first admin must be seeded manually in the Convex dashboard by inserting a `
 - [x] Activity Log entries: `charge.remove`, `charge.restore`, `payment_reminder.delete`, `payment_reminder.restore`; the reason is in the expandable details
 - [x] Payoff credits for a waived charge cover only the balance its payments did not, so short-paid waivers are not credited twice
 - [x] Loans list tabs renamed Active → Pending and a Denied tab added
+
+## Charges Only on Funded Loans (Completed)
+
+- [x] A close date on a Submitted through Approved loan is an expected date and no longer creates prepaid or monthly interest charges. Charges start when the loan moves to Funded, Sent to Title, or Closed
+- [x] Moving a loan out of a funded status (for example to Denied) deletes its unwaived charges when it has no recorded payments; the daily charge sync removes the ones already created on unfunded loans
+- [x] Payment reminders, the admin Overview card, the borrower dashboard, and borrower payment notifications skip unfunded loans, the same loans `recordPayment` rejects
 - [x] Borrower timeline keeps the step a loan had reached (`loans.progressStatus`) while it is in Info Needed or Denied
 
 ## Canceled Loan Applications (Completed)
